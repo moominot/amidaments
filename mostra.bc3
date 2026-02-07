@@ -1,0 +1,163 @@
+~V|CYPE Ingenieros S.A.|FIEBDC-3/2016\03022026|Generador de precios de la construcción. CYPE Ingenieros, S.A.||ANSI||2||||
+~K|2\3\3\3\3\2\2\2\EUR\|3\0\0\0\21\|3\2\\3\3\\2\3\2\2\3\3\3\2\EUR\||
+~L||MS\Mesures per a assegurar la compatibilitat entre els diferents productes, elements i sistemes constructius que componen la unitat d'obra.
+\CT\Característiques tècniques
+\NA\Normativa d'aplicació
+\CMP\Criteri d'amidament en Projecte
+\CPS\Condicions que ha de complir el suport abans de començar l'execució de la unitat d'obra
+\CPA\Condicions ambientals que s'han de complir durant l'execució de la unitat d'obra
+\CPC\Condicions a exigir al contractista abans de començar l'execució de la unitat d'obra
+\PEF\Fases del procés d'execució
+\PEC\Condicions de terminació del procés d'execució
+\PS\Proves de servei
+\EN\Assajos
+\CM\Conservació i manteniment
+\CMO\Criteri d'amidament en obra i condicions d'abonament
+\CVE\Criteri de valoració econòmica
+\|
+~X||ce\Cost energètic\MJ
+\eCO2\Emissió de CO2\kg
+\ler\Codi LER\
+\m\Massa de l'element\kg
+\v\Volum\m3
+\|
+~C|root##|||||0|
+~D|root##|
+D\1\1\
+|
+~C|D#||Demolicions|||0|
+~D|D#|
+DC\1\1\
+|
+~C|DC#||Edifici|||0|
+~D|DC#|
+DCE\1\1\
+|
+~C|DCE#||Demolició complerta|||0|
+~D|DCE#|
+DCE010\1\1\
+|
+~M|DCE#\DCE010|1\1\1\1\|1||
+|
+~C|DCE010|U|Demolició complerta d'edifici.|13691\||0|
+~T|DCE010|Demolició completa, element a element, amb mitjans manuals i mecànics d'edifici de 150 m² de superfície total, i càrrega mecànica sobre camió o contenidor, aïllat, compost per 2 plantes sobre rasant amb una altura edificada de 6 m. L'edifici presenta una estructura de maçoneria i el seu estat de conservació es normal, a la vista dels estudis previs realitzats.
+Criteri de valoració econòmica: El preu no inclou el cànon d'abocament per lliurament de residus a gestor autoritzat ni la demolició de la fonamentació.
+Inclou: Demolició element a element de l'edifici, amb l'apuntalament provisional que sigui necessari. Fragmentació dels enderrocs en peces manejables. Neteja final del solar. Retirada i arreplegat de enderrocs. Neteja de les restes de l'obra. Càrrega mecànica d'enderrocs sobre camió o contenidor.
+Criteri d'amidament de projecte: Nombre d'unitats previstes, segons documentació gràfica de Projecte.
+Criteri de mesura d'obra: Es mesurarà el nombre d'unitats realment executades segons especificacions de Projecte.
+|
+~R|DCE010|3\re150101\r\0\\|
+3\re150104\r\0\\|
+3\re170201\r\0\\|
+3\re170203\r\0\\|
+3\re170604\r\0\\|
+1\ruo010408\r\3534\\|
+1\ruo170101\r\32370\\|
+1\ruo170102\r\8835\\|
+1\ruo170103\r\4065\\|
+1\ruo170201\r\4860\\|
+1\ruo170202\r\90\\|
+1\ruo170203\r\60\\|
+1\ruo170407\r\510\\|
+1\ruo170504\r\26829\\|
+1\ruo170802\r\12195\\|
+1\ruo170904\r\735\\|
+|
+~C|re150101|kg|Envasos de paper i cartró.|0\||4|
+~T|re150101|Envasos de paper i cartró.|
+~X|re150101|ler\15 01 01
+\m\1.000000
+\v\0.001333
+\|
+~C|re150104|kg|Envasos metàl·lics.|0\||4|
+~T|re150104|Envasos metàl·lics.|
+~X|re150104|ler\15 01 04
+\m\1.000000
+\v\0.001667
+\|
+~C|re170201|kg|Fusta.|0\||4|
+~T|re170201|Fusta.|
+~X|re170201|ler\17 02 01
+\m\1.000000
+\v\0.000909
+\|
+~C|re170203|kg|Plàstic.|0\||4|
+~T|re170203|Plàstic.|
+~X|re170203|ler\17 02 03
+\m\1.000000
+\v\0.001667
+\|
+~C|re170604|kg|Materials d'aïllament diferents dels especificats en els codis 17 06 01 i 17 06 03.|0\||4|
+~T|re170604|Materials d'aïllament diferents dels especificats en els codis 17 06 01 i 17 06 03.|
+~X|re170604|ler\17 06 04
+\m\1.000000
+\v\0.001667
+\|
+~C|%|%|Costos directes complementaris|0\||0|
+~T|%|Costos directes complementaris|
+~C|ruo010408|kg|Residus de grava i roques triturades diferents dels esmentats en el codi 01 04 07.|0\||4|
+~T|ruo010408|Residus de grava i roques triturades diferents dels esmentats en el codi 01 04 07.|
+~X|ruo010408|ler\01 04 08
+\m\1.000000
+\v\0.000667
+\|
+~C|ruo170101|kg|Formigó (formigons, morters i prefabricats).|0\||4|
+~T|ruo170101|Formigó (formigons, morters i prefabricats).|
+~X|ruo170101|ler\17 01 01
+\m\1.000000
+\v\0.000667
+\|
+~C|ruo170102|kg|Maons.|0\||4|
+~T|ruo170102|Maons.|
+~X|ruo170102|ler\17 01 02
+\m\1.000000
+\v\0.000800
+\|
+~C|ruo170103|kg|Teules i materials ceràmics.|0\||4|
+~T|ruo170103|Teules i materials ceràmics.|
+~X|ruo170103|ler\17 01 03
+\m\1.000000
+\v\0.000800
+\|
+~C|ruo170201|kg|Fusta.|0\||4|
+~T|ruo170201|Fusta.|
+~X|ruo170201|ler\17 02 01
+\m\1.000000
+\v\0.000909
+\|
+~C|ruo170202|kg|Vidre.|0\||4|
+~T|ruo170202|Vidre.|
+~X|ruo170202|ler\17 02 02
+\m\1.000000
+\v\0.001000
+\|
+~C|ruo170203|kg|Plàstic.|0\||4|
+~T|ruo170203|Plàstic.|
+~X|ruo170203|ler\17 02 03
+\m\1.000000
+\v\0.001667
+\|
+~C|ruo170407|kg|Metalls mesclats.|0\||4|
+~T|ruo170407|Metalls mesclats.|
+~X|ruo170407|ler\17 04 07
+\m\1.000000
+\v\0.000667
+\|
+~C|ruo170504|kg|Terra i pedres diferents de les especificades en el codi 17 05 03.|0\||4|
+~T|ruo170504|Terra i pedres diferents de les especificades en el codi 17 05 03.|
+~X|ruo170504|ler\17 05 04
+\m\1.000000
+\v\0.000625
+\|
+~C|ruo170802|kg|Materials de construcció a partir de guix diferents dels especificats en el codi 17 08 01.|0\||4|
+~T|ruo170802|Materials de construcció a partir de guix diferents dels especificats en el codi 17 08 01.|
+~X|ruo170802|ler\17 08 02
+\m\1.000000
+\v\0.001000
+\|
+~C|ruo170904|kg|Residus barrejats de construcció i demolició diferents dels especificats en els codis 17 09 01, 17 09 02 i 17 09 03.|0\||4|
+~T|ruo170904|Residus barrejats de construcció i demolició diferents dels especificats en els codis 17 09 01, 17 09 02 i 17 09 03.|
+~X|ruo170904|ler\17 09 04
+\m\1.000000
+\v\0.000667
+\|
