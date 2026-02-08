@@ -39,9 +39,10 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
 // --- Utilitats de Format ---
-const formatCurrency = (val, decimals = 2) => new Intl.NumberFormat('ca-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(val || 0);
-const formatNumber = (val, decimals = 3) => Number(val || 0).toLocaleString('ca-ES', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
-const formatPrice = (val) => Number(val || 0).toLocaleString('ca-ES', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+const round2 = (val) => Math.round((Number(val) || 0) + Number.EPSILON * 100) / 100; // Minimal error rounding
+const formatCurrency = (val) => new Intl.NumberFormat('ca-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val || 0);
+const formatNumber = (val, decimals = 2) => Number(val || 0).toLocaleString('ca-ES', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+const formatPrice = (val) => formatNumber(val, 2);
 const normalizeCode = (code) => code ? code.trim().replace(/#+$/, '') : '';
 
 const numberToTextCatalan = (n) => {
@@ -1030,10 +1031,10 @@ export default function App() {
 
 
     // --- Lògica de Càlcul ---
-    const calcMeasureTotal = (m) => (m.units || 0) * (m.length || 1) * (m.width || 1) * (m.height || 1);
+    const calcMeasureTotal = (m) => round2((m.units || 0) * (m.length || 1) * (m.width || 1) * (m.height || 1));
     const calcItemTotalQty = (item) => {
         if (!item.measurements || item.measurements.length === 0) return 0;
-        return item.measurements.reduce((acc, m) => acc + calcMeasureTotal(m), 0);
+        return round2(item.measurements.reduce((acc, m) => acc + calcMeasureTotal(m), 0));
     };
 
     // --- Helper de Categories ---
@@ -1061,22 +1062,19 @@ export default function App() {
             });
 
             // 2. Sum everything, handling % specifically
-            return item.breakdown.reduce((acc, line) => {
+            return round2(item.breakdown.reduce((acc, line) => {
                 const cat = getComponentCategory(line.code);
 
                 if (cat === 'percent') {
-                    // % calculation
-                    // Yield is treated as percentage value (e.g. 2.0 = 2%)
-                    // Price is Base Total
                     const percentage = line.yield || 0;
-                    const lineTotal = baseTotal * (percentage / 100);
+                    const lineTotal = round2(baseTotal * (percentage / 100));
                     return acc + lineTotal;
                 }
 
                 const dbPrice = priceDatabase[normalizeCode(line.code)]?.price;
                 const unitPrice = dbPrice !== undefined ? dbPrice : (line.price || 0);
-                return acc + (unitPrice * (line.yield || 0));
-            }, 0);
+                return acc + round2(unitPrice * (line.yield || 0));
+            }, 0));
         }
         const code = normalizeCode(item.code);
         return priceDatabase[code]?.price ?? item.price ?? 0;
@@ -1085,7 +1083,7 @@ export default function App() {
     const calcItemTotalAmount = useCallback((item) => {
         const qty = calcItemTotalQty(item);
         const unitPrice = getItemUnitPrice(item);
-        return qty * unitPrice;
+        return round2(qty * unitPrice);
     }, [getItemUnitPrice]);
 
     const calcChapterTotal = useCallback((chapter) => {
