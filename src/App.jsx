@@ -39,8 +39,9 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
 // --- Utilitats de Format ---
-const formatCurrency = (val) => new Intl.NumberFormat('ca-ES', { style: 'currency', currency: 'EUR' }).format(val || 0);
+const formatCurrency = (val, decimals = 2) => new Intl.NumberFormat('ca-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(val || 0);
 const formatNumber = (val, decimals = 3) => Number(val || 0).toLocaleString('ca-ES', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+const formatPrice = (val) => Number(val || 0).toLocaleString('ca-ES', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
 const normalizeCode = (code) => code ? code.trim().replace(/#+$/, '') : '';
 
 const numberToTextCatalan = (n) => {
@@ -241,7 +242,7 @@ const PrintView = ({ budget, priceDatabase, calcItemTotalAmount, calcChapterTota
                 {shouldShowHeader && (
                     <>
                         {isChapter ? (
-                            <tr className="border-b-2 border-black/20 break-inside-avoid align-bottom">
+                            <tr className={`border-b-2 border-black/20 break-inside-avoid align-bottom ${level === 0 && config.chaptersOnNewPage ? 'break-before-page' : ''}`}>
                                 <td className="p-1 px-2 font-bold text-[11px] uppercase" colSpan={9}>
                                     <div className="flex flex-col gap-1">
                                         <span>{level === 0 ? 'CAPÍTOL ' : 'SUBCAPÍTOL '} {displayCode} {node.description}</span>
@@ -540,6 +541,7 @@ const PrintView = ({ budget, priceDatabase, calcItemTotalAmount, calcChapterTota
                   }
                   tr { page-break-inside: avoid; }
                   .break-inside-avoid { page-break-inside: avoid; }
+                  .break-before-page { break-before: page; }
                 }
                 table { table-layout: fixed; }
                 td { vertical-align: top; overflow-wrap: break-word; }
@@ -717,6 +719,10 @@ const PrintConfigModal = ({ config, setConfig, onClose, viewMode }) => {
                             <label className="flex items-center gap-2 cursor-pointer">
                                 <input type="checkbox" checked={config.useCorrelativeCodes} onChange={e => setConfig({ ...config, useCorrelativeCodes: e.target.checked })} />
                                 <span className="text-xs text-slate-600">Codis Correlatius (1.1, 1.1.2...)</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" checked={config.chaptersOnNewPage} onChange={e => setConfig({ ...config, chaptersOnNewPage: e.target.checked })} />
+                                <span className="text-xs text-slate-600">Cada capítol en pàgina nova</span>
                             </label>
                         </div>
                     </div>
@@ -958,6 +964,7 @@ export default function App() {
         showBreakdown: false,
         showMeasurements: true,
         useCorrelativeCodes: true,
+        chaptersOnNewPage: false,
         ge: { enabled: true, percentage: 13 },
         ip: { enabled: true, percentage: 6 },
         iva: { enabled: true, percentage: 21 }
@@ -1094,119 +1101,116 @@ export default function App() {
     const handleExportPDF = useCallback((config) => {
         const doc = new jsPDF('p', 'mm', 'a4');
         const counter = { val: 0 };
-        const rows = flattenBudget(budget.chapters || [], 0, '', counter, config, calcChapterTotal, calcItemTotalAmount, priceDatabase);
         const date = new Date().toLocaleDateString('ca-ES');
 
-        autoTable(doc, {
-            head: [[
-                'Codi',
-                'Descripció',
-                { content: 'Ud', styles: { halign: 'center' } },
-                { content: 'Long.', styles: { halign: 'right' } },
-                { content: 'Ampl.', styles: { halign: 'right' } },
-                { content: 'Alç.', styles: { halign: 'right' } },
-                { content: 'Parc.', styles: { halign: 'right' } },
-                { content: 'Quant.', styles: { halign: 'right' } },
-                { content: 'Preu', styles: { halign: 'right' } },
-                { content: 'Import', styles: { halign: 'right' } }
-            ]],
-            body: rows.map(r => r.data),
-            startY: 30,
-            margin: { top: 30 },
-            theme: 'plain',
-            styles: {
-                fontSize: 9,
-                cellPadding: 1.5,
-                overflow: 'linebreak',
-                cellWidth: 'wrap',
-                lineWidth: 0,
-                valign: 'top',
-                font: 'helvetica'
-            },
-            headStyles: {
-                fillColor: [255, 255, 255],
-                textColor: [0, 0, 0],
-                fontStyle: 'bold',
-                lineWidth: { bottom: 0.5 },
-                lineColor: [0, 0, 0],
-                fontSize: 8
-            },
-            columnStyles: {
-                0: { cellWidth: 18, fontStyle: 'bold' },
-                1: { cellWidth: 'auto' },
-                2: { cellWidth: 10, halign: 'center' },
-                3: { cellWidth: 14, halign: 'right' },
-                4: { cellWidth: 14, halign: 'right' },
-                5: { cellWidth: 14, halign: 'right' },
-                6: { cellWidth: 16, halign: 'right' },
-                7: { cellWidth: 18, halign: 'right' },
-                8: { cellWidth: 18, halign: 'right' },
-                9: { cellWidth: 26, halign: 'right' }
-            },
-            didDrawPage: (data) => {
-                const pageNum = doc.internal.getNumberOfPages();
-                if (pageNum === 1) {
-                    doc.setFontSize(16);
-                    doc.setFont('helvetica', 'bold');
-                    doc.text('PRESSUPOST I AMIDAMENTS', 14, 15);
-                }
-                doc.setFontSize(10);
-                doc.setFont('helvetica', 'bold');
-                doc.text(budget.name.toUpperCase(), 14, (pageNum === 1 ? 20 : 15));
-                doc.setLineWidth(0.5);
-                doc.line(14, (pageNum === 1 ? 22 : 17), 196, (pageNum === 1 ? 22 : 17));
-                const str = `Pàgina ${pageNum}`;
-                doc.setFontSize(8);
-                doc.setFont('helvetica', 'italic');
-                doc.text(str, 196, 285, { align: 'right' });
-                doc.text(date, 14, 285);
-            },
-            didParseCell: (data) => {
-                const rowIndex = data.row.index;
-                const rowObj = rows[rowIndex];
-                if (!rowObj) return;
+        const generateTableForNodes = (nodes, isFirst, currentCounter) => {
+            const rows = flattenBudget(nodes, 0, '', currentCounter, config, calcChapterTotal, calcItemTotalAmount, priceDatabase);
 
-                if (rowObj.type === 'chapter') {
-                    data.cell.styles.fontStyle = 'bold';
-                    data.cell.styles.lineWidth = { bottom: 0.2 };
-                    data.cell.styles.lineColor = [0, 0, 0];
-                }
-                if (rowObj.type === 'chapter-total') {
-                    data.cell.styles.fontStyle = 'bolditalic';
-                    data.cell.styles.fontSize = 8.5;
-                    if (data.column.index === 9 || (data.cell.colSpan > 1 && data.column.index === 1)) {
-                        if (data.column.index === 9) {
-                            data.cell.styles.lineWidth = { top: 0.5 };
-                            data.cell.styles.lineColor = [0, 0, 0];
+            autoTable(doc, {
+                head: [[
+                    'Codi',
+                    'Descripció',
+                    { content: 'Ud', styles: { halign: 'center' } },
+                    { content: 'Long.', styles: { halign: 'right' } },
+                    { content: 'Ampl.', styles: { halign: 'right' } },
+                    { content: 'Alç.', styles: { halign: 'right' } },
+                    { content: 'Parc.', styles: { halign: 'right' } },
+                    { content: 'Quant.', styles: { halign: 'right' } },
+                    { content: 'Preu', styles: { halign: 'right' } },
+                    { content: 'Import', styles: { halign: 'right' } }
+                ]],
+                body: rows.map(r => r.data),
+                startY: (isFirst ? 30 : 25),
+                margin: { top: 30 },
+                theme: 'plain',
+                styles: { fontSize: 9, cellPadding: 1.5, overflow: 'linebreak', cellWidth: 'wrap', lineWidth: 0, valign: 'top', font: 'helvetica' },
+                headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', lineWidth: { bottom: 0.5 }, lineColor: [0, 0, 0], fontSize: 8 },
+                columnStyles: {
+                    0: { cellWidth: 18, fontStyle: 'bold' },
+                    1: { cellWidth: 'auto' },
+                    2: { cellWidth: 10, halign: 'center' },
+                    3: { cellWidth: 14, halign: 'right' },
+                    4: { cellWidth: 14, halign: 'right' },
+                    5: { cellWidth: 14, halign: 'right' },
+                    6: { cellWidth: 16, halign: 'right' },
+                    7: { cellWidth: 18, halign: 'right' },
+                    8: { cellWidth: 18, halign: 'right' },
+                    9: { cellWidth: 26, halign: 'right' }
+                },
+                didDrawPage: (data) => {
+                    const pageNum = doc.internal.getNumberOfPages();
+                    if (pageNum === 1) {
+                        doc.setFontSize(16);
+                        doc.setFont('helvetica', 'bold');
+                        doc.text('PRESSUPOST I AMIDAMENTS', 14, 15);
+                    }
+                    doc.setFontSize(10);
+                    doc.setFont('helvetica', 'bold');
+                    doc.text(budget.name.toUpperCase(), 14, (pageNum === 1 ? 20 : 15));
+                    doc.setLineWidth(0.5);
+                    doc.line(14, (pageNum === 1 ? 22 : 17), 196, (pageNum === 1 ? 22 : 17));
+                    const str = `Pàgina ${pageNum}`;
+                    doc.setFontSize(8);
+                    doc.setFont('helvetica', 'italic');
+                    doc.text(str, 196, 285, { align: 'right' });
+                    doc.text(date, 14, 285);
+                },
+                didParseCell: (data) => {
+                    const rowIndex = data.row.index;
+                    const rowObj = rows[rowIndex];
+                    if (!rowObj) return;
+
+                    if (rowObj.type === 'chapter') {
+                        data.cell.styles.fontStyle = 'bold';
+                        data.cell.styles.lineWidth = { bottom: 0.2 };
+                        data.cell.styles.lineColor = [0, 0, 0];
+                    }
+                    if (rowObj.type === 'chapter-total') {
+                        data.cell.styles.fontStyle = 'bolditalic';
+                        data.cell.styles.fontSize = 8.5;
+                        if (data.column.index === 9 || (data.cell.colSpan > 1 && data.column.index === 1)) {
+                            if (data.column.index === 9) {
+                                data.cell.styles.lineWidth = { top: 0.5 };
+                                data.cell.styles.lineColor = [0, 0, 0];
+                            }
+                        }
+                    }
+                    if (rowObj.type === 'item') {
+                        data.cell.styles.fontStyle = 'bold';
+                        data.cell.styles.cellPadding = { top: 3, bottom: 1, left: 1.5, right: 1.5 };
+                    }
+                    if (rowObj.type === 'item-long-desc') {
+                        data.cell.styles.fontStyle = 'normal';
+                        data.cell.styles.fontSize = 8.5;
+                        data.cell.styles.cellPadding = { top: 0, bottom: 2, left: 1.5, right: 1.5 };
+                        data.cell.styles.textColor = [50, 50, 50];
+                    }
+                    if (rowObj.type === 'measurement') {
+                        data.cell.styles.fontSize = 8;
+                        data.cell.styles.textColor = [80, 80, 80];
+                        data.cell.styles.fontStyle = 'italic';
+                        data.cell.styles.cellPadding = { top: 0.5, bottom: 0.5, left: 1.5, right: 1.5 };
+                    }
+                    if (rowObj.type === 'item-total') {
+                        data.cell.styles.fontStyle = 'bold';
+                        data.cell.styles.cellPadding = { top: 1.5, bottom: 3, left: 1.5, right: 1.5 };
+                        if (data.column.index >= 7) {
+                            data.cell.styles.lineWidth = { top: 0.2 };
+                            data.cell.styles.lineColor = [150, 150, 150];
                         }
                     }
                 }
-                if (rowObj.type === 'item') {
-                    data.cell.styles.fontStyle = 'bold';
-                    data.cell.styles.cellPadding = { top: 3, bottom: 1, left: 1.5, right: 1.5 };
-                }
-                if (rowObj.type === 'item-long-desc') {
-                    data.cell.styles.fontStyle = 'normal';
-                    data.cell.styles.fontSize = 8.5;
-                    data.cell.styles.cellPadding = { top: 0, bottom: 2, left: 1.5, right: 1.5 };
-                    data.cell.styles.textColor = [50, 50, 50];
-                }
-                if (rowObj.type === 'measurement') {
-                    data.cell.styles.fontSize = 8;
-                    data.cell.styles.textColor = [80, 80, 80];
-                    data.cell.styles.fontStyle = 'italic';
-                    data.cell.styles.cellPadding = { top: 0.5, bottom: 0.5, left: 1.5, right: 1.5 };
-                }
-                if (rowObj.type === 'item-total') {
-                    data.cell.styles.fontStyle = 'bold';
-                    data.cell.styles.cellPadding = { top: 1.5, bottom: 3, left: 1.5, right: 1.5 };
-                    if (data.column.index >= 7) {
-                        data.cell.styles.lineWidth = { top: 0.2 };
-                        data.cell.styles.lineColor = [150, 150, 150];
-                    }
-                }
-            }
-        });
+            });
+        };
+
+        if (config.chaptersOnNewPage) {
+            budget.chapters.forEach((ch, idx) => {
+                if (idx > 0) doc.addPage();
+                generateTableForNodes([ch], idx === 0, counter);
+            });
+        } else {
+            generateTableForNodes(budget.chapters, true, counter);
+        }
 
         let finalY = doc.lastAutoTable.finalY + 10;
         if (finalY > 270) {
@@ -1335,92 +1339,88 @@ export default function App() {
     }, [budget, calcChapterTotal, budgetTotal]);
 
     const handleExportXLSX = useCallback(() => {
-        const worksheetData = [];
-        // Header matches Print Preview: Codi, Descripció, Ud, Longitud, Amplada, Alçada, Parcials, Quantitat, Preu, Import
-        worksheetData.push([
-            'CODI', 'DESCRIPCIÓ', 'UD', 'LONGITUD', 'AMPLADA', 'ALÇADA', 'PARCIALS', 'QUANTITAT', 'PREU', 'IMPORT'
-        ]);
+        const wb = XLSX.utils.book_new();
 
-        let currentRowAccount = 2; // JS index 1, Excel row 2
+        const createWorksheetData = (nodes) => {
+            const data = [];
+            data.push(['CODI', 'DESCRIPCIÓ', 'UD', 'LONGITUD', 'AMPLADA', 'ALÇADA', 'PARCIALS', 'QUANTITAT', 'PREU', 'IMPORT']);
+            let rowAcc = 2;
 
-        const pushNodes = (nodes) => {
-            nodes.forEach(node => {
-                const isChapter = !node.unit;
-                const totalAmount = isChapter ? calcChapterTotal(node) : calcItemTotalAmount(node);
+            const pushNodes = (ns) => {
+                ns.forEach(node => {
+                    const isChapter = !node.unit;
+                    const totalAmount = isChapter ? calcChapterTotal(node) : calcItemTotalAmount(node);
 
-                if (isChapter) {
-                    const chapterRow = [node.code, node.description.toUpperCase(), '', '', '', '', '', '', '', totalAmount];
-                    worksheetData.push(chapterRow);
-                    currentRowAccount++;
+                    if (isChapter) {
+                        data.push([node.code, node.description.toUpperCase(), '', '', '', '', '', '', '', totalAmount]);
+                        rowAcc++;
 
-                    if (node.subChapters) pushNodes(node.subChapters);
-                    if (node.items) pushNodes(node.items);
-                } else {
-                    // Item Main Row
-                    const itemRowIndex = currentRowAccount;
-                    worksheetData.push([node.code, node.description, node.unit, '', '', '', '', '', '', '']);
-                    currentRowAccount++;
+                        if (printConfig.showLongDesc && node.fullDescription && node.fullDescription !== node.description) {
+                            data.push(['', node.fullDescription, '', '', '', '', '', '', '', '']);
+                            rowAcc++;
+                        }
 
-                    // Measurement Lines
-                    let measurementStartRow = currentRowAccount;
-                    if (node.measurements && node.measurements.length > 0) {
-                        node.measurements.forEach(m => {
-                            const partialFormula = { f: `C${currentRowAccount}*D${currentRowAccount}*E${currentRowAccount}*F${currentRowAccount}` };
-                            worksheetData.push([
-                                '',
-                                `  ${m.description}`,
-                                m.units,
-                                m.length,
-                                m.width,
-                                m.height,
-                                partialFormula,
-                                '', '', ''
-                            ]);
-                            currentRowAccount++;
-                        });
+                        if (node.subChapters) pushNodes(node.subChapters);
+                        if (node.items) pushNodes(node.items);
+                    } else {
+                        data.push([node.code, node.description, node.unit, '', '', '', '', '', '', '']);
+                        rowAcc++;
+
+                        if (printConfig.showLongDesc && node.fullDescription && node.fullDescription !== node.description) {
+                            data.push(['', node.fullDescription, '', '', '', '', '', '', '', '']);
+                            rowAcc++;
+                        }
+
+                        let mStart = rowAcc;
+                        if (node.measurements && node.measurements.length > 0) {
+                            node.measurements.forEach(m => {
+                                const f = { f: `C${rowAcc}*D${rowAcc}*E${rowAcc}*F${rowAcc}` };
+                                data.push(['', `  ${m.description}`, m.units, m.length, m.width, m.height, f, '', '', '']);
+                                rowAcc++;
+                            });
+                        }
+                        let mEnd = rowAcc - 1;
+
+                        const price = priceDatabase[normalizeCode(node.code)]?.price ?? node.price;
+                        const qtyF = node.measurements?.length > 0 ? { f: `SUM(G${mStart}:G${mEnd})` } : 0;
+                        const amountF = { f: `H${rowAcc}*I${rowAcc}` };
+
+                        data.push(['', '', '', '', '', '', '', qtyF, price, amountF]);
+                        rowAcc++;
                     }
-                    let measurementEndRow = currentRowAccount - 1;
+                });
+            };
 
-                    // Item Totals Row
-                    const price = priceDatabase[normalizeCode(node.code)]?.price ?? node.price;
-                    const qtyFormula = node.measurements?.length > 0
-                        ? { f: `SUM(G${measurementStartRow}:G${measurementEndRow})` }
-                        : 0;
-                    const amountFormula = { f: `H${currentRowAccount}*I${currentRowAccount}` };
-
-                    worksheetData.push([
-                        '', '', '', '', '', '', '',
-                        qtyFormula,
-                        price,
-                        amountFormula
-                    ]);
-                    currentRowAccount++;
-                }
-            });
+            pushNodes(nodes);
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            ws['!cols'] = [{ wch: 15 }, { wch: 60 }, { wch: 8 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 15 }];
+            return ws;
         };
 
-        pushNodes(budget.chapters);
+        if (printConfig.chaptersOnNewPage) {
+            // 1. Create Summary Sheet
+            const summaryData = [['CODI', 'DESCRIPCIÓ', 'IMPORT']];
+            budget.chapters.forEach(ch => {
+                summaryData.push([ch.code, ch.description.toUpperCase(), calcChapterTotal(ch)]);
+            });
+            const wsResum = XLSX.utils.aoa_to_sheet(summaryData);
+            wsResum['!cols'] = [{ wch: 15 }, { wch: 60 }, { wch: 15 }];
+            XLSX.utils.book_append_sheet(wb, wsResum, "Resum");
 
-        const ws = XLSX.utils.aoa_to_sheet(worksheetData);
+            // 2. Create Sheet for each Top Chapter
+            budget.chapters.forEach((ch, idx) => {
+                const ws = createWorksheetData([ch]);
+                // Sheet name derived from code or Index to be safe
+                const name = (ch.code || `Cap ${idx + 1}`).substring(0, 31).replace(/[\[\]\*\?\/\\]/g, '');
+                XLSX.utils.book_append_sheet(wb, ws, name);
+            });
+        } else {
+            const ws = createWorksheetData(budget.chapters);
+            XLSX.utils.book_append_sheet(wb, ws, "Pressupost");
+        }
 
-        // Apply column widths for better "format"
-        ws['!cols'] = [
-            { wch: 15 }, // A: Codi
-            { wch: 60 }, // B: Descripció
-            { wch: 8 },  // C: Ud
-            { wch: 10 }, // D: Longitud
-            { wch: 10 }, // E: Amplada
-            { wch: 10 }, // F: Alçada
-            { wch: 12 }, // G: Parcials
-            { wch: 12 }, // H: Quantitat
-            { wch: 12 }, // I: Preu
-            { wch: 15 }  // J: Import
-        ];
-
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Pressupost");
         XLSX.writeFile(wb, `${budget.name}.xlsx`);
-    }, [budget, calcChapterTotal, calcItemTotalAmount, priceDatabase]);
+    }, [budget, calcChapterTotal, calcItemTotalAmount, priceDatabase, printConfig.chaptersOnNewPage]);
 
     // --- Search Filtering ---
     const filteredChapters = useMemo(() => {
@@ -2930,7 +2930,7 @@ export default function App() {
                                             </td>
                                             <td className="p-2 text-right w-28">
                                                 {line.isPercentage ? (
-                                                    <span className="font-mono text-slate-400 italic text-[10px] cursor-help" title="Base de càlcul (MO + MT)">{formatCurrency(line.finalPrice)}</span>
+                                                    <span className="font-mono text-slate-400 italic text-[10px] cursor-help" title="Base de càlcul (MO + MT)">{formatCurrency(line.finalPrice, 4)}</span>
                                                 ) : (
                                                     <input
                                                         className="w-full text-right font-mono bg-transparent outline-none border-b border-transparent focus:border-blue-300 text-blue-600 font-bold"
@@ -2940,7 +2940,7 @@ export default function App() {
                                                     />
                                                 )}
                                             </td>
-                                            <td className="p-2 text-right font-mono font-bold w-32">{formatCurrency(line.total)}</td>
+                                            <td className="p-2 text-right font-mono font-bold w-32">{formatCurrency(line.total, 4)}</td>
                                             <td className="p-2 w-8 text-center opacity-0 group-hover:opacity-100">
                                                 <button onClick={() => removeBreakdownLine(node.id, line.idx)} className="text-red-400 hover:text-red-600"><Trash2 size={12} /></button>
                                             </td>
@@ -2950,7 +2950,7 @@ export default function App() {
                                 <tfoot className="bg-white/50">
                                     <tr>
                                         <td colSpan={5} className="p-1 px-4 text-right text-[9px] uppercase opacity-50">Subtotal {cat.label}</td>
-                                        <td className="p-1 px-2 text-right font-mono text-xs font-bold opacity-70">{formatCurrency(cat.total)}</td>
+                                        <td className="p-1 px-2 text-right font-mono text-xs font-bold opacity-70">{formatCurrency(cat.total, 4)}</td>
                                         <td></td>
                                     </tr>
                                 </tfoot>
@@ -2962,7 +2962,7 @@ export default function App() {
                 <div className="bg-slate-50 border-t border-slate-200">
                     <div className="flex justify-between items-center p-2 px-4">
                         <span className="text-[10px] uppercase font-black text-slate-500 tracking-widest">Cost Directe Total</span>
-                        <span className="font-mono font-bold text-blue-700">{formatCurrency(totalCost)}</span>
+                        <span className="font-mono font-bold text-blue-700">{formatCurrency(totalCost, 4)}</span>
                     </div>
                 </div>
             </div>
@@ -3091,9 +3091,9 @@ export default function App() {
                             </div>
                         </td>
                         <td className="p-2 text-center text-slate-400 italic w-14 text-[10px]">{node.unit || ''}</td>
-                        <td className="p-2 text-right font-mono w-20 text-[11px] text-slate-500">{node.unit ? formatNumber(calcItemTotalQty(node), 2) : ''}</td>
+                        <td className="p-2 text-right font-mono w-20 text-[11px] text-slate-500">{node.unit ? formatNumber(calcItemTotalQty(node), 3) : ''}</td>
                         <td className="p-2 text-right font-mono w-28 text-[11px] text-slate-600">
-                            {node.unit ? formatCurrency(getItemUnitPrice(node)) : ''}
+                            {node.unit ? formatPrice(getItemUnitPrice(node)) : ''}
                         </td>
                         <td className="p-2 text-right font-mono font-bold text-slate-700 w-32 text-[11px]">
                             <div className="flex items-center justify-end gap-2">
@@ -3178,7 +3178,7 @@ export default function App() {
                                                             </span>
                                                         </div>
                                                         <span className="font-mono text-[11px] font-bold text-slate-600 mr-4">
-                                                            {formatCurrency(groupTotal)}
+                                                            {formatCurrency(groupTotal, 4)}
                                                         </span>
                                                     </div>
                                                 </td>
@@ -3188,7 +3188,7 @@ export default function App() {
                                                     <td className="p-3 font-mono text-[11px] text-slate-400 border-r border-slate-200 pl-8">{res.code}</td>
                                                     <td className="p-3 text-slate-700">{res.description}</td>
                                                     <td className="p-3 text-center text-slate-400 italic border-x border-slate-200">{res.unit || '—'}</td>
-                                                    <td className="p-3 text-right font-mono text-slate-600">{formatNumber(res.quantity, 2)}</td>
+                                                    <td className="p-3 text-right font-mono text-slate-600">{formatNumber(res.quantity, 3)}</td>
                                                     <td className="p-3 text-right font-mono text-slate-600">
                                                         <div className="flex items-center justify-end gap-1">
                                                             <input
@@ -3203,7 +3203,7 @@ export default function App() {
                                                         </div>
                                                     </td>
                                                     <td className="p-3 text-right font-mono font-bold text-blue-800 bg-blue-50/10 group-hover:bg-blue-50/20">
-                                                        {formatCurrency(res.quantity * res.price)}
+                                                        {formatCurrency(res.quantity * res.price, 4)}
                                                     </td>
                                                 </tr>
                                             ))}
@@ -3215,7 +3215,7 @@ export default function App() {
                                 <tr>
                                     <td colSpan={5} className="p-3 text-right text-[10px] uppercase tracking-widest">Total Recursos {searchTerm ? 'Filtrats' : 'Consolidats'}</td>
                                     <td className="p-3 text-right font-mono text-lg text-green-400">
-                                        {formatCurrency(totalAmount)}
+                                        {formatCurrency(totalAmount, 4)}
                                     </td>
                                 </tr>
                             </tfoot>
