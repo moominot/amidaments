@@ -2846,9 +2846,10 @@ export default function App() {
             if (cat !== 'percent') {
                 const dbPrice = priceDatabase[normalizeCode(line.code)]?.price;
                 const finalPrice = dbPrice !== undefined ? dbPrice : (line.price || 0);
-                baseTotalForPercent += finalPrice * (line.yield || 0);
+                baseTotalForPercent += round2(finalPrice * (line.yield || 0));
             }
         });
+        baseTotalForPercent = round2(baseTotalForPercent);
 
         // 2. Process Lines
         (node.breakdown || []).forEach((line, idx) => {
@@ -2857,18 +2858,18 @@ export default function App() {
 
             if (cat === 'percent') {
                 finalPrice = baseTotalForPercent;
-                total = finalPrice * ((line.yield || 0) / 100);
+                total = round2(finalPrice * ((line.yield || 0) / 100));
             } else {
                 const dbPrice = priceDatabase[normalizeCode(line.code)]?.price;
                 finalPrice = dbPrice !== undefined ? dbPrice : (line.price || 0);
-                total = finalPrice * (line.yield || 0);
+                total = round2(finalPrice * (line.yield || 0));
             }
 
             categories[cat].items.push({ ...line, idx, finalPrice, total, isPercentage: cat === 'percent' });
-            categories[cat].total += total;
+            categories[cat].total = round2(categories[cat].total + total);
         });
 
-        const totalCost = categories.material.total + categories.labor.total + categories.directCost.total + categories.percent.total;
+        const totalCost = round2(categories.material.total + categories.labor.total + categories.directCost.total + categories.percent.total);
 
         return (
             <div className="bg-white border border-slate-300 animate-in fade-in duration-300">
@@ -2948,7 +2949,7 @@ export default function App() {
                                 <tfoot className="bg-white/50">
                                     <tr>
                                         <td colSpan={5} className="p-1 px-4 text-right text-[9px] uppercase opacity-50">Subtotal {cat.label}</td>
-                                        <td className="p-1 px-2 text-right font-mono text-xs font-bold opacity-70">{formatCurrency(cat.total, 4)}</td>
+                                        <td className="p-1 px-2 text-right font-mono text-xs font-bold opacity-70">{formatCurrency(cat.total)}</td>
                                         <td></td>
                                     </tr>
                                 </tfoot>
@@ -2960,7 +2961,7 @@ export default function App() {
                 <div className="bg-slate-50 border-t border-slate-200">
                     <div className="flex justify-between items-center p-2 px-4">
                         <span className="text-[10px] uppercase font-black text-slate-500 tracking-widest">Cost Directe Total</span>
-                        <span className="font-mono font-bold text-blue-700">{formatCurrency(totalCost, 4)}</span>
+                        <span className="font-mono font-bold text-blue-700">{formatCurrency(totalCost)}</span>
                     </div>
                 </div>
             </div>
@@ -3089,7 +3090,7 @@ export default function App() {
                             </div>
                         </td>
                         <td className="p-2 text-center text-slate-400 italic w-14 text-[10px]">{node.unit || ''}</td>
-                        <td className="p-2 text-right font-mono w-20 text-[11px] text-slate-500">{node.unit ? formatNumber(calcItemTotalQty(node), 3) : ''}</td>
+                        <td className="p-2 text-right font-mono w-20 text-[11px] text-slate-500">{node.unit ? formatNumber(calcItemTotalQty(node), 2) : ''}</td>
                         <td className="p-2 text-right font-mono w-28 text-[11px] text-slate-600">
                             {node.unit ? formatPrice(getItemUnitPrice(node)) : ''}
                         </td>
@@ -3176,7 +3177,7 @@ export default function App() {
                                                             </span>
                                                         </div>
                                                         <span className="font-mono text-[11px] font-bold text-slate-600 mr-4">
-                                                            {formatCurrency(groupTotal, 4)}
+                                                            {formatCurrency(groupTotal)}
                                                         </span>
                                                     </div>
                                                 </td>
@@ -3186,7 +3187,7 @@ export default function App() {
                                                     <td className="p-3 font-mono text-[11px] text-slate-400 border-r border-slate-200 pl-8">{res.code}</td>
                                                     <td className="p-3 text-slate-700">{res.description}</td>
                                                     <td className="p-3 text-center text-slate-400 italic border-x border-slate-200">{res.unit || '—'}</td>
-                                                    <td className="p-3 text-right font-mono text-slate-600">{formatNumber(res.quantity, 3)}</td>
+                                                    <td className="p-3 text-right font-mono text-slate-600">{formatNumber(res.quantity, 2)}</td>
                                                     <td className="p-3 text-right font-mono text-slate-600">
                                                         <div className="flex items-center justify-end gap-1">
                                                             <input
@@ -3201,7 +3202,7 @@ export default function App() {
                                                         </div>
                                                     </td>
                                                     <td className="p-3 text-right font-mono font-bold text-blue-800 bg-blue-50/10 group-hover:bg-blue-50/20">
-                                                        {formatCurrency(res.quantity * res.price, 4)}
+                                                        {formatCurrency(res.quantity * res.price)}
                                                     </td>
                                                 </tr>
                                             ))}
@@ -3213,7 +3214,7 @@ export default function App() {
                                 <tr>
                                     <td colSpan={5} className="p-3 text-right text-[10px] uppercase tracking-widest">Total Recursos {searchTerm ? 'Filtrats' : 'Consolidats'}</td>
                                     <td className="p-3 text-right font-mono text-lg text-green-400">
-                                        {formatCurrency(totalAmount, 4)}
+                                        {formatCurrency(totalAmount)}
                                     </td>
                                 </tr>
                             </tfoot>
