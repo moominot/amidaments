@@ -1057,9 +1057,10 @@ export default function App() {
                 if (cat !== 'percent') {
                     const dbPrice = priceDatabase[normalizeCode(line.code)]?.price;
                     const unitPrice = dbPrice !== undefined ? dbPrice : (line.price || 0);
-                    baseTotal += unitPrice * (line.yield || 0);
+                    baseTotal = round2(baseTotal + round2(unitPrice * (line.yield || 0)));
                 }
             });
+            baseTotal = round2(baseTotal);
 
             // 2. Sum everything, handling % specifically
             return round2(item.breakdown.reduce((acc, line) => {
@@ -1379,9 +1380,9 @@ export default function App() {
                         }
                         let mEnd = rowAcc - 1;
 
-                        const price = priceDatabase[normalizeCode(node.code)]?.price ?? node.price;
-                        const qtyF = node.measurements?.length > 0 ? { f: `SUM(G${mStart}:G${mEnd})` } : 0;
-                        const amountF = { f: `H${rowAcc}*I${rowAcc}` };
+                        const price = round2(priceDatabase[normalizeCode(node.code)]?.price ?? node.price);
+                        const qtyF = node.measurements?.length > 0 ? { f: `ROUND(SUM(G${mStart}:G${mEnd}), 2)` } : 0;
+                        const amountF = { f: `ROUND(H${rowAcc}*I${rowAcc}, 2)` };
 
                         data.push(['', '', '', '', '', '', '', qtyF, price, amountF]);
                         rowAcc++;
@@ -2929,7 +2930,7 @@ export default function App() {
                                             </td>
                                             <td className="p-2 text-right w-28">
                                                 {line.isPercentage ? (
-                                                    <span className="font-mono text-slate-400 italic text-[10px] cursor-help" title="Base de càlcul (MO + MT)">{formatCurrency(line.finalPrice, 4)}</span>
+                                                    <span className="font-mono text-slate-400 italic text-[10px] cursor-help" title="Base de càlcul (MO + MT)">{formatCurrency(line.finalPrice)}</span>
                                                 ) : (
                                                     <input
                                                         className="w-full text-right font-mono bg-transparent outline-none border-b border-transparent focus:border-blue-300 text-blue-600 font-bold"
@@ -2939,7 +2940,7 @@ export default function App() {
                                                     />
                                                 )}
                                             </td>
-                                            <td className="p-2 text-right font-mono font-bold w-32">{formatCurrency(line.total, 4)}</td>
+                                            <td className="p-2 text-right font-mono font-bold w-32">{formatCurrency(line.total)}</td>
                                             <td className="p-2 w-8 text-center opacity-0 group-hover:opacity-100">
                                                 <button onClick={() => removeBreakdownLine(node.id, line.idx)} className="text-red-400 hover:text-red-600"><Trash2 size={12} /></button>
                                             </td>
