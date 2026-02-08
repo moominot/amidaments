@@ -964,10 +964,10 @@ export default function App() {
         showBreakdown: false,
         showMeasurements: true,
         useCorrelativeCodes: true,
-        chaptersOnNewPage: false,
-        ge: { enabled: true, percentage: 13 },
-        ip: { enabled: true, percentage: 6 },
-        iva: { enabled: true, percentage: 21 }
+        chaptersOnNewPage: true,
+        ge: { enabled: false, percentage: 13 },
+        ip: { enabled: false, percentage: 6 },
+        iva: { enabled: false, percentage: 21 }
     });
     const [showPrint, setShowPrint] = useState(false);
     const [showPemModal, setShowPemModal] = useState(false);
