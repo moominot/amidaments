@@ -2371,49 +2371,7 @@ export default function App() {
         notify("Nou projecte creat");
     };
 
-    // --- Handlers ---
-    const handleDrop = async (e) => {
-        e.preventDefault();
-        setIsDragging(false);
 
-        const urlList = e.dataTransfer.getData('text/uri-list');
-        const plainText = e.dataTransfer.getData('text/plain');
-        const url = (urlList || (plainText.trim().startsWith('http') ? plainText.trim() : null));
-
-        if (url && (url.toLowerCase().includes('.bc3') || url.toLowerCase().includes('generadordepreus'))) {
-            try {
-                notify("Consolidant amb el projecte...");
-                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url.trim())}`;
-                const response = await fetch(proxyUrl);
-                const buffer = await response.arrayBuffer();
-                const decoder = new TextDecoder('windows-1252');
-                const text = decoder.decode(buffer);
-
-                const result = processBC3Data(text);
-                if (result) {
-                    startImportProcess(result);
-                }
-            } catch (err) {
-                console.error("Error important dades:", err);
-                notify(`Error: ${err.message}`, "error");
-            }
-            return;
-        }
-
-        const file = e.dataTransfer.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                const result = processBC3Data(ev.target.result);
-                if (result) {
-                    startImportProcess(result);
-                } else {
-                    notify("Format BC3 no reconegut", "error");
-                }
-            };
-            reader.readAsText(file, 'windows-1252');
-        }
-    };
 
     const startImportProcess = (result) => {
         // Find duplicates
@@ -2559,6 +2517,114 @@ export default function App() {
         }));
         notify("Dades importades correctament");
     };
+
+    // --- BC3 URL Handlers (defined after dependencies) ---
+    const importFromUrl = useCallback(async (url) => {
+        if (!url) return;
+        try {
+            console.log("Attempting import from URL:", url);
+            notify("Consolidant amb el projecte...");
+            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url.trim())}`;
+            const response = await fetch(proxyUrl);
+            const buffer = await response.arrayBuffer();
+            const decoder = new TextDecoder('windows-1252');
+            const text = decoder.decode(buffer);
+
+            const result = processBC3Data(text);
+            if (result) {
+                startImportProcess(result);
+            } else {
+                notify("Format BC3 no reconegut", "error");
+            }
+        } catch (err) {
+            console.error("Error important dades:", err);
+            notify(`Error: ${err.message}`, "error");
+        }
+    }, [processBC3Data, startImportProcess]);
+
+    const handleDrop = async (e) => {
+        if (draggedNodeId) return; // Ignorar drop intern
+        e.preventDefault();
+        setIsDragging(false);
+
+        const html = e.dataTransfer.getData('text/html');
+
+        let extractedUrl = null;
+        if (html) {
+            try {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+
+                // 1. Cercar data-href en qualsevol element
+                const withDataHref = doc.querySelectorAll('[data-href]');
+                for (const el of withDataHref) {
+                    const dh = el.getAttribute('data-href');
+                    if (dh && (dh.toLowerCase().includes('.bc3') || dh.toLowerCase().includes('generadordepreus'))) {
+                        extractedUrl = dh;
+                        break;
+                    }
+                }
+
+                // 2. Cercar qualsevol enllaç vàlid (no javascript) amb bc3
+                if (!extractedUrl) {
+                    const links = doc.querySelectorAll('a[href]');
+                    for (const link of links) {
+                        const href = link.getAttribute('href');
+                        if (href && !href.toLowerCase().startsWith('javascript:') && (href.toLowerCase().includes('.bc3') || href.toLowerCase().includes('generadordepreus'))) {
+                            extractedUrl = href;
+                            break;
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error("Error parsing dropped HTML:", err);
+            }
+        }
+
+        const candidates = [];
+        // Escanejar tots els tipus per trobar alguna cosa que sembli una URL de BC3
+        for (const type of e.dataTransfer.types) {
+            try {
+                const val = e.dataTransfer.getData(type)?.trim();
+                if (val &&
+                    !val.toLowerCase().startsWith('javascript:') &&
+                    !val.toLowerCase().includes('about:blank') &&
+                    !val.startsWith('<') &&
+                    (val.toLowerCase().includes('.bc3') || val.toLowerCase().includes('generadordepreus'))) {
+                    candidates.push(val);
+                }
+            } catch (e) { }
+        }
+        if (extractedUrl) candidates.unshift(extractedUrl);
+
+        const url = candidates[0];
+        if (url) {
+            importFromUrl(url);
+            return;
+        }
+
+        const file = e.dataTransfer.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const result = processBC3Data(ev.target.result);
+                if (result) {
+                    startImportProcess(result);
+                } else {
+                    notify("Format BC3 no reconegut", "error");
+                }
+            };
+            reader.readAsText(file, 'windows-1252');
+        }
+    };
+
+    const handlePaste = useCallback((e) => {
+        const text = e.clipboardData.getData('text/plain')?.trim();
+        if (text && (text.toLowerCase().includes('.bc3') || text.toLowerCase().includes('generadordepreus'))) {
+            importFromUrl(text);
+        }
+    }, [importFromUrl]);
+
 
     const updateMeasurement = (itemId, mId, field, value) => {
         const numValue = field === 'description' ? value : parseFloat(value) || 0;
@@ -3226,6 +3292,7 @@ export default function App() {
         );
     };
 
+
     // --- MODIFICATION: Updated Prices Table with Edit Inputs ---
     const renderPricesTable = () => {
         const prices = filteredPrices;
@@ -3286,6 +3353,7 @@ export default function App() {
             }}
             onDragLeave={() => setIsDragging(false)}
             onDrop={handleDrop}
+            onPaste={handlePaste}
         >
             {/* 2. ITEM CREATOR MODAL */}
             {showCreator && (
