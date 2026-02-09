@@ -33,7 +33,8 @@ import {
     FolderOpen,
     User,
     FileSpreadsheet,
-    Percent
+    Percent,
+    Menu
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -990,6 +991,11 @@ export default function App() {
         measurements: true,
         justification: true
     });
+
+    // Mobile state
+    const [showMobileMenu, setShowMobileMenu] = useState(false);
+    const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+    const [showSearchExpanded, setShowSearchExpanded] = useState(false);
 
     const isResizing = React.useRef(false);
 
@@ -3190,40 +3196,64 @@ export default function App() {
                             } ${dropClass}`}
                         onClick={() => {
                             setSelectedId(node.id);
+                            if (window.innerWidth < 768) {
+                                setShowMobileSidebar(true);
+                            }
                         }}
                     >
-                        <td className="p-2 w-10 text-center" onClick={(e) => {
+                        <td className="p-1 md:p-2 w-6 md:w-10 text-center" onClick={(e) => {
                             if (!node.unit) {
                                 e.stopPropagation();
                                 toggleChapter(node.id);
                             }
                         }}>
                             <div className="flex items-center justify-center gap-1">
-                                <GripVertical size={10} className="text-slate-300 opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing" />
+                                <GripVertical size={10} className="hidden md:block text-slate-300 opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing" />
                                 {!node.unit && (
                                     <div className="flex items-center justify-center text-slate-400 hover:text-blue-500 transition-colors">
-                                        {expandedChapters[node.id] ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                        {expandedChapters[node.id] ? <ChevronDown size={12} className="md:w-3.5 md:h-3.5" /> : <ChevronRight size={12} className="md:w-3.5 md:h-3.5" />}
                                     </div>
                                 )}
-                                {node.unit && <FileText size={14} className="text-slate-300" />}
+                                {node.unit && <FileText size={12} className="md:w-3.5 md:h-3.5 text-slate-300" />}
                             </div>
                         </td>
-                        <td className="p-2 font-mono text-[10px] text-slate-400 w-28" style={{ paddingLeft: `${level * 12 + 8}px` }}>
+                        <td className="p-1 md:p-2 font-mono text-[8px] md:text-[10px] text-slate-400 w-16 md:w-28" style={{ paddingLeft: `${node.unit ? level * 8 + 4 : level * 8}px` }}>
                             {node.code}
                         </td>
-                        <td className="p-2 text-slate-800">
-                            <div className="flex flex-col">
-                                <span className={`text-[11px] ${!node.unit ? 'font-bold uppercase tracking-tight text-slate-600' : 'font-medium'}`}>
+                        <td className="p-1 md:p-2 text-slate-800 min-w-0">
+                            <div className="flex flex-col min-w-0">
+                                <span className={`text-[9px] md:text-[11px] ${!node.unit ? 'font-bold uppercase tracking-tight text-slate-600' : 'font-medium'} whitespace-normal break-words`}>
                                     {node.description}
                                 </span>
+                                {/* Mobile: Show unit, qty, price below description with labels */}
+                                <div className="md:hidden flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-[8px] text-slate-500">
+                                    {node.unit && (
+                                        <>
+                                            <div className="flex items-center gap-1">
+                                                <span className="text-[7px] uppercase font-bold text-slate-300">Ud</span>
+                                                <span className="italic">{node.unit}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                                <span className="text-[7px] uppercase font-bold text-slate-300">Q</span>
+                                                <span className="font-mono">{formatNumber(calcItemTotalQty(node), 2)}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                                <span className="text-[7px] uppercase font-bold text-slate-300">Pr</span>
+                                                <span className="font-mono">{formatPrice(getItemUnitPrice(node))}</span>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                         </td>
-                        <td className="p-2 text-center text-slate-400 italic w-14 text-[10px]">{node.unit || ''}</td>
-                        <td className="p-2 text-right font-mono w-20 text-[11px] text-slate-500">{node.unit ? formatNumber(calcItemTotalQty(node), 2) : ''}</td>
-                        <td className="p-2 text-right font-mono w-28 text-[11px] text-slate-600">
+                        {/* Desktop: Separate columns */}
+                        <td className="hidden md:table-cell p-2 text-center text-slate-400 italic w-14 text-[10px]">{node.unit || ''}</td>
+                        <td className="hidden md:table-cell p-2 text-right font-mono w-20 text-[11px] text-slate-500">{node.unit ? formatNumber(calcItemTotalQty(node), 2) : ''}</td>
+                        <td className="hidden md:table-cell p-2 text-right font-mono w-28 text-[11px] text-slate-600">
                             {node.unit ? formatPrice(getItemUnitPrice(node)) : ''}
                         </td>
-                        <td className="p-2 text-right font-mono font-bold text-slate-700 w-32 text-[11px]">
+                        {/* Total - Always visible */}
+                        <td className="p-1 md:p-2 text-right font-mono font-bold text-slate-700 w-20 md:w-32 text-[9px] md:text-[11px]">
                             <div className="flex items-center justify-end gap-2">
                                 {node.unit ? formatCurrency(calcItemTotalAmount(node)) : formatCurrency(calcChapterTotal(node))}
                                 <button
@@ -3261,28 +3291,34 @@ export default function App() {
         const totalCount = Object.values(resources).flat().length;
 
         return (
-            <div className="p-6">
+            <div className="p-0 md:p-6">
                 <div className="bg-white border border-slate-200">
                     <div className="bg-slate-800 p-3 text-white flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <Layers size={16} className="text-blue-400" />
-                            <span className="text-xs font-bold uppercase tracking-widest">Llistat de Recursos (Consolidat)</span>
+                            <span className="text-xs font-bold uppercase tracking-widest">Llistat de Recursos</span>
                         </div>
-                        <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded text-slate-300">
-                            {totalCount} Recursos {searchTerm && `(${Object.values(aggregatedResources).flat().length} total)`}
-                        </span>
+                        <div className="flex items-center gap-2">
+                            {/* Mobile: Total chip */}
+                            <span className="md:hidden text-[10px] font-black bg-blue-500 text-white px-1.5 py-0.5 rounded">
+                                {formatCurrency(totalAmount)}
+                            </span>
+                            <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded text-slate-300">
+                                {totalCount} Recursos
+                            </span>
+                        </div>
                     </div>
 
-                    <div className="overflow-auto max-h-[calc(100vh-250px)]">
-                        <table className="w-full text-left border-collapse">
-                            <thead className="bg-slate-50 border-b border-slate-200 text-[10px] text-slate-500 font-bold uppercase tracking-widest sticky top-0 z-10">
+                    <div className="overflow-visible">
+                        <table className="w-full text-left border-collapse table-fixed md:table-auto">
+                            <thead className="bg-slate-50 border-b border-slate-200 text-[8px] md:text-[10px] text-slate-500 font-bold uppercase tracking-widest">
                                 <tr>
-                                    <th className="p-3 w-32 border-r border-slate-200">Codi</th>
-                                    <th className="p-3">Concepte</th>
-                                    <th className="p-3 w-16 text-center border-x border-slate-200">Ud.</th>
-                                    <th className="p-3 w-28 text-right">Quant. Total</th>
-                                    <th className="p-3 w-28 text-right">Preu</th>
-                                    <th className="p-3 w-32 text-right bg-blue-50/50">Import Total</th>
+                                    <th className="p-2 md:p-3 w-16 md:w-32 border-r border-slate-200">Codi</th>
+                                    <th className="p-2 md:p-3">Concepte</th>
+                                    <th className="hidden md:table-cell p-3 w-16 text-center border-x border-slate-200">Ud.</th>
+                                    <th className="hidden md:table-cell p-3 w-28 text-right">Quant. Total</th>
+                                    <th className="hidden md:table-cell p-3 w-28 text-right">Preu</th>
+                                    <th className="p-2 md:p-3 w-20 md:w-32 text-right bg-blue-50/50">Total</th>
                                 </tr>
                             </thead>
                             <tbody className="text-sm divide-y divide-slate-100">
@@ -3296,7 +3332,7 @@ export default function App() {
                                     return (
                                         <React.Fragment key={group.id}>
                                             <tr className={`${group.bg} border-y border-slate-200`}>
-                                                <td colSpan={6} className="p-2 pl-4">
+                                                <td colSpan={window.innerWidth < 768 ? 3 : 6} className="p-2 pl-4 md:pl-4">
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex items-center gap-2">
                                                             <Icon size={14} className={group.color} />
@@ -3313,11 +3349,30 @@ export default function App() {
                                             </tr>
                                             {groupResources.map((res) => (
                                                 <tr key={res.code} className="hover:bg-slate-50 group bg-white">
-                                                    <td className="p-3 font-mono text-[11px] text-slate-400 border-r border-slate-200 pl-8">{res.code}</td>
-                                                    <td className="p-3 text-slate-700">{res.description}</td>
-                                                    <td className="p-3 text-center text-slate-400 italic border-x border-slate-200">{res.unit || '—'}</td>
-                                                    <td className="p-3 text-right font-mono text-slate-600">{formatNumber(res.quantity, 2)}</td>
-                                                    <td className="p-3 text-right font-mono text-slate-600">
+                                                    <td className="p-2 md:p-3 font-mono text-[9px] md:text-[11px] text-slate-400 border-r border-slate-200 pl-4 md:pl-8">{res.code}</td>
+                                                    <td className="p-2 md:p-3 text-slate-700 min-w-0">
+                                                        <div className="flex flex-col min-w-0">
+                                                            <span className="text-[9px] md:text-[11px] font-medium whitespace-normal break-words">{res.description}</span>
+                                                            {/* Mobile stacked details */}
+                                                            <div className="md:hidden flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-[8px] text-slate-400">
+                                                                <div className="flex items-center gap-1">
+                                                                    <span className="text-[7px] uppercase font-bold text-slate-300">Ud</span>
+                                                                    <span className="italic">{res.unit || '—'}</span>
+                                                                </div>
+                                                                <div className="flex items-center gap-1">
+                                                                    <span className="text-[7px] uppercase font-bold text-slate-300">Q</span>
+                                                                    <span className="font-mono">{formatNumber(res.quantity, 2)}</span>
+                                                                </div>
+                                                                <div className="flex items-center gap-1">
+                                                                    <span className="text-[7px] uppercase font-bold text-slate-300">Pr</span>
+                                                                    <span className="font-mono">{formatPrice(res.price)}</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="hidden md:table-cell p-3 text-center text-slate-400 italic border-x border-slate-200">{res.unit || '—'}</td>
+                                                    <td className="hidden md:table-cell p-3 text-right font-mono text-slate-600">{formatNumber(res.quantity, 2)}</td>
+                                                    <td className="hidden md:table-cell p-3 text-right font-mono text-slate-600">
                                                         <div className="flex items-center justify-end gap-1">
                                                             <input
                                                                 type="number"
@@ -3330,7 +3385,7 @@ export default function App() {
                                                             <span className="text-[10px] text-slate-400">€</span>
                                                         </div>
                                                     </td>
-                                                    <td className="p-3 text-right font-mono font-bold text-blue-800 bg-blue-50/10 group-hover:bg-blue-50/20">
+                                                    <td className="p-2 md:p-3 text-right font-mono font-bold text-blue-800 bg-blue-50/10 group-hover:bg-blue-50/20 text-[9px] md:text-sm">
                                                         {formatCurrency(res.quantity * res.price)}
                                                     </td>
                                                 </tr>
@@ -3339,9 +3394,9 @@ export default function App() {
                                     );
                                 })}
                             </tbody>
-                            <tfoot className="bg-slate-900 text-white font-bold sticky bottom-0 z-10">
+                            <tfoot className="hidden md:table-footer-group bg-slate-900 text-white font-bold sticky bottom-0 z-10">
                                 <tr>
-                                    <td colSpan={5} className="p-3 text-right text-[10px] uppercase tracking-widest">Total Recursos {searchTerm ? 'Filtrats' : 'Consolidats'}</td>
+                                    <td colSpan={window.innerWidth < 768 ? 2 : 5} className="p-3 text-right text-[10px] uppercase tracking-widest whitespace-nowrap">Total Recursos</td>
                                     <td className="p-3 text-right font-mono text-lg text-green-400">
                                         {formatCurrency(totalAmount)}
                                     </td>
@@ -3359,7 +3414,7 @@ export default function App() {
     const renderPricesTable = () => {
         const prices = filteredPrices;
         return (
-            <div className="p-6">
+            <div className="p-0 md:p-6">
                 <div className="bg-white border border-slate-200">
                     <div className="bg-slate-800 p-3 text-white flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -3370,28 +3425,39 @@ export default function App() {
                             {prices.length} Entrades
                         </span>
                     </div>
-                    <table className="w-full text-left border-collapse">
-                        <thead className="bg-slate-50 border-b border-slate-200 text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                    <table className="w-full text-left border-collapse table-fixed md:table-auto">
+                        <thead className="bg-slate-50 border-b border-slate-200 text-[8px] md:text-[10px] text-slate-500 font-bold uppercase tracking-widest">
                             <tr>
-                                <th className="p-3 w-32 border-r border-slate-200">Codi</th>
-                                <th className="p-3">Resum de Concepte</th>
-                                <th className="p-3 w-20 text-center border-x border-slate-200">Ud.</th>
-                                <th className="p-3 w-48 text-right bg-blue-50/50">Preu Unitari (Editable)</th>
+                                <th className="p-2 md:p-3 w-16 md:w-32 border-r border-slate-200">Codi</th>
+                                <th className="p-2 md:p-3">Concepte</th>
+                                <th className="hidden md:table-cell p-3 w-20 text-center border-x border-slate-200">Ud.</th>
+                                <th className="p-2 md:p-3 w-20 md:w-48 text-right bg-blue-50/50">Preu</th>
                             </tr>
                         </thead>
                         <tbody className="text-sm divide-y divide-slate-100">
                             {prices.map(([code, data]) => (
                                 <tr key={code} className="hover:bg-slate-50 group">
-                                    <td className="p-3 font-mono text-[11px] text-slate-400 border-r border-slate-200">{code}</td>
-                                    <td className="p-3 text-slate-700">{data.summary}</td>
-                                    <td className="p-3 text-center text-slate-400 italic border-x border-slate-200">{data.unit || '—'}</td>
-                                    <td className="p-3 text-right font-mono font-bold text-blue-800 bg-blue-50/10 group-hover:bg-blue-50/30">
-                                        <div className="flex items-center justify-end gap-2">
-                                            <span className="text-xs text-slate-300">€</span>
+                                    <td className="p-2 md:p-3 font-mono text-[9px] md:text-[11px] text-slate-400 border-r border-slate-200">{code}</td>
+                                    <td className="p-2 md:p-3 text-slate-700 min-w-0">
+                                        <div className="flex flex-col min-w-0">
+                                            <span className="text-[9px] md:text-[11px] font-medium whitespace-normal break-words">{data.summary}</span>
+                                            {/* Mobile stacked details */}
+                                            <div className="md:hidden flex items-center gap-2 mt-0.5 text-[8px] text-slate-400">
+                                                <div className="flex items-center gap-1">
+                                                    <span className="text-[7px] uppercase font-bold text-slate-300">Ud</span>
+                                                    <span className="italic">{data.unit || '—'}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="hidden md:table-cell p-3 text-center text-slate-400 italic border-x border-slate-200">{data.unit || '—'}</td>
+                                    <td className="p-2 md:p-3 text-right font-mono font-bold text-blue-800 bg-blue-50/10 group-hover:bg-blue-50/30">
+                                        <div className="flex items-center justify-end gap-1 md:gap-2">
+                                            <span className="text-[10px] md:text-xs text-slate-300">€</span>
                                             <input
                                                 type="number"
                                                 step="0.01"
-                                                className="bg-transparent text-right border-b border-transparent hover:border-blue-300 focus:border-blue-600 outline-none w-24 font-bold text-blue-700"
+                                                className="bg-transparent text-right border-b border-transparent hover:border-blue-300 focus:border-blue-600 outline-none w-14 md:w-24 font-bold text-blue-700 text-[10px] md:text-sm"
                                                 value={data.price}
                                                 onChange={(e) => updateDbPrice(code, e.target.value)}
                                             />
@@ -3458,32 +3524,29 @@ export default function App() {
             )}
 
             {/* Header Flat */}
-            <header className="bg-slate-950 text-white p-4 flex flex-col md:flex-row justify-between items-center border-b border-slate-800 z-30 gap-4">
-                <div className="flex items-center gap-4">
-                    <div className="bg-blue-600 p-2">
-                        <Calculator size={24} className="text-white" />
+            <header className="bg-slate-950 text-white p-3 md:p-4 flex justify-between items-center border-b border-slate-800 z-30">
+                {/* Left: Logo + Title */}
+                <div className="flex items-center gap-2 md:gap-4">
+                    <div className="bg-blue-600 p-1.5 md:p-2">
+                        <Calculator size={20} className="md:w-6 md:h-6 text-white" />
                     </div>
-                    <div>
-                        <h1 className="font-bold text-xl tracking-tighter leading-none uppercase">PreuArq <span className="text-blue-400 font-light">BIM</span></h1>
-
-                    </div>
+                    <h1 className="hidden md:block font-bold text-xl tracking-tighter leading-none uppercase">PreuArq <span className="text-blue-400 font-light">BIM</span></h1>
                 </div>
 
-                <div className="flex items-center gap-6">
-                    {/* Total PEM Display (Interactive) */}
+                {/* Center/Right: Actions */}
+                <div className="flex items-center gap-2 md:gap-6">
+                    {/* Total PEM Display - Always visible */}
                     <button
                         onClick={() => setShowPemModal(true)}
-                        className="flex flex-col items-center md:items-end gap-0.5 group cursor-pointer"
+                        className="flex flex-col items-end gap-0.5 group cursor-pointer"
                         title="Ajustar PEM"
                     >
-                        <span className="text-[9px] uppercase text-slate-500 font-bold tracking-widest leading-none group-hover:text-blue-400 transition-colors">Total PEM</span>
-                        <div className="flex items-center gap-2">
-                            <span className="text-xl font-mono text-emerald-400 font-bold tracking-tighter leading-none">{formatCurrency(budgetTotal)}</span>
-                            <Calculator size={14} className="text-slate-600 group-hover:text-blue-500 transition-colors" />
-                        </div>
+                        <span className="text-[8px] md:text-[9px] uppercase text-slate-500 font-bold tracking-widest leading-none group-hover:text-blue-400 transition-colors">Total PEM</span>
+                        <span className="text-sm md:text-xl font-mono text-emerald-400 font-bold tracking-tighter leading-none">{formatCurrency(budgetTotal)}</span>
                     </button>
 
-                    <div className="flex items-center gap-2 flex-wrap justify-center">
+                    {/* Desktop: All buttons visible */}
+                    <div className="hidden md:flex items-center gap-2 flex-wrap">
                         {/* Nou */}
                         <button onClick={handleNewProject} className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-4 py-2 border border-slate-700 transition-colors" title="Nou Projecte">
                             <FilePlus size={16} className="text-slate-400" />
@@ -3543,6 +3606,78 @@ export default function App() {
                             <span className="text-[10px] font-bold uppercase tracking-widest">Imprimir</span>
                         </button>
                     </div>
+
+                    {/* Mobile: Hamburger Menu */}
+                    <div className="md:hidden relative">
+                        <button
+                            onClick={() => setShowMobileMenu(!showMobileMenu)}
+                            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 p-2 border border-slate-700 transition-colors"
+                            title="Menú"
+                        >
+                            <Menu size={20} className="text-slate-400" />
+                        </button>
+
+                        {showMobileMenu && (
+                            <>
+                                {/* Backdrop */}
+                                <div
+                                    className="fixed inset-0 bg-black/50 z-40"
+                                    onClick={() => setShowMobileMenu(false)}
+                                />
+
+                                {/* Menu Dropdown */}
+                                <div className="fixed top-14 right-2 bg-slate-900 border border-slate-700 shadow-2xl z-50 min-w-[200px] max-w-[90vw]">
+                                    <button
+                                        onClick={() => { handleNewProject(); setShowMobileMenu(false); }}
+                                        className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 transition-colors flex items-center gap-3 border-b border-slate-800"
+                                    >
+                                        <FilePlus size={18} className="text-slate-400" />
+                                        <span className="font-medium">Nou Projecte</span>
+                                    </button>
+
+                                    <button
+                                        onClick={() => { handleOpenProject(); setShowMobileMenu(false); }}
+                                        className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 transition-colors flex items-center gap-3 border-b border-slate-800"
+                                    >
+                                        <FolderOpen size={18} className="text-slate-400" />
+                                        <span className="font-medium">Obrir Projecte</span>
+                                    </button>
+
+                                    <button
+                                        onClick={() => { handleDownloadProject(); setShowMobileMenu(false); }}
+                                        className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 transition-colors flex items-center gap-3 border-b border-slate-800"
+                                    >
+                                        <Save size={18} className="text-emerald-400" />
+                                        <span className="font-medium">Desar (JSON)</span>
+                                    </button>
+
+                                    <button
+                                        onClick={() => { handleExportBC3(); setShowMobileMenu(false); }}
+                                        className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 transition-colors flex items-center gap-3 border-b border-slate-800"
+                                    >
+                                        <Download size={18} className="text-emerald-400" />
+                                        <span className="font-medium">Exportar BC3</span>
+                                    </button>
+
+                                    <button
+                                        onClick={() => { document.getElementById('bc3-import-input')?.click(); setShowMobileMenu(false); }}
+                                        className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 transition-colors flex items-center gap-3 border-b border-slate-800"
+                                    >
+                                        <Upload size={18} className="text-blue-400" />
+                                        <span className="font-medium">Importar BC3</span>
+                                    </button>
+
+                                    <button
+                                        onClick={() => { setShowPrint(true); setShowMobileMenu(false); }}
+                                        className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 transition-colors flex items-center gap-3"
+                                    >
+                                        <Printer size={18} className="text-slate-300" />
+                                        <span className="font-medium">Imprimir</span>
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </div>
             </header>
 
@@ -3582,63 +3717,103 @@ export default function App() {
             <main className="flex-1 flex flex-col md:flex-row overflow-hidden">
                 {/* Taula Principal Flat */}
                 <section className="flex-1 flex flex-col bg-white overflow-hidden relative">
-                    <div className="border-b border-slate-200 p-2 flex flex-col md:flex-row justify-between items-center bg-slate-50 gap-2">
-                        <div className="flex bg-white border border-slate-200 p-1 overflow-x-auto max-w-full">
-                            <button
-                                onClick={() => setActiveTab('editor')}
-                                className={`px-4 py-1 text-[10px] font-bold uppercase tracking-widest transition-colors ${activeTab === 'editor' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
-                            >
-                                Editor de Partides
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('prices')}
-                                className={`px-4 py-1 text-[10px] font-bold uppercase tracking-widest transition-colors ${activeTab === 'prices' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
-                            >
-                                Base de Preus
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('recursos')}
-                                className={`px-4 py-1 text-[10px] font-bold uppercase tracking-widest transition-colors ${activeTab === 'recursos' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
-                            >
-                                Llistat de Recursos
-                            </button>
+                    <div className="border-b border-slate-200 p-2 bg-slate-50">
+                        {/* Top row: Tabs + Search icon */}
+                        <div className="flex justify-between items-center gap-2">
+                            {/* Tabs - Wider on mobile */}
+                            <div className="flex bg-white border border-slate-200 p-0.5 md:p-1 flex-1 md:flex-initial">
+                                <button
+                                    onClick={() => setActiveTab('editor')}
+                                    className={`flex-1 md:flex-initial px-3 md:px-4 py-1 text-[8px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-widest transition-colors ${activeTab === 'editor' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
+                                >
+                                    <span className="hidden md:inline">Editor de Partides</span>
+                                    <span className="md:hidden">Editor</span>
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('prices')}
+                                    className={`flex-1 md:flex-initial px-3 md:px-4 py-1 text-[8px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-widest transition-colors ${activeTab === 'prices' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
+                                >
+                                    <span className="hidden md:inline">Base de Preus</span>
+                                    <span className="md:hidden">Preus</span>
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('recursos')}
+                                    className={`flex-1 md:flex-initial px-3 md:px-4 py-1 text-[8px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-widest transition-colors ${activeTab === 'recursos' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
+                                >
+                                    <span className="hidden md:inline">Llistat de Recursos</span>
+                                    <span className="md:hidden">Recursos</span>
+                                </button>
+                            </div>
+
+                            {/* Search */}
+                            <div className="flex items-center gap-2">
+                                {/* Mobile: Search icon only, expands downward */}
+                                <div className="md:hidden relative">
+                                    <button
+                                        onClick={() => setShowSearchExpanded(!showSearchExpanded)}
+                                        className="p-1.5 bg-white border border-slate-200 hover:bg-slate-50 transition-colors"
+                                    >
+                                        <Search size={14} className="text-slate-400" />
+                                    </button>
+                                </div>
+
+                                {/* Desktop: Always visible search */}
+                                <div className="hidden md:block relative">
+                                    <Search className="absolute left-2.5 top-2 text-slate-300" size={12} />
+                                    <input
+                                        type="text"
+                                        placeholder="Cerca codi..."
+                                        className="pl-8 pr-3 py-1 bg-white border border-slate-200 text-[10px] focus:border-blue-500 outline-none w-48 transition-all"
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                    />
+                                    {searchTerm && (
+                                        <button
+                                            onClick={() => setSearchTerm('')}
+                                            className="absolute right-2 top-2 text-slate-300 hover:text-slate-500"
+                                        >
+                                            <X size={10} />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
                         </div>
 
-                        <div className="flex items-center gap-4">
-                            <div className="relative">
-                                <Search className="absolute left-2.5 top-2 text-slate-300" size={12} />
+                        {/* Mobile: Expanded search field below tabs */}
+                        {showSearchExpanded && (
+                            <div className="md:hidden mt-2 relative animate-in slide-in-from-top-2 duration-200">
+                                <Search className="absolute left-2 top-2 text-slate-300" size={12} />
                                 <input
                                     type="text"
                                     placeholder="Cerca codi..."
-                                    className="pl-8 pr-3 py-1 bg-white border border-slate-200 text-[10px] focus:border-blue-500 outline-none w-48 transition-all"
+                                    className="pl-7 pr-7 py-1.5 bg-white border border-slate-200 text-xs focus:border-blue-500 outline-none w-full transition-all"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
+                                    autoFocus
                                 />
-                                {searchTerm && (
-                                    <button
-                                        onClick={() => setSearchTerm('')}
-                                        className="absolute right-2 top-2 text-slate-300 hover:text-slate-500"
-                                    >
-                                        <X size={10} />
-                                    </button>
-                                )}
+                                <button
+                                    onClick={() => { setSearchTerm(''); setShowSearchExpanded(false); }}
+                                    className="absolute right-2 top-2 text-slate-400 hover:text-slate-600"
+                                >
+                                    <X size={12} />
+                                </button>
                             </div>
-                        </div>
+                        )}
                     </div>
 
                     {/* Project Controls - Only in Editor View */}
                     {activeTab === 'editor' && (
-                        <div className="border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
-                            <div className="flex flex-col md:flex-row items-center gap-6 w-full md:w-auto">
+                        <div className="border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-3 md:px-6 py-2 md:py-4 flex flex-row justify-between items-center gap-2">
+                            <div className="flex flex-row items-center gap-3 md:gap-6 flex-1 min-w-0">
                                 {/* Project Name */}
-                                <div className="flex items-center gap-3 group">
-                                    <div className="bg-blue-600 p-2 rounded">
-                                        <FileText size={20} className="text-white" />
+                                <div className="flex items-center gap-2 md:gap-3 group min-w-0 flex-1">
+                                    <div className="bg-blue-600 p-1.5 md:p-2 rounded flex-shrink-0">
+                                        <FileText size={16} className="md:w-5 md:h-5 text-white" />
                                     </div>
-                                    <div>
-                                        <label className="text-[9px] uppercase font-bold text-slate-400 tracking-widest block mb-1">Projecte</label>
+                                    <div className="min-w-0 flex-1">
+                                        <label className="hidden md:block text-[9px] uppercase font-bold text-slate-400 tracking-widest mb-1">Projecte</label>
                                         <input
-                                            className="text-xl font-bold text-slate-800 bg-transparent border-b-2 border-transparent hover:border-slate-300 focus:border-blue-500 focus:outline-none transition-colors px-1 -ml-1"
+                                            className="text-sm md:text-xl font-bold text-slate-800 bg-transparent border-b-2 border-transparent hover:border-slate-300 focus:border-blue-500 focus:outline-none transition-colors px-1 -ml-1 w-full truncate"
                                             value={budget.name}
                                             onChange={(e) => setBudget(prev => ({ ...prev, name: e.target.value }))}
                                             placeholder="Nom del Projecte"
@@ -3649,29 +3824,28 @@ export default function App() {
                                 {/* Nova Entrada Button */}
                                 <button
                                     onClick={() => setShowCreator(true)}
-                                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-blue-500/25"
+                                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-3 md:px-6 py-2 md:py-3 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-blue-500/25 flex-shrink-0"
+                                    title="Nova Entrada"
                                 >
-                                    <Plus size={18} />
-                                    <span className="text-[11px] font-bold uppercase tracking-widest">Nova Entrada</span>
+                                    <Plus size={16} className="md:w-4.5 md:h-4.5" />
+                                    <span className="hidden md:inline text-[11px] font-bold uppercase tracking-widest">Nova Entrada</span>
                                 </button>
                             </div>
-
-
                         </div>
                     )}
 
                     <div className="flex-1 overflow-auto">
                         {activeTab === 'editor' && (
-                            <table className="w-full text-left border-collapse min-w-[800px]">
+                            <table className="w-full text-left border-collapse table-fixed md:table-auto">
                                 <thead className="sticky top-0 bg-white z-20 border-b border-slate-200 shadow-sm">
-                                    <tr className="text-[9px] uppercase text-slate-400 font-black tracking-widest bg-white">
-                                        <th className="p-2 w-10 text-center"></th>
-                                        <th className="p-2 w-28">Codi</th>
-                                        <th className="p-2">Concepte d'Obra</th>
-                                        <th className="p-2 w-14 text-center">Ud.</th>
-                                        <th className="p-2 w-20 text-right">Quantitat</th>
-                                        <th className="p-2 w-28 text-right">Preu Ud.</th>
-                                        <th className="p-2 w-32 text-right">Import Total</th>
+                                    <tr className="text-[8px] md:text-[9px] uppercase text-slate-400 font-black tracking-widest bg-white">
+                                        <th className="p-1 md:p-2 w-6 md:w-10 text-center"></th>
+                                        <th className="p-1 md:p-2 w-16 md:w-28 text-left">Codi</th>
+                                        <th className="p-1 md:p-2 text-left">Descripció</th>
+                                        <th className="hidden md:table-cell p-2 w-14 text-center">Ud.</th>
+                                        <th className="hidden md:table-cell p-2 w-20 text-right">Quantitat</th>
+                                        <th className="hidden md:table-cell p-2 w-28 text-right">Preu Ud.</th>
+                                        <th className="p-1 md:p-2 w-20 md:w-32 text-right">Total</th>
                                     </tr>
                                 </thead>
                                 <tbody className="text-sm">
@@ -3699,11 +3873,50 @@ export default function App() {
                     onMouseDown={startResizing}
                 />
 
+                {/* Mobile: Bottom Sheet Backdrop */}
+                {showMobileSidebar && selectedId && (
+                    <div
+                        className="md:hidden fixed inset-0 bg-black/50 z-40"
+                        onClick={() => setShowMobileSidebar(false)}
+                    />
+                )}
+
+                {/* Mobile: Bottom Sheet Toggle Tab (only when item selected) */}
+                {selectedId && (
+                    <button
+                        className="md:hidden fixed bottom-0 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white px-6 py-2 rounded-t-lg shadow-lg z-50 flex items-center gap-2"
+                        onClick={() => setShowMobileSidebar(!showMobileSidebar)}
+                        style={{ display: showMobileSidebar ? 'none' : 'flex' }}
+                    >
+                        <ChevronDown className={showMobileSidebar ? 'rotate-180' : ''} size={16} />
+                        <span className="text-xs font-bold uppercase tracking-wider">Detall</span>
+                    </button>
+                )}
+
                 {/* Right Edit Sidebar */}
                 <aside
-                    className="bg-slate-50 border-l border-slate-200 overflow-y-auto flex flex-col w-full md:w-auto"
+                    className={`
+                        bg-slate-50 border-l border-slate-200 overflow-y-auto flex flex-col
+                        md:relative md:block
+                        ${selectedId ? 'fixed md:relative' : 'hidden md:block'}
+                        ${showMobileSidebar ? 'bottom-0 left-0 right-0' : '-bottom-full'}
+                        transition-all duration-300 ease-in-out
+                        z-50 md:z-auto
+                        max-h-[80vh] md:max-h-none
+                        rounded-t-2xl md:rounded-none
+                        shadow-2xl md:shadow-none
+                    `}
                     style={{ width: window.innerWidth < 768 ? '100%' : `${sidebarWidth}px` }}
                 >
+                    {/* Mobile: Close button */}
+                    {selectedId && (
+                        <button
+                            className="md:hidden sticky top-0 bg-slate-200 p-3 flex items-center justify-center z-10"
+                            onClick={() => setShowMobileSidebar(false)}
+                        >
+                            <div className="w-12 h-1 bg-slate-400 rounded-full"></div>
+                        </button>
+                    )}
                     {selectedId ? (
                         (() => {
                             const findNode = (nodes) => {
@@ -3726,12 +3939,12 @@ export default function App() {
                                         </div>
                                         <div className="flex items-center justify-between">
                                             <p className="text-[9px] text-slate-400 uppercase font-bold tracking-widest">{node.unit ? 'Detall de Partida' : 'Detall de Capítol'}</p>
-                                            {node.unit && (
-                                                <div className="flex items-center gap-1">
-                                                    <span className="text-[10px] font-black bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">{formatCurrency(calcItemTotalAmount(node))}</span>
-                                                    <span className="text-[10px] font-black bg-green-100 text-green-700 px-1.5 py-0.5 rounded">{node.unit}</span>
-                                                </div>
-                                            )}
+                                            <div className="flex items-center gap-1">
+                                                <span className="text-[10px] font-black bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
+                                                    {node.unit ? formatCurrency(calcItemTotalAmount(node)) : formatCurrency(calcChapterTotal(node))}
+                                                </span>
+                                                {node.unit && <span className="text-[10px] font-black bg-green-100 text-green-700 px-1.5 py-0.5 rounded">{node.unit}</span>}
+                                            </div>
                                         </div>
                                     </header>
 
@@ -3939,21 +4152,7 @@ export default function App() {
                 </aside>
             </main>
 
-            <footer className="bg-slate-950 border-t border-slate-800 p-2.5 px-6 text-[10px] text-slate-500 flex justify-between items-center z-40">
-                <div className="flex gap-8 items-center uppercase font-bold tracking-widest">
-                    <span className="flex items-center gap-2"><Layers size={12} className="text-blue-500" /> Jerarquia: <span className="text-white font-mono">{budget.chapters.length}</span></span>
-                    <span className="flex items-center gap-2 text-blue-400 border-l border-slate-800 pl-8"><Database size={12} /> Conceptes: <span className="text-white font-mono">{Object.keys(priceDatabase).length}</span></span>
-                    {lastSaved && (
-                        <span className="flex items-center gap-2 text-slate-500 border-l border-slate-800 pl-8 italic">
-                            <Save size={10} className="text-emerald-500" />
-                            Desat: {lastSaved.toLocaleTimeString('ca-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                        </span>
-                    )}
-                </div>
-                <div className="font-mono text-[9px] opacity-30 uppercase">
-                    FIEBDC-3/2024 • Text Editing Module
-                </div>
-            </footer>
+
 
             {notification && (
                 <div className={`fixed bottom-16 left-1/2 -translate-x-1/2 px-8 py-4 border-2 text-white transition-all transform animate-in fade-in slide-in-from-bottom-8 flex items-center gap-4 z-[100] ${notification.type === 'error' ? 'bg-red-600 border-red-500' : 'bg-slate-950 border-slate-800'}`}>
