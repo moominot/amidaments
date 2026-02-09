@@ -1816,14 +1816,27 @@ export default function App() {
 
     // --- MODIFICATION: Item Creator ---
     const handleSaveNewItem = (data, parentId) => {
+        const price = parseFloat(data.price) || 0;
+        const breakdown = [];
+        if (data.type === 'item' && price > 0) {
+            breakdown.push({
+                code: 'pa' + data.code,
+                description: data.description,
+                unit: data.unit,
+                yield: 1,
+                price: price,
+                total: price
+            });
+        }
+
         const newNode = {
             id: crypto.randomUUID(),
             code: data.code,
             description: data.description,
             fullDescription: data.description,
             unit: data.type === 'item' ? data.unit : null,
-            price: parseFloat(data.price) || 0,
-            breakdown: [],
+            price: price,
+            breakdown: breakdown,
             items: [],
             subChapters: [],
             measurements: data.type === 'item' ? [{ id: crypto.randomUUID(), description: 'Base', units: 1, length: 1, width: 1, height: 1 }] : []
