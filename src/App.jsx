@@ -999,45 +999,7 @@ export default function App() {
 
     const isResizing = React.useRef(false);
 
-    // --- PWA File Handling API ---
-    useEffect(() => {
-        if ('launchQueue' in window) {
-            window.launchQueue.setConsumer(async (launchParams) => {
-                if (launchParams.files && launchParams.files.length > 0) {
-                    for (const handle of launchParams.files) {
-                        const file = await handle.getFile();
-                        const fileName = file.name.toLowerCase();
 
-                        if (fileName.endsWith('.json')) {
-                            const text = await file.text();
-                            try {
-                                const projectData = JSON.parse(text);
-                                if (projectData.budget && projectData.projectMetadata) {
-                                    setBudget(projectData.budget);
-                                    if (projectData.priceDatabase) setPriceDatabase(projectData.priceDatabase);
-                                    notify("Projecte carregat correctament");
-                                }
-                            } catch (e) {
-                                notify("Error carregant el projecte JSON", "error");
-                            }
-                        } else if (fileName.endsWith('.bc3')) {
-                            // We need to read as windows-1252 for BC3
-                            const reader = new FileReader();
-                            reader.onload = (ev) => {
-                                const result = processBC3Data(ev.target.result);
-                                if (result) {
-                                    startImportProcess(result);
-                                } else {
-                                    notify("Format BC3 no reconegut", "error");
-                                }
-                            };
-                            reader.readAsText(file, 'windows-1252');
-                        }
-                    }
-                }
-            });
-        }
-    }, [processBC3Data]); // processBC3Data is a useCallback
 
     const startResizing = useCallback(() => {
         isResizing.current = true;
@@ -1075,6 +1037,7 @@ export default function App() {
         setNotification({ msg, type });
         setTimeout(() => setNotification(null), 5000);
     };
+
 
 
     // --- Lògica de Càlcul ---
@@ -1130,7 +1093,9 @@ export default function App() {
 
                 if (cat === 'percent') {
                     const percentage = line.yield || 0;
-                    const lineTotal = round2(baseTotal * (percentage / 100));
+                    const dbUnit = priceDatabase[normalizeCode(line.code)]?.unit;
+                    const isActuallyPercent = dbUnit === '%' || line.unit === '%' || line.code === '%';
+                    const lineTotal = round2(baseTotal * (isActuallyPercent ? percentage / 100 : percentage));
                     return acc + lineTotal;
                 }
 
@@ -1569,7 +1534,9 @@ export default function App() {
 
                 if (cat === 'percent') {
                     // Percentage Item
-                    const percentageCost = levelBase * (bYield / 100);
+                    const dbUnit = priceDatabase[normCode]?.unit;
+                    const isActuallyPercent = dbUnit === '%' || b.unit === '%' || b.code === '%';
+                    const percentageCost = levelBase * (isActuallyPercent ? bYield / 100 : bYield);
                     const totalCost = percentageCost * multiplier;
 
                     if (resources[normCode]) {
@@ -2609,6 +2576,46 @@ export default function App() {
         }
     }, [processBC3Data, startImportProcess]);
 
+    // --- PWA File Handling API ---
+    useEffect(() => {
+        if ('launchQueue' in window) {
+            window.launchQueue.setConsumer(async (launchParams) => {
+                if (launchParams.files && launchParams.files.length > 0) {
+                    for (const handle of launchParams.files) {
+                        const file = await handle.getFile();
+                        const fileName = file.name.toLowerCase();
+
+                        if (fileName.endsWith('.json')) {
+                            const text = await file.text();
+                            try {
+                                const projectData = JSON.parse(text);
+                                if (projectData.budget && projectData.projectMetadata) {
+                                    setBudget(projectData.budget);
+                                    if (projectData.priceDatabase) setPriceDatabase(projectData.priceDatabase);
+                                    notify("Projecte carregat correctament");
+                                }
+                            } catch (e) {
+                                notify("Error carregant el projecte JSON", "error");
+                            }
+                        } else if (fileName.endsWith('.bc3')) {
+                            // We need to read as windows-1252 for BC3
+                            const reader = new FileReader();
+                            reader.onload = (ev) => {
+                                const result = processBC3Data(ev.target.result);
+                                if (result) {
+                                    startImportProcess(result);
+                                } else {
+                                    notify("Format BC3 no reconegut", "error");
+                                }
+                            };
+                            reader.readAsText(file, 'windows-1252');
+                        }
+                    }
+                }
+            });
+        }
+    }, [processBC3Data, startImportProcess]);
+
     const handleDrop = async (e) => {
         if (draggedNodeId) return; // Ignorar drop intern
         e.preventDefault();
@@ -3027,9 +3034,10 @@ export default function App() {
 
             if (cat === 'percent') {
                 finalPrice = baseTotalForPercent;
-                // Només dividir per 100 si la unitat és '%'
+                // Només dividir per 100 si la unitat és '%' o el codi és '%'
                 const unitFromDb = priceDatabase[normalizeCode(line.code)]?.unit;
-                if (unitFromDb === '%') {
+                const isActuallyPercent = unitFromDb === '%' || line.unit === '%' || line.code === '%';
+                if (isActuallyPercent) {
                     total = round2(finalPrice * ((line.yield || 0) / 100));
                 } else {
                     total = round2(finalPrice * (line.yield || 0));
