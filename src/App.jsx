@@ -32,14 +32,15 @@ import {
     FilePlus,
     FolderOpen,
     User,
-    FileSpreadsheet
+    FileSpreadsheet,
+    Percent
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
 // --- Utilitats de Format ---
-const round2 = (val) => Math.round((Number(val) || 0) + Number.EPSILON * 100) / 100; // Minimal error rounding
+const round2 = (val) => Math.round(((Number(val) || 0) + Number.EPSILON) * 100) / 100; // Minimal error rounding
 const formatCurrency = (val) => new Intl.NumberFormat('ca-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val || 0);
 const formatNumber = (val, decimals = 2) => Number(val || 0).toLocaleString('ca-ES', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 const formatPrice = (val) => formatNumber(val, 2);
@@ -1034,7 +1035,22 @@ export default function App() {
     const calcMeasureTotal = (m) => round2((m.units || 0) * (m.length || 1) * (m.width || 1) * (m.height || 1));
     const calcItemTotalQty = (item) => {
         if (!item.measurements || item.measurements.length === 0) return 0;
-        return round2(item.measurements.reduce((acc, m) => acc + calcMeasureTotal(m), 0));
+
+        let subtotal = 0;
+        item.measurements.forEach(m => {
+            if (!m.isIncrement) {
+                subtotal += calcMeasureTotal(m);
+            }
+        });
+
+        const incrementTotal = item.measurements
+            .filter(m => m.isIncrement)
+            .reduce((acc, m) => {
+                const percentage = parseFloat(m.units) || 0;
+                return acc + (subtotal * (percentage / 100));
+            }, 0);
+
+        return round2(subtotal + incrementTotal);
     };
 
     // --- Helper de Categories ---
@@ -1084,7 +1100,11 @@ export default function App() {
     const calcItemTotalAmount = useCallback((item) => {
         const qty = calcItemTotalQty(item);
         const unitPrice = getItemUnitPrice(item);
-        return round2(qty * unitPrice);
+        const total = qty * unitPrice;
+        // Divide by 100 only if unit is '%' AND it's a simple item (no breakdown)
+        // If it has breakdown, the price is calculated from components which are already correct.
+        const isSimplePercent = item.unit === '%' && (!item.breakdown || item.breakdown.length === 0);
+        return round2(isSimplePercent ? total / 100 : total);
     }, [getItemUnitPrice]);
 
     const calcChapterTotal = useCallback((chapter) => {
@@ -1960,7 +1980,7 @@ export default function App() {
                             target: targetCode,
                             description: 'Amidament base',
                             units: parseFloat(fields[2].replace(',', '.')) || 0,
-                            length: 1, width: 1, height: 1
+                            length: 0, width: 0, height: 0
                         });
                     }
                     break;
@@ -1984,7 +2004,8 @@ export default function App() {
             (relations[normCode] || []).forEach(rel => {
                 const childConcept = concepts[rel.child];
                 const unitPrice = childConcept?.price || 0;
-                const isPercent = rel.child.includes('%');
+                const childUnit = childConcept?.unit || '';
+                const isPercent = childUnit === '%';
                 const lineYield = isPercent ? (rel.yield * rel.factor * 100) : (rel.yield * rel.factor);
                 const lineTotal = isPercent ? (lineYield / 100) * unitPrice : lineYield * unitPrice;
 
@@ -2678,13 +2699,48 @@ export default function App() {
         setBudget(prev => ({ ...prev, chapters: updateInTree(prev.chapters) }));
     };
 
+    const updateUnit = (itemId, newUnit) => {
+        const updateInTree = (nodes) => {
+            return nodes.map(node => {
+                if (node.id === itemId) {
+                    return { ...node, unit: newUnit };
+                }
+                return {
+                    ...node,
+                    subChapters: updateInTree(node.subChapters || []),
+                    items: updateInTree(node.items || [])
+                };
+            });
+        };
+        setBudget(prev => ({ ...prev, chapters: updateInTree(prev.chapters) }));
+    };
+
     const addMeasurementLine = (itemId) => {
         const updateInTree = (nodes) => {
             return nodes.map(node => {
                 if (node.id === itemId) {
                     return {
                         ...node,
-                        measurements: [...(node.measurements || []), { id: crypto.randomUUID(), description: 'Nova línia', units: 1, length: 1, width: 1, height: 1 }]
+                        measurements: [...(node.measurements || []), { id: crypto.randomUUID(), description: 'Nova línia', units: 0, length: 0, width: 0, height: 0 }]
+                    };
+                }
+                return {
+                    ...node,
+                    subChapters: updateInTree(node.subChapters || []),
+                    items: updateInTree(node.items || [])
+                };
+            });
+        };
+        setBudget(prev => ({ ...prev, chapters: updateInTree(prev.chapters) }));
+    };
+
+    const addIncrementLine = (itemId) => {
+        const updateInTree = (nodes) => {
+            return nodes.map(node => {
+                if (node.id === itemId) {
+                    return {
+                        ...node,
+                        measurements: [...(node.measurements || []), { id: crypto.randomUUID(), description: '% Increment', units: 0, length: 0, width: 0, height: 0, isIncrement: true }]
                     };
                 }
                 return {
@@ -2925,7 +2981,13 @@ export default function App() {
 
             if (cat === 'percent') {
                 finalPrice = baseTotalForPercent;
-                total = round2(finalPrice * ((line.yield || 0) / 100));
+                // Només dividir per 100 si la unitat és '%'
+                const unitFromDb = priceDatabase[normalizeCode(line.code)]?.unit;
+                if (unitFromDb === '%') {
+                    total = round2(finalPrice * ((line.yield || 0) / 100));
+                } else {
+                    total = round2(finalPrice * (line.yield || 0));
+                }
             } else {
                 const dbPrice = priceDatabase[normalizeCode(line.code)]?.price;
                 finalPrice = dbPrice !== undefined ? dbPrice : (line.price || 0);
@@ -3403,10 +3465,7 @@ export default function App() {
                     </div>
                     <div>
                         <h1 className="font-bold text-xl tracking-tighter leading-none uppercase">PreuArq <span className="text-blue-400 font-light">BIM</span></h1>
-                        <div className="flex items-center gap-2 mt-1">
-                            <span className="text-[9px] bg-slate-800 text-slate-400 px-2 py-0.5 font-bold border border-slate-700 uppercase">Engine v4.4.0</span>
-                            <span className="text-[9px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 font-bold border border-emerald-500/20 uppercase tracking-widest">T-Register Active</span>
-                        </div>
+
                     </div>
                 </div>
 
@@ -3665,7 +3724,15 @@ export default function App() {
                                             <span className="text-[10px] font-black bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">{node.code}</span>
                                             <h2 className="text-sm font-bold text-slate-800 truncate">{node.description}</h2>
                                         </div>
-                                        <p className="text-[9px] text-slate-400 uppercase font-bold tracking-widest">{node.unit ? 'Detall de Partida' : 'Detall de Capítol'}</p>
+                                        <div className="flex items-center justify-between">
+                                            <p className="text-[9px] text-slate-400 uppercase font-bold tracking-widest">{node.unit ? 'Detall de Partida' : 'Detall de Capítol'}</p>
+                                            {node.unit && (
+                                                <div className="flex items-center gap-1">
+                                                    <span className="text-[10px] font-black bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">{formatCurrency(calcItemTotalAmount(node))}</span>
+                                                    <span className="text-[10px] font-black bg-green-100 text-green-700 px-1.5 py-0.5 rounded">{node.unit}</span>
+                                                </div>
+                                            )}
+                                        </div>
                                     </header>
 
                                     <div className="flex-1 p-4 space-y-4">
@@ -3695,6 +3762,33 @@ export default function App() {
                                                 </div>
                                             )}
                                         </div>
+
+                                        {/* Unitats Section - Only for items */}
+                                        {node.unit && (
+                                            <div className="bg-white border border-slate-200 rounded shadow-sm overflow-hidden">
+                                                <button
+                                                    onClick={() => toggleSidebarSection('unit')}
+                                                    className="w-full px-3 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between hover:bg-slate-100 transition-colors"
+                                                >
+                                                    <div className="flex items-center gap-2">
+                                                        <FileText size={12} className="text-slate-400" />
+                                                        <span className="text-[10px] font-bold uppercase text-slate-600 tracking-wider">Unitats de Mesura</span>
+                                                    </div>
+                                                    {expandedSidebarSections.unit ? <ChevronDown size={12} className="text-slate-400" /> : <ChevronRight size={12} className="text-slate-400" />}
+                                                </button>
+                                                {expandedSidebarSections.unit && (
+                                                    <div className="p-3">
+                                                        <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Unitat</label>
+                                                        <input
+                                                            className="w-full p-2 text-xs border border-slate-200 rounded focus:border-blue-500 outline-none transition-all font-medium text-slate-700"
+                                                            value={node.unit}
+                                                            onChange={(e) => updateUnit(node.id, e.target.value)}
+                                                            placeholder="m², m³, ut, kg..."
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
 
                                         {/* Descripció Section */}
                                         <div className="bg-white border border-slate-200 rounded shadow-sm overflow-hidden">
@@ -3747,7 +3841,8 @@ export default function App() {
                                                                 </tr>
                                                             </thead>
                                                             <tbody className="divide-y divide-slate-100">
-                                                                {(node.measurements || []).map(m => (
+                                                                {/* Normal Lines */}
+                                                                {(node.measurements || []).filter(m => !m.isIncrement).map(m => (
                                                                     <tr key={m.id} className="group">
                                                                         <td className="p-1.5"><input type="text" value={m.description} onChange={(e) => updateMeasurement(node.id, m.id, 'description', e.target.value)} className="w-full bg-transparent border-none text-slate-600 outline-none p-0" /></td>
                                                                         <td className="p-1.5"><input type="number" value={m.units} onChange={(e) => updateMeasurement(node.id, m.id, 'units', e.target.value)} className="w-full text-right bg-transparent border-none font-mono outline-none p-0" /></td>
@@ -3767,12 +3862,43 @@ export default function App() {
                                                                         </td>
                                                                     </tr>
                                                                 ))}
+
+                                                                {/* Increment Lines */}
+                                                                {(node.measurements || []).filter(m => m.isIncrement).map(m => {
+                                                                    const subtotal = (node.measurements || []).filter(line => !line.isIncrement).reduce((acc, line) => acc + calcMeasureTotal(line), 0);
+                                                                    const partial = subtotal * ((parseFloat(m.units) || 0) / 100);
+
+                                                                    return (
+                                                                        <tr key={m.id} className="group bg-slate-50">
+                                                                            <td className="p-1.5 bg-slate-50"><input type="text" value={m.description} onChange={(e) => updateMeasurement(node.id, m.id, 'description', e.target.value)} className="w-full bg-transparent border-none text-slate-600 outline-none p-0 italic" /></td>
+                                                                            <td className="p-1.5 text-right text-slate-500 text-[10px]">%</td>
+                                                                            <td className="p-1.5"><input type="number" value={m.units} onChange={(e) => updateMeasurement(node.id, m.id, 'units', e.target.value)} className="w-full text-right bg-transparent border-none font-mono font-bold outline-none p-0" /></td>
+                                                                            <td colSpan={2} className="p-1.5 text-center text-slate-300">-</td>
+                                                                            <td className="p-1.5 text-right font-bold text-blue-900 bg-slate-50">
+                                                                                <div className="flex items-center justify-end gap-1">
+                                                                                    {formatNumber(partial, 2)}
+                                                                                    <button
+                                                                                        onClick={() => deleteMeasurementLine(node.id, m.id)}
+                                                                                        className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 p-0.5 ml-1"
+                                                                                    >
+                                                                                        <X size={10} />
+                                                                                    </button>
+                                                                                </div>
+                                                                            </td>
+                                                                        </tr>
+                                                                    )
+                                                                })}
                                                             </tbody>
                                                         </table>
-                                                        <div className="p-2 bg-slate-50 border-t border-slate-100 flex justify-between items-center">
-                                                            <button onClick={() => addMeasurementLine(node.id)} className="text-[9px] bg-white border border-slate-200 px-2 py-1 flex items-center gap-1 hover:bg-slate-100 transition-colors uppercase font-bold text-slate-600">
-                                                                <Plus size={10} /> Afegir línia
-                                                            </button>
+                                                        <div className="p-2 bg-slate-50 border-t border-slate-100 flex justify-between items-center gap-2">
+                                                            <div className="flex gap-2">
+                                                                <button onClick={() => addMeasurementLine(node.id)} className="text-[9px] bg-white border border-slate-200 px-2 py-1 flex items-center gap-1 hover:bg-slate-100 transition-colors uppercase font-bold text-slate-600">
+                                                                    <Plus size={10} /> Afegir línia
+                                                                </button>
+                                                                <button onClick={() => addIncrementLine(node.id)} className="text-[9px] bg-white border border-slate-200 px-2 py-1 flex items-center gap-1 hover:bg-slate-100 transition-colors uppercase font-bold text-slate-600">
+                                                                    <Percent size={10} /> Afegir %
+                                                                </button>
+                                                            </div>
                                                             <span className="text-[10px] font-mono font-bold text-blue-700">{formatNumber(calcItemTotalQty(node), 2)} {node.unit}</span>
                                                         </div>
                                                     </div>
