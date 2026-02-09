@@ -999,6 +999,46 @@ export default function App() {
 
     const isResizing = React.useRef(false);
 
+    // --- PWA File Handling API ---
+    useEffect(() => {
+        if ('launchQueue' in window) {
+            window.launchQueue.setConsumer(async (launchParams) => {
+                if (launchParams.files && launchParams.files.length > 0) {
+                    for (const handle of launchParams.files) {
+                        const file = await handle.getFile();
+                        const fileName = file.name.toLowerCase();
+
+                        if (fileName.endsWith('.json')) {
+                            const text = await file.text();
+                            try {
+                                const projectData = JSON.parse(text);
+                                if (projectData.budget && projectData.projectMetadata) {
+                                    setBudget(projectData.budget);
+                                    if (projectData.priceDatabase) setPriceDatabase(projectData.priceDatabase);
+                                    notify("Projecte carregat correctament");
+                                }
+                            } catch (e) {
+                                notify("Error carregant el projecte JSON", "error");
+                            }
+                        } else if (fileName.endsWith('.bc3')) {
+                            // We need to read as windows-1252 for BC3
+                            const reader = new FileReader();
+                            reader.onload = (ev) => {
+                                const result = processBC3Data(ev.target.result);
+                                if (result) {
+                                    startImportProcess(result);
+                                } else {
+                                    notify("Format BC3 no reconegut", "error");
+                                }
+                            };
+                            reader.readAsText(file, 'windows-1252');
+                        }
+                    }
+                }
+            });
+        }
+    }, [processBC3Data]); // processBC3Data is a useCallback
+
     const startResizing = useCallback(() => {
         isResizing.current = true;
         document.body.style.cursor = 'col-resize';

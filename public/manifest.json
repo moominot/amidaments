@@ -1,0 +1,41 @@
+{
+    "name": "Amidaments BC3",
+    "short_name": "Amidaments",
+    "description": "Aplicació de amidaments i pressupostos BC3",
+    "start_url": "/amidaments/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#2563eb",
+    "icons": [
+        {
+            "src": "icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "file_handlers": [
+        {
+            "action": "/amidaments/",
+            "accept": {
+                "application/x-bc3": [
+                    ".bc3"
+                ],
+                "text/plain": [
+                    ".bc3"
+                ]
+            }
+        }
+    ],
+    "orientation": "any",
+    "categories": [
+        "productivity",
+        "business"
+    ]
+}
