@@ -1839,7 +1839,7 @@ export default function App() {
             breakdown: breakdown,
             items: [],
             subChapters: [],
-            measurements: data.type === 'item' ? [{ id: crypto.randomUUID(), description: 'Base', units: 1, length: 1, width: 1, height: 1 }] : []
+            measurements: data.type === 'item' ? [{ id: crypto.randomUUID(), description: 'Base', units: 0, length: 0, width: 0, height: 0 }] : []
         };
 
         // Update DB if price is set
