@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="primaryGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1e40af;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="100" fill="url(#primaryGradient)" />
+  <path d="M120 160h272v192H120z" fill="#ffffff" opacity="0.2" />
+  <g fill="none" stroke="#ffffff" stroke-width="24" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Calculator-like grid -->
+    <rect x="140" y="140" width="232" height="232" rx="20" />
+    <line x1="140" y1="200" x2="372" y2="200" />
+    <line x1="217" y1="200" x2="217" y2="372" />
+    <line x1="294" y1="200" x2="294" y2="372" />
+    <line x1="140" y1="286" x2="372" y2="286" />
+    
+    <!-- Measuring tape symbol -->
+    <path d="M140 372v40c0 22 18 40 40 40h152c22 0 40-18 40-40v-40" stroke-opacity="0.8" />
+    <line x1="180" y1="412" x2="180" y2="452" />
+    <line x1="220" y1="412" x2="220" y2="452" />
+    <line x1="260" y1="412" x2="260" y2="452" />
+    <line x1="300" y1="412" x2="300" y2="452" />
+    <line x1="340" y1="412" x2="340" y2="452" />
+  </g>
+  <!-- Main Checkmark / Plus -->
+  <circle cx="372" cy="140" r="60" fill="#10b981" />
+  <path d="M347 140l15 15 35-35" fill="none" stroke="#ffffff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
+</svg>
