@@ -3072,9 +3072,9 @@ export default function App() {
                 <div className="bg-slate-100 px-4 py-1.5 border-b border-slate-300 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <Tag size={12} className="text-blue-500" />
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Justificació de Preu Unitari: {node.code}</span>
+                        <span className="text-[11px] font-black uppercase tracking-widest text-slate-500">Justificació de Preu Unitari: {node.code}</span>
                     </div>
-                    <button onClick={() => addBreakdownLine(node.id)} className="text-[9px] bg-white border border-slate-300 px-2 py-0.5 hover:bg-slate-50 flex items-center gap-1 uppercase font-bold">
+                    <button onClick={() => addBreakdownLine(node.id)} className="text-[10px] bg-white border border-slate-300 px-2 py-0.5 hover:bg-slate-50 flex items-center gap-1 uppercase font-bold">
                         <Plus size={10} /> Afegir Component
                     </button>
                 </div>
@@ -3082,7 +3082,7 @@ export default function App() {
                 {Object.entries(categories).map(([key, cat]) => (
                     cat.items.length > 0 && (
                         <div key={key}>
-                            <div className={`${cat.bg} px-4 py-1 text-[9px] uppercase font-bold tracking-widest ${cat.color} border-y border-slate-100`}>
+                            <div className={`${cat.bg} px-4 py-1 text-[10px] uppercase font-bold tracking-widest ${cat.color} border-y border-slate-100`}>
                                 {cat.label}
                             </div>
                             <table className="w-full text-[11px]">
@@ -3144,7 +3144,7 @@ export default function App() {
                                 </tbody>
                                 <tfoot className="bg-white/50">
                                     <tr>
-                                        <td colSpan={5} className="p-1 px-4 text-right text-[9px] uppercase opacity-50">Subtotal {cat.label}</td>
+                                        <td colSpan={5} className="p-1 px-4 text-right text-[10px] md:text-[9px] uppercase opacity-50">Subtotal {cat.label}</td>
                                         <td className="p-1 px-2 text-right font-mono text-xs font-bold opacity-70">{formatCurrency(cat.total)}</td>
                                         <td></td>
                                     </tr>
@@ -3156,7 +3156,7 @@ export default function App() {
 
                 <div className="bg-slate-50 border-t border-slate-200">
                     <div className="flex justify-between items-center p-2 px-4">
-                        <span className="text-[10px] uppercase font-black text-slate-500 tracking-widest">Cost Directe Total</span>
+                        <span className="text-[11px] uppercase font-black text-slate-500 tracking-widest">Cost Directe Total</span>
                         <span className="font-mono font-bold text-blue-700">{formatCurrency(totalCost)}</span>
                     </div>
                 </div>
@@ -3278,28 +3278,28 @@ export default function App() {
                                 {node.unit && <FileText size={12} className="md:w-3.5 md:h-3.5 text-slate-300" />}
                             </div>
                         </td>
-                        <td className="p-1 md:p-2 font-mono text-[8px] md:text-[10px] text-slate-400 w-16 md:w-28" style={{ paddingLeft: `${node.unit ? level * 8 + 4 : level * 8}px` }}>
+                        <td className="p-1 md:p-2 font-mono text-[10px] md:text-[10px] text-slate-400 w-16 md:w-28" style={{ paddingLeft: `${node.unit ? level * 8 + 4 : level * 8}px` }}>
                             {node.code}
                         </td>
                         <td className="p-1 md:p-2 text-slate-800 min-w-0">
                             <div className="flex flex-col min-w-0">
-                                <span className={`text-[9px] md:text-[11px] ${!node.unit ? 'font-bold uppercase tracking-tight text-slate-600' : 'font-medium'} whitespace-normal break-words`}>
+                                <span className={`text-[11px] md:text-[11px] ${!node.unit ? 'font-bold uppercase tracking-tight text-slate-600' : 'font-medium'} whitespace-normal break-words`}>
                                     {node.description}
                                 </span>
                                 {/* Mobile: Show unit, qty, price below description with labels */}
-                                <div className="md:hidden flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-[8px] text-slate-500">
+                                <div className="md:hidden flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-[10px] text-slate-500">
                                     {node.unit && (
                                         <>
                                             <div className="flex items-center gap-1">
-                                                <span className="text-[7px] uppercase font-bold text-slate-300">Ud</span>
+                                                <span className="text-[8px] uppercase font-bold text-slate-300">Ud</span>
                                                 <span className="italic">{node.unit}</span>
                                             </div>
                                             <div className="flex items-center gap-1">
-                                                <span className="text-[7px] uppercase font-bold text-slate-300">Q</span>
+                                                <span className="text-[8px] uppercase font-bold text-slate-300">Q</span>
                                                 <span className="font-mono">{formatNumber(calcItemTotalQty(node), 2)}</span>
                                             </div>
                                             <div className="flex items-center gap-1">
-                                                <span className="text-[7px] uppercase font-bold text-slate-300">Pr</span>
+                                                <span className="text-[8px] uppercase font-bold text-slate-300">Pr</span>
                                                 <span className="font-mono">{formatPrice(getItemUnitPrice(node))}</span>
                                             </div>
                                         </>
@@ -3314,7 +3314,7 @@ export default function App() {
                             {node.unit ? formatPrice(getItemUnitPrice(node)) : ''}
                         </td>
                         {/* Total - Always visible */}
-                        <td className="p-1 md:p-2 text-right font-mono font-bold text-slate-700 w-20 md:w-32 text-[9px] md:text-[11px]">
+                        <td className="p-1 md:p-2 text-right font-mono font-bold text-slate-700 w-20 md:w-32 text-[11px] md:text-[11px]">
                             <div className="flex items-center justify-end gap-2">
                                 {node.unit ? formatCurrency(calcItemTotalAmount(node)) : formatCurrency(calcChapterTotal(node))}
                                 <button
@@ -3498,14 +3498,14 @@ export default function App() {
                         <tbody className="text-sm divide-y divide-slate-100">
                             {prices.map(([code, data]) => (
                                 <tr key={code} className="hover:bg-slate-50 group">
-                                    <td className="p-2 md:p-3 font-mono text-[9px] md:text-[11px] text-slate-400 border-r border-slate-200">{code}</td>
+                                    <td className="p-2 md:p-3 font-mono text-[10px] md:text-[11px] text-slate-400 border-r border-slate-200">{code}</td>
                                     <td className="p-2 md:p-3 text-slate-700 min-w-0">
                                         <div className="flex flex-col min-w-0">
-                                            <span className="text-[9px] md:text-[11px] font-medium whitespace-normal break-words">{data.summary}</span>
+                                            <span className="text-[11px] md:text-[11px] font-medium whitespace-normal break-words">{data.summary}</span>
                                             {/* Mobile stacked details */}
-                                            <div className="md:hidden flex items-center gap-2 mt-0.5 text-[8px] text-slate-400">
+                                            <div className="md:hidden flex items-center gap-2 mt-0.5 text-[10px] text-slate-400">
                                                 <div className="flex items-center gap-1">
-                                                    <span className="text-[7px] uppercase font-bold text-slate-300">Ud</span>
+                                                    <span className="text-[8px] uppercase font-bold text-slate-300">Ud</span>
                                                     <span className="italic">{data.unit || '—'}</span>
                                                 </div>
                                             </div>
@@ -3514,11 +3514,11 @@ export default function App() {
                                     <td className="hidden md:table-cell p-3 text-center text-slate-400 italic border-x border-slate-200">{data.unit || '—'}</td>
                                     <td className="p-2 md:p-3 text-right font-mono font-bold text-blue-800 bg-blue-50/10 group-hover:bg-blue-50/30">
                                         <div className="flex items-center justify-end gap-1 md:gap-2">
-                                            <span className="text-[10px] md:text-xs text-slate-300">€</span>
+                                            <span className="text-[11px] md:text-xs text-slate-300">€</span>
                                             <input
                                                 type="number"
                                                 step="0.01"
-                                                className="bg-transparent text-right border-b border-transparent hover:border-blue-300 focus:border-blue-600 outline-none w-14 md:w-24 font-bold text-blue-700 text-[10px] md:text-sm"
+                                                className="bg-transparent text-right border-b border-transparent hover:border-blue-300 focus:border-blue-600 outline-none w-14 md:w-24 font-bold text-blue-700 text-[11px] md:text-sm"
                                                 value={data.price}
                                                 onChange={(e) => updateDbPrice(code, e.target.value)}
                                             />
@@ -3999,7 +3999,7 @@ export default function App() {
                                             <h2 className="text-sm font-bold text-slate-800 truncate">{node.description}</h2>
                                         </div>
                                         <div className="flex items-center justify-between">
-                                            <p className="text-[9px] text-slate-400 uppercase font-bold tracking-widest">{node.unit ? 'Detall de Partida' : 'Detall de Capítol'}</p>
+                                            <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest">{node.unit ? 'Detall de Partida' : 'Detall de Capítol'}</p>
                                             <div className="flex items-center gap-1">
                                                 <span className="text-[10px] font-black bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
                                                     {node.unit ? formatCurrency(calcItemTotalAmount(node)) : formatCurrency(calcChapterTotal(node))}
@@ -4018,14 +4018,14 @@ export default function App() {
                                             >
                                                 <div className="flex items-center gap-2">
                                                     <Tag size={12} className="text-slate-400" />
-                                                    <span className="text-[10px] font-bold uppercase text-slate-600 tracking-wider">Identificació</span>
+                                                    <span className="text-[11px] md:text-[10px] font-bold uppercase text-slate-600 tracking-wider">Identificació</span>
                                                 </div>
                                                 {expandedSidebarSections.title ? <ChevronDown size={12} className="text-slate-400" /> : <ChevronRight size={12} className="text-slate-400" />}
                                             </button>
                                             {expandedSidebarSections.title && (
                                                 <div className="p-3 space-y-3">
                                                     <div>
-                                                        <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Concepte / Títol</label>
+                                                        <label className="text-[10px] md:text-[9px] font-bold text-slate-400 uppercase mb-1 block">Concepte / Títol</label>
                                                         <textarea
                                                             className="w-full p-2 text-xs border border-slate-200 rounded focus:border-blue-500 outline-none transition-all resize-none font-medium text-slate-700"
                                                             rows={2}
@@ -4052,7 +4052,7 @@ export default function App() {
                                                 </button>
                                                 {expandedSidebarSections.unit && (
                                                     <div className="p-3">
-                                                        <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Unitat</label>
+                                                        <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Unitat</label>
                                                         <input
                                                             className="w-full p-2 text-xs border border-slate-200 rounded focus:border-blue-500 outline-none transition-all font-medium text-slate-700"
                                                             value={node.unit}
@@ -4097,14 +4097,14 @@ export default function App() {
                                                 >
                                                     <div className="flex items-center gap-2">
                                                         <Calculator size={12} className="text-slate-400" />
-                                                        <span className="text-[10px] font-bold uppercase text-slate-600 tracking-wider">Detall d'Amidament</span>
+                                                        <span className="text-[11px] md:text-[10px] font-bold uppercase text-slate-600 tracking-wider">Detall d'Amidament</span>
                                                     </div>
                                                     {expandedSidebarSections.measurements ? <ChevronDown size={12} className="text-slate-400" /> : <ChevronRight size={12} className="text-slate-400" />}
                                                 </button>
                                                 {expandedSidebarSections.measurements && (
                                                     <div className="p-0">
-                                                        <table className="w-full text-[11px]">
-                                                            <thead className="bg-slate-50 border-b border-slate-100 text-[9px] uppercase text-slate-400 font-bold">
+                                                        <table className="w-full text-xs md:text-[11px]">
+                                                            <thead className="bg-slate-50 border-b border-slate-100 text-[10px] md:text-[9px] uppercase text-slate-400 font-bold">
                                                                 <tr>
                                                                     <th className="p-2 text-left">Ref</th>
                                                                     <th className="p-2 text-right w-12">Ud</th>
@@ -4145,7 +4145,7 @@ export default function App() {
                                                                     return (
                                                                         <tr key={m.id} className="group bg-slate-50">
                                                                             <td className="p-1.5 bg-slate-50"><input type="text" value={m.description} onChange={(e) => updateMeasurement(node.id, m.id, 'description', e.target.value)} className="w-full bg-transparent border-none text-slate-600 outline-none p-0 italic" /></td>
-                                                                            <td className="p-1.5 text-right text-slate-500 text-[10px]">%</td>
+                                                                            <td className="p-1.5 text-right text-slate-500 text-[11px] md:text-[10px]">%</td>
                                                                             <td className="p-1.5"><input type="number" value={m.units} onChange={(e) => updateMeasurement(node.id, m.id, 'units', e.target.value)} className="w-full text-right bg-transparent border-none font-mono font-bold outline-none p-0" /></td>
                                                                             <td colSpan={2} className="p-1.5 text-center text-slate-300">-</td>
                                                                             <td className="p-1.5 text-right font-bold text-blue-900 bg-slate-50">
@@ -4166,14 +4166,14 @@ export default function App() {
                                                         </table>
                                                         <div className="p-2 bg-slate-50 border-t border-slate-100 flex justify-between items-center gap-2">
                                                             <div className="flex gap-2">
-                                                                <button onClick={() => addMeasurementLine(node.id)} className="text-[9px] bg-white border border-slate-200 px-2 py-1 flex items-center gap-1 hover:bg-slate-100 transition-colors uppercase font-bold text-slate-600">
+                                                                <button onClick={() => addMeasurementLine(node.id)} className="text-[10px] md:text-[9px] bg-white border border-slate-200 px-2 py-1 flex items-center gap-1 hover:bg-slate-100 transition-colors uppercase font-bold text-slate-600">
                                                                     <Plus size={10} /> Afegir línia
                                                                 </button>
-                                                                <button onClick={() => addIncrementLine(node.id)} className="text-[9px] bg-white border border-slate-200 px-2 py-1 flex items-center gap-1 hover:bg-slate-100 transition-colors uppercase font-bold text-slate-600">
+                                                                <button onClick={() => addIncrementLine(node.id)} className="text-[10px] md:text-[9px] bg-white border border-slate-200 px-2 py-1 flex items-center gap-1 hover:bg-slate-100 transition-colors uppercase font-bold text-slate-600">
                                                                     <Percent size={10} /> Afegir %
                                                                 </button>
                                                             </div>
-                                                            <span className="text-[10px] font-mono font-bold text-blue-700">{formatNumber(calcItemTotalQty(node), 2)} {node.unit}</span>
+                                                            <span className="text-[11px] md:text-[10px] font-mono font-bold text-blue-700">{formatNumber(calcItemTotalQty(node), 2)} {node.unit}</span>
                                                         </div>
                                                     </div>
                                                 )}
@@ -4220,7 +4220,7 @@ export default function App() {
                     <Info size={24} className="text-blue-400" />
                     <div className="flex flex-col">
                         <span className="text-sm font-bold tracking-tight leading-none mb-1">{notification.msg}</span>
-                        <span className="text-[9px] opacity-60 font-bold uppercase">Sistema de gestió BC3</span>
+                        <span className="text-[10px] opacity-60 font-bold uppercase">Sistema de gestió BC3</span>
                     </div>
                 </div>
             )}
