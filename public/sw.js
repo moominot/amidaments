@@ -1,4 +1,4 @@
-const CACHE_NAME = 'amidaments-v1';
+const CACHE_NAME = 'amidaments-v1.1';
 const ASSETS_TO_CACHE = [
   '/amidaments/',
   '/amidaments/index.html',
