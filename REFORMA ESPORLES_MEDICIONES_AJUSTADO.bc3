@@ -1,0 +1,658 @@
+~V|SOFT S.A.|FIEBDC-3/2002|Presto 8.7||ANSI|
+~K|\2\2\3\2\2\2\2\EUR\|0|
+~C|%0400|%|Medios auxiliares|4|090924|0|
+~C|%0600|%|Medios auxiliares|6|270912|0|
+~C|%0700|%|Medios auxiliares|7|270912|0|
+~C|%0870|%|Medios auxiliares|8.7|270912|0|
+~C|%0880|%|Medios auxiliares|8.8|270912|0|
+~C|%0910|%|Medios auxiliares|9.1|270912|0|
+~C|%1110|%|Medios auxiliares|11.1|270912|0|
+~C|00#||TRABAJOS PREVIOS Y NOTAS PRELIMINARES|0|020409|0|
+~D|00#|RE00.01\1\0\|
+~C|01#||ACTUACIONES PREVIAS|200.79|210125|0|
+~D|01#|RE01.01\1\1\|
+~C|02#||DEMOLICIONES|4110.96|270912|0|
+~D|02#|RE02.01\1\0\RE02.02\1\1\RE02.03\1\1\RE02.04\1\1\RE02.05\1\1\RE02.06\1\1\RE02.07\1\1\RE02.08\1\27.79\RE02.09\1\38.59\RE02.10\1\5.2\RE02.11\1\1\RE02.12\1\14\RE02.13\1\6\RE02.14\1\2\RE02.15\1\1\|
+~C|03#||FORJADOS Y HORMIGONES|15722.26|270912|0|
+~D|03#|RE03.01\1\5.58\RE03.02\1\5\RE03.03\1\10.21\RE03.04\1\22.25\RE03.05\1\47.39\RE03.06\1\53.18\RE03.07\1\9.75\RE03.08\1\8\|
+~C|04#||CUBIERTAS|4621.06|100520|0|
+~D|04#|RE04.01\1\21.56\RE04.02\1\90.6\RE04.03\1\7.25\RE04.04\1\23.55\|
+~C|05#||FABRICAS Y TABIQUES|9269.45|270912|0|
+~D|05#|RE05.01\1\1\RE05.02\1\1\|
+~C|06#||RED DE SANEAMIENTO Y PLUVIALES|3798.57|301123|0|
+~D|06#|RE06.01\1\1\RE06.02\1\1\RE06.03\1\2\RE06.04\1\15.15\RE06.05\1\17.4\RE06.06\1\1\|
+~C|07#||REVOCOS Y ENLUCIDOS|18255.78|270912|0|
+~D|07#|RE07.01\1\1\RE07.02\1\294.91\RE07.03\1\322.03\RE07.04\1\13.42\RE07.05\1\1\RE07.06\1\1\RE07.07\1\36.12\RE07.08\1\46.47\RE07.09\1\104.93\RE07.10\1\0.72\RE07.11\1\0.85\RE07.12\1\9\|
+~C|08#||SOLADOS Y ALICATADOS|10838.15|070623|0|
+~D|08#|RE08.01\1\118.7\RE08.02\1\118.7\RE08.03\1\137.88\RE08.04\1\137.88\RE08.05\1\37.98\RE08.06\1\28.37\RE08.07\1\6.78\RE08.08\1\1.26\RE08.09\1\5.52\RE08.10\1\2.86\RE08.11\1\7.8\RE08.12\1\1.6\RE08.13\1\0.85\RE08.14\1\2.86\RE08.15\1\7.8\RE08.16\1\1.6\RE08.17\1\0.85\RE08.18\1\17.57\RE08.19\1\17.57\|
+~C|09#||AISLAMIENTOS E IMPERMEABILIZACIONES|2404.43|210622|0|
+~D|09#|RE09.01\1\88.84\RE09.02\1\4.66\RE09.03\1\8.65\RE09.04\1\5.52\|
+~C|10#||FIRMES Y PAVIMENTOS|2771.68|050125|0|
+~D|10#|RE10.01\1\53.59\RE10.02\1\18.85\RE10.03\1\15.1\|
+~C|11#||ALBAÑILERIA Y CANTERIA|8877.17|270912|0|
+~D|11#|RE11.01\1\1\RE11.02\1\1\RE11.03\1\1\RE11.04\1\1\RE11.05\1\1\RE11.06\1\1\RE11.07\1\1\RE11.08\1\1\RE11.09\1\1\RE11.10\1\1\RE11.11\1\1\RE11.12\1\1\RE11.13\1\1\RE11.14\1\30.43\RE11.15\1\1\RE11.16\1\1\|
+~C|12#||CARPINTERIA DE MADERA|10578.96|070125|0|
+~D|12#|RE12.01\1\1\RE12.02\1\1\|
+~C|13#||CERRAJERIA|1343.48|170125|0|
+~D|13#|RE13.01\1\9.63\RE13.02\1\1.83\RE13.03\1\1.6\|
+~C|14#||PINTURA|8302.81|230420|0|
+~D|14#|RE14.01\1\417.69\RE14.02\1\76.17\RE14.03\1\77.06\RE14.04\1\194.15\RE14.05\1\53.61\|
+~C|15#||VIDRIERIA|247.38|101022|0|
+~D|15#|RE15.01\1\1\|
+~C|16#||INSTALACION DE FONTANERIA|6089.5|111122|0|
+~D|16#|RE16.01\1\1\|
+~C|17#||INSTALACION DE ELECTRICIDAD Y TELECOM.|4544.07|270125|0|
+~D|17#|RE17.01\1\1\|
+~C|18#||INSTALACION DE CALEFACCIÓN Y CLIMATIZAZCIÓN|9743.79|210125|0|
+~D|18#|RE18.01\1\1\|
+~C|19#||INSTALACION DE VENTILACIÓN|885.29|301123|0|
+~D|19#|RE19.01\1\1\|
+~C|20#||AYUDAS|5918.04|270912|0|
+~D|20#|RE20.01\1\207.65\RE20.02\1\207.65\RE20.03\1\207.65\RE20.04\1\207.65\RE20.05\1\6\RE20.06\1\6\RE20.07\1\2\RE20.08\1\4\RE20.09\1\9.63\RE20.10\1\3.43\RE20.11\1\1\|
+~C|21#||CONTROL DE CALIDAD|290.26|240217|0|
+~D|21#|RE21.01\1\3\RE21.02\1\1\RE21.03\1\1\RE21.04\1\1\|
+~C|22#||GESTION DE RESIDUOS|3686.38|270912|0|
+~D|22#|RE22.01\1\64.06\RE22.02\1\16\RE22.03\1\8.97\RE22.04\1\1\|
+~C|23#||SEGURIDAD Y SALUD|2704.35|170125|0|
+~D|23#|RE23.01\1\1\|
+~C|A0104.0110|m3|mortero c.p. y arena cantera 1:3|109.89|270912|3|
+~D|A0104.0110|B0001.0060\1\3.5\B0101.0010\1\0.26\B0202.0050\1\0.44\B0401.0050\1\0.975\%0600\1\0.06\|
+~C|A0104.0120|m3|mortero c.p. y arena cantera 1:4|101.69|270912|3|
+~D|A0104.0120|B0001.0060\1\3.5\B0101.0010\1\0.26\B0202.0050\1\0.35\B0401.0050\1\1.03\%0600\1\0.06\|
+~C|B0001.0030|h|oficial 1ª|10.47|240217|1|
+~C|B0001.0060|h|Peon especializado|9.42|150120|1|
+~C|B0101.0010|m3|agua|0.82|270912|3|
+~C|B0202.0050|Tn|cemento gris II-BM 32.5, a granel.|101.98|270912|3|
+~C|B0401.0050|Tn|arena de cantera (0/3 mm)|26.28|210617|3|
+~C|B1602.0240|u|gafa punta|0.07|270912|3|
+~C|RE00.01||definicion de formas de medir|0|020409|0|
+~C|RE01.01|pa|Replanteo general de la obra|200.79|210125|0|
+~C|RE02.01||Trabajos relacionados con la modificación de huecos y revestimie|0|140322|0|
+~C|RE02.02|pa|Demolición completa escalera interior planta baja|334.07|041224|0|
+~C|RE02.03|pa|Demolición completa escalera interior planta piso a cubierta|334.07|041224|0|
+~C|RE02.04|pa|Demolición de forjado plano interior comedor|556.79|090125|0|
+~C|RE02.05|pa|Demolición forjado inclinado cubierta primer aiguavés|467.7|090125|0|
+~C|RE02.06|pa|Demolición forjado inclinado cubierta segundo aiguavés|467.7|090125|0|
+~C|RE02.07|pa|Demolición de forjado plano cubierta|723.82|090125|0|
+~C|RE02.08|m2|Demolición de fábrica de bloque o ladrillo, de 20 cm de espesor|17.27|270912|0|
+~D|RE02.08|mo113\1\1.123\%0700\1\0.07\|
+~C|RE02.09|m2|Demolición de tabique de bloque o ladrillo, de 5 cm de espesor|6.16|270912|0|
+~D|RE02.09|mo113\1\0.4\%0700\1\0.07\|
+~C|RE02.10|m|Demolición de vierteaguas|3.93|270912|0|
+~D|RE02.10|mo020\1\0.135\mo113\1\0.135\%0700\1\0.07\|
+~C|RE02.11|pa|Demolición completa de cubierta patio interior|278.39|210125|0|
+~C|RE02.12|u|Desmontaje de carpintería acristalada en fachada, de menos de 3|7.77|270912|0|
+~D|RE02.12|mo113\1\0.505\%0700\1\0.07\|
+~C|RE02.13|u|Desmontaje de puerta interior 1h de carpintería de mad.|6.17|270912|0|
+~D|RE02.13|mo058\1\0.309\%0700\1\0.07\|
+~C|RE02.14|u|Desmontaje de persiana mallorquina 2h|6.02|270912|0|
+~D|RE02.14|mo018\1\0.14\mo059\1\0.14\%0700\1\0.07\|
+~C|RE02.15|pa|Desmontaje de canalones y bajantes red aguas pluviales|52.5|270912|0|
+~D|RE02.15|mo102\1\2\mo113\1\2\%0700\1\0.07\|
+~C|RE03.01|m3|Zuncho recto de apoyo de forjado de hormigón arm. HA-30/F/15/XS1|515.6|270912|0|
+~D|RE03.01|mt08eva020\1\10\mt07aco020c\1\20\mt07aco010c\1\105\mt10haf010nsa\1\1.05\mo042\1\1.008\mo089\1\2.017\%0700\1\0.07\|
+~C|RE03.02|m2|Forj. plano vig. mad. lam. GL24 10x20, entrevig. OSB3 1,5 y capa|89.09|170125|0|
+~C|RE03.03|m2|Forj. plano vig. mad. lam. GL24 10x20, entrevig. OSB3 1,5 y capa|89.09|170125|0|
+~C|RE03.04|m2|Forj. plano vig. mad. lam. GL24 10x20, entrevig. aislam. y capa|116.93|170125|0|
+~C|RE03.05|m2|Capa compresión 5cm p.piso con conectores a vigas|26.73|210125|0|
+~C|RE03.06|m2|Forj. inclinado vig. mad. lam. GL24 10x20, sandwich 14cm esp.|111.36|170125|0|
+~C|RE03.07|m2|Forj. incl. vig. mad. lam. GL24 10x20cm, entrevig. aislam y OSB3|105.79|170125|0|
+~C|RE03.08|m2|Forj. incl. zona bajo cubierta sala maq. sandwich 14cm esp.|83.52|170125|0|
+~C|RE04.01|m2|Formación cubierta plana transitable y lam. gurú|22.47|180722|0|
+~C|RE04.02|m2|Cubierta teja árabe|34.59|100520|0|
+~C|RE04.03|ml|Formación de alero de marés|47.88|210125|0|
+~C|RE04.04|ml|Formación de encuentro cubierta con ed. colindantes|27.84|210125|0|
+~C|RE05.01#||Fábrica de ladrillo|3532.85|270912|0|
+~D|RE05.01#|RE05.01.01\1\65.85\|
+~C|RE05.01.01|m2|Fábrica de ladrillo hueco de 20 cms con ladrillo H-20 de carga|53.65|270912|0|
+~D|RE05.01.01|mt04lgb011a\1\26\mt09mif010dba\1\0.03\mo021\1\0.48\mo114\1\0.48\%0700\1\0.07\|
+~C|RE05.02#||Tabiques prefabricados|5736.6|170125|0|
+~D|RE05.02#|RE05.02.01\1\69.05\RE05.02.02\1\24.73\RE05.02.03\1\2\RE05.02.04\1\0.88\|
+~C|RE05.02.01|m2|Trasdosado autoportante 48+LR/OSB15/YL12.5 (7.5cm)|50.11|170125|0|
+~C|RE05.02.02|m2|Tabiqueria seca YL12.5/OSB15/48+LR/OSB15/YL12.5 (10.5cm)|63.47|170125|0|
+~C|RE05.02.03|u|armazón metálico para puerta corredera lavabo|311.8|170125|0|
+~C|RE05.02.04|ml|Formación cajon trasdosado depósito Geberit baños|94.65|210125|0|
+~C|RE06.01|pa|Instalación completa de saneamiento|1336.29|301123|0|
+~C|RE06.02|pa|Instalación general de pluviales|835.18|210125|0|
+~C|RE06.03|u|Caldereta sumidero 19x19 cm|50.11|210125|0|
+~C|RE06.04|ml|Canal de zinc 330 mm de desarrollo|52.34|210125|0|
+~C|RE06.05|ml|Bajante de zinc 80 mm|38.98|210125|0|
+~C|RE06.06|u|Gárgola bajante y rebosadero pluv. de barro|55.68|210125|0|
+~C|RE07.01|pa|saneado y picoteado total de paredes muros interiores|1057.9|301123|0|
+~C|RE07.02|m2|Enfoscado basto maestreado vertical interior|15.01|270912|0|
+~D|RE07.02|mt09mif020a\1\0.02\mt09var030a\1\0.3\mo020\1\0.5\mo113\1\0.25\%0700\1\0.07\|
+~C|RE07.03|m2|Guarnecido y enlucido vertical de yeso maestreado|22.01|090924|0|
+~D|RE07.03|mt28vye020\1\0.105\mt09pye010b\1\0.012\mt09pye010a\1\0.003\mt28vye010\1\0.215\mo033\1\0.4\mo071\1\0.2\%0400\1\0.04\|
+~C|RE07.04|m2|Placa yeso laminado directo entrevigado|42.76|210125|0|
+~C|RE07.05|pa|saneado y renov. de paredes exteriores fach. principal|890.86|301123|0|
+~C|RE07.06|pa|saneado y renov. de paredes exteriores fach. posterior|445.43|180125|0|
+~C|RE07.07|m2|Eliminación de enfoscado de cemento vertical fachadas|9.5|270912|0|
+~D|RE07.07|mo113\1\0.618\%0700\1\0.07\|
+~C|RE07.08|m2|Enfoscado basto maestreado vertical exterior|15.01|270912|0|
+~D|RE07.08|mt09mif020a\1\0.02\mt09var030a\1\0.3\mo020\1\0.5\mo113\1\0.25\%0700\1\0.07\|
+~C|RE07.09|m2|Enfoscado maestreado y revoco fratasado exterior|23.29|270912|0|
+~D|RE07.09|mt09mif020d\1\0.03\mt09var030a\1\0.3\mo020\1\0.8\mo113\1\0.4\%0700\1\0.07\|
+~C|RE07.10|m2|Falso techo cont. suspend. placas aquapanel para exterior|64.59|131122|0|
+~C|RE07.11|ml|Tabica vertical placas aquapanel para exterior|50.11|210125|0|
+~C|RE07.12|m2|Guarnecido y enlucido de yeso bajo escalera "volta cat."|22.19|090924|0|
+~D|RE07.12|mt28vye020\1\0.105\mt09pye010b\1\0.014\mt09pye010a\1\0.003\mt28vye010\1\0.215\mo033\1\0.377\mo071\1\0.22\%0400\1\0.04\|
+~C|RE08.01|m2|SUM. sol. gres porcelanico 60x60cm int.|15.22|130623|0|
+~C|RE08.02|m2|COL. sol. gres porcelanico 60x60cm int.|23.34|070623|0|
+~C|RE08.03|ml|SUM. rodapie gres porcelanico 7 cm interior|6.09|070623|0|
+~C|RE08.04|ml|COL. rodapie gres porcelanico 7 cm interior|8.12|070623|0|
+~C|RE08.05|m2|Solado bal. barro cocido 20x20 cm y trat hidrof. en terrazas|42.32|101123|0|
+~C|RE08.06|ml|Rodapié cer. barro cocido 20x20 cm y trat. hidrof. en terrazas|12.25|301123|0|
+~C|RE08.07|m2|SUM. bal. hidráulicas cuadradas, de 20x20 cm ducha|44.54|301123|0|
+~C|RE08.08|m2|COL. bal. hidráulicas cuadradas, de 20x20 cm en suelo ducha|35.63|170125|0|
+~C|RE08.09|m2|COL. bal. hidráulicas cuadradas, de 20x20 cm en par. vert. ducha|30.07|301123|0|
+~C|RE08.10|ml|SUM. Fiola Piedra Caliza abuj. envej. e hidrofugada 24cm|33.41|170125|0|
+~C|RE08.11|ml|SUM. Fiola Piedra Caliza abuj. envej. e hidrofugada 28cm|35.63|170125|0|
+~C|RE08.12|ml|SUM. Fiola Piedra Caliza abuj. envej. e hidrofugada 70cm|55.68|170125|0|
+~C|RE08.13|ml|SUM. Fiola Piedra Caliza abuj. envej. e hidrofugada 80cm|66.81|170125|0|
+~C|RE08.14|ml|COL. Fiola Piedra Caliza 24cm|13.36|170125|0|
+~C|RE08.15|ml|COL. Fiola Piedra Caliza 28cm|13.36|170125|0|
+~C|RE08.16|ml|COL. Fiola Piedra Caliza 70cm|20.04|170125|0|
+~C|RE08.17|ml|COL. Fiola Piedra Caliza 80cm|20.04|170125|0|
+~C|RE08.18|m2|SUM. piezas Piedra Caliza escalera|45.66|210125|0|
+~C|RE08.19|m2|COL. piezas Piedra Caliza escalera|18.27|070623|0|
+~C|RE09.01|m2|Lámina impermeable de cubierta inclinada Water Stop Gurú|21.45|210622|0|
+~C|RE09.02|m2|Lámina impermeable bajo fiolas Water Stop Gurú|49.48|111122|0|
+~C|RE09.03|m2|Lámina imperm. suelos baños Water Stop Gurú|18.93|301123|0|
+~C|RE09.04|m2|Impermeabilización paredes ducha Water Stop Gurú|18.93|210125|0|
+~C|RE10.01|m2|Solera p/instal y XPS 7cm + 5cm capa compr. HM fibr. p.baja|31.18|050125|0|
+~C|RE10.02|m2|Solera p/instal HM fibr. 5cm p.piso|20.04|170125|0|
+~C|RE10.03|m2|Solera p/instal y XPS 34cm + 5cm capa c. fibr. p.piso|47.88|170125|0|
+~C|RE11.01|pa|modifiación y abertura de hueco y apeo 1|890.86|170125|0|
+~C|RE11.02|pa|modifiación y abertura de hueco y apeo 2|890.86|170125|0|
+~C|RE11.03|pa|abertura de hueco y apeo 3|556.79|170125|0|
+~C|RE11.04|pa|modificación y abertura de hueco y apeo 4|556.79|170125|0|
+~C|RE11.05|pa|modificación de hueco en balconera fachada principal|334.07|170125|0|
+~C|RE11.06|pa|modificación de hueco en ventana fach. principal|334.07|170125|0|
+~C|RE11.07|pa|modificación de hueco en ventana fach. posterior|389.75|170125|0|
+~C|RE11.08|pa|tapiado de hueco existente en fachada posterior|278.39|170125|0|
+~C|RE11.09|pa|modificación de hueco en balconera fach. patio|222.72|210125|0|
+~C|RE11.10|pa|recrecido brancales paso muro interior pbaja|167.04|170125|0|
+~C|RE11.11|pa|abertura y recuperación hueco muro interior ppiso|167.04|170125|0|
+~C|RE11.12|pa|recrecido brancales paso muro interior ppiso|167.04|170125|0|
+~C|RE11.13|u|Formación losa escalera completa con volta catalana|2449.87|210125|0|
+~C|RE11.14|ml|Peldañeado de escalera, mediante ladrillo cerámico hueco|31.17|270912|0|
+~D|RE11.14|mt04lgb010f\1\3.1\mt09mif010dba\1\0.019\mo020\1\0.5\mo077\1\0.5\%0700\1\0.07\|
+~C|RE11.15|u|Formación plato ducha de obra|278.39|170125|0|
+~C|RE11.16|u|Chimenea cubierta y sombrerete|244.99|170125|0|
+~C|RE12.01#||EXTERIOR|6013.31|070125|0|
+~D|RE12.01#|RE12.01.01\1\1\RE12.01.02\1\1\RE12.01.03\1\1\RE12.01.04\1\1\RE12.01.05\1\1\RE12.01.06\1\1\RE12.01.07\1\1\RE12.01.08\1\1\RE12.01.09\1\1\RE12.01.10\1\1\RE12.01.11\1\1\RE12.01.12\1\1\|
+~C|RE12.01.01|u|Vidriera 2h corr. mad. pino norte 229x220cm (B1)|890.86|070125|0|
+~C|RE12.01.02|u|Ventana 2h abat. mad. pino norte 160x147cm (B2)|584.63|070125|0|
+~C|RE12.01.03|u|Vidriera 1h abat. mad. pino norte 85x220cm (B3)|528.95|070125|0|
+~C|RE12.01.04|u|Vidriera 2h abat. mad. pino norte 98x207cm (B4)|640.31|070125|0|
+~C|RE12.01.05|u|Vidriera 4h abat.+fijo mad. pino norte 308x196cm (FR)|1224.93|070125|0|
+~C|RE12.01.06|u|Ventana 1h abat. mad. pino norte 72x121cm (F1)|334.07|070125|0|
+~C|RE12.01.07|u|Ventana 1h abat. mad. pino norte 57x90cm (F2)|278.39|070125|0|
+~C|RE12.01.08|u|Ventana 1h abat. mad. pino norte 44x65cm (F3)|250.55|070125|0|
+~C|RE12.01.09|u|persiana 2h ventana pino norte 160x147 cm (PS-B2)|389.75|070125|0|
+~C|RE12.01.10|u|persiana 2h balconera 98x207 cm (PS-B4)|501.11|170125|0|
+~C|RE12.01.11|u|persiana 1h ventana 72x121 cm (PS-F1)|222.72|170125|0|
+~C|RE12.01.12|u|persiana 1h ventana 44x65 cm (PS-F3)|167.04|070125|0|
+~C|RE12.02#||INTERIOR|4565.65|070125|0|
+~D|RE12.02#|RE12.02.01\1\3\RE12.02.02\1\1\RE12.02.03\1\1\RE12.02.04\1\1\RE12.02.05\1\2\RE12.02.06\1\1\RE12.02.07\1\1\|
+~C|RE12.02.01|u|Puerta paso abatible mad. pino norte 82x214cm (PP2)|389.75|070125|0|
+~C|RE12.02.02|u|Puerta paso abatible mad. pino norte 79x214cm (PP3)|389.75|070125|0|
+~C|RE12.02.03|u|Puerta paso abatible mad. pino norte 90x214cm (PP4)|445.43|070125|0|
+~C|RE12.02.04|u|Puerta paso abatible mad. pino norte 108x214cm (PP5)|556.79|070125|0|
+~C|RE12.02.05|u|Puerta paso corredera mad. pino norte 60x210m (PP6)|278.39|070125|0|
+~C|RE12.02.06|u|Armario completo empotrado 221x220cm (A1)|946.54|070125|0|
+~C|RE12.02.07|u|Armario completo empotrado 99x220cm (A2)|501.11|070125|0|
+~C|RE13.01|ml|Barandilla interior escalera alt.100 hierro negro y pasam. iroko|105.79|170125|0|
+~C|RE13.02|ml|Barandilla recta exterior balconeras alt100 inox mate negro|133.63|170125|0|
+~C|RE13.03|ml|Barandilla recta exterior ventanas alt32 inox mate negro|50.11|170125|0|
+~C|RE14.01|m2|Pintura al silicato paramento interior|10.24|210125|0|
+~C|RE14.02|m2|Pintura al silicato sobre techos|11.14|210125|0|
+~C|RE14.03|m2|Pintura al silicato en entrevigados techos|13.36|210125|0|
+~C|RE14.04|m2|Pintura plástica exterior mate y decap. pint. exist. mal estado|9.01|140921|0|
+~D|RE14.04|mt27pfs010b\1\0.012\mt27pii020kI\1\0.25\mo038\1\0.12\mo076\1\0.12\%0400\1\0.04\|
+~C|RE14.05|m2|Lasur tratamiento vigas madera|7.43|230420|0|
+~C|RE15.01|u|Mampara ducha 140+90x200cm (M1)|247.38|101022|0|
+~C|RE16.01|pa|Instalación completa de Fontanería|6089.5|111122|0|
+~C|RE17.01|pa|Instalación completa de Electricidad y Telecom.|4544.07|270125|0|
+~C|RE18.01|pa|Instalación completa de Calef. y Climatización|9743.79|210125|0|
+~C|RE19.01|pa|Instalación completa de Ventilación|885.29|301123|0|
+~C|RE20.01|m2|ayudas instal. fontaneria|5.57|210125|0|
+~C|RE20.02|m2|ayudas instal. electricidad y telecom.|5.57|210125|0|
+~C|RE20.03|m2|ayudas instal. calef. y climatizacion|5.57|210125|0|
+~C|RE20.04|m2|ayudas instal. saneam. y ventilación|7.8|210125|0|
+~C|RE20.05|u|recibido marcos zoq.y norm.<3 m2|31.41|270912|0|
+~D|RE20.05|B0001.0030\1\1.35\B0001.0060\1\1.35\B1602.0240\1\7\A0104.0120\1\0.015\%0880\1\0.088\|
+~C|RE20.06|u|recibido cercos en muros < 3 m2|38.44|270912|0|
+~D|RE20.06|B0001.0030\1\1.6\B0001.0060\1\1.6\B1602.0240\1\7\A0104.0120\1\0.03\%0870\1\0.087\|
+~C|RE20.07|u|recibido cercos en muros >3 m2|48.35|270912|0|
+~D|RE20.07|B0001.0030\1\2\B0001.0060\1\2\B1602.0240\1\9\A0104.0120\1\0.04\%0870\1\0.087\|
+~C|RE20.08|u|recibido persianas libr. <3 m2|30.5|270912|0|
+~D|RE20.08|B0001.0030\1\1.4\B0001.0060\1\1.4\A0104.0120\1\0.001\%0910\1\0.091\|
+~C|RE20.09|ml|Recibo barandilla escalera|6.76|270912|0|
+~D|RE20.09|B0001.0030\1\0.3\B0001.0060\1\0.3\A0104.0110\1\0.001\%1110\1\0.111\|
+~C|RE20.10|ml|Recibo barandilla balconeras|12.28|270912|0|
+~D|RE20.10|B0001.0030\1\0.55\B0001.0060\1\0.55\A0104.0110\1\0.001\%1110\1\0.111\|
+~C|RE20.11|u|ayudas colocación perfil empotrado mamp. ducha|83.52|190125|0|
+~C|RE21.01|u|Toma muestra hor.fres.+6 probet|38.86|240217|0|
+~C|RE21.02|u|Ensayo tracc. s/barra acero|24.29|240217|0|
+~C|RE21.03|u|Secc.equival.car.geom.doblad.des|54.74|240217|0|
+~C|RE21.04|u|Prueba estanqueidad cub. 100 m2|94.65|210125|0|
+~C|RE22.01|m3|Transporte de RCDsb inertes limpios en camión hasta 20 km|40.38|270912|0|
+~D|RE22.01|mq04cap020hb\1\0.25\mq04res040K\1\1.2\%0700\1\0.07\|
+~C|RE22.02|m3|Carga y transporte de RCDs inertes limpios durante ejec. obra|40.38|270912|0|
+~D|RE22.02|mq04cap020hb\1\0.25\mq04res040K\1\1.2\%0700\1\0.07\|
+~C|RE22.03|m3|Transporte de RCDsb no inertes limpios en camión hasta 20 km|40.38|270912|0|
+~D|RE22.03|mq04cap020hb\1\0.25\mq04res040K\1\1.2\%0700\1\0.07\|
+~C|RE22.04|pa|Gestión y tratamiento de residuos no inertes limpios durante|91.35|111122|0|
+~C|RE23.01|pa|Seguridad y salud|2704.35|170125|0|
+~C|REFESPORLES##||REFORMA DE VIVIENDA ENTREMEDIANERAS|135204.61|020409|0|
+~D|REFESPORLES##|00\1\1\01\1\1\02\1\1\03\1\1\04\1\1\05\1\1\06\1\1\07\1\1\08\1\1\09\1\1\10\1\1\11\1\1\12\1\1\13\1\1\14\1\1\15\1\1\16\1\1\17\1\1\18\1\1\19\1\1\20\1\1\21\1\1\22\1\1\23\1\1\|
+~C|mo018|h|Oficial 1ª cerrajero.|21.57|140921|1|
+~C|mo020|h|Oficial 1ª construcción.|12.81|281019|1|
+~C|mo021|h|Oficial 1ª construcción en trabajos de albañilería.|22.27|210125|1|
+~C|mo033|h|Oficial 1ª yesero.|31.84|090924|1|
+~C|mo038|h|Oficial 1ª pintor.|28.5|140921|1|
+~C|mo042|h|Oficial 1ª estructurista.|19.48|140921|1|
+~C|mo058|h|Ayudante carpintero.|18.65|140921|1|
+~C|mo059|h|Ayudante cerrajero.|18.65|140921|1|
+~C|mo071|h|Ayudante yesero.|25.62|090924|1|
+~C|mo076|h|Ayudante pintor.|23.73|140921|1|
+~C|mo077|h|Ayudante construcción.|25.62|090924|1|
+~C|mo089|h|Ayudante estructurista.|16.22|140921|1|
+~C|mo102|h|Ayudante electricista.|10.16|281019|1|
+~C|mo113|h|Peón ordinario construcción.|14.37|230222|1|
+~C|mo114|h|Peón ordinario construcción en trabajos de albañilería.|17.82|210125|1|
+~C|mq04cap020hb|h|Camión de transporte de 12 t con una capacidad de 10 m³ y 3 ejes|17.33|281019|2|
+~C|mq04res040K|t|Canon de vertido por entrega de residuos inertes producidos en o|27.84|210125|2|
+~C|mt04lgb010f|u|Pieza de escalón derámico para peldañeado de 15,5x27x33 cm|2.78|090924|0|
+~C|mt04lgb011a|u|Ladrillo cerámico hueco de carga H20, para revestir, 24x19x14 cm|1.11|140921|3|
+~C|mt07aco010c|kg|Ferralla elaborada en taller industrial con acero en barras corr|0.66|281019|3|
+~C|mt07aco020c|u|Separador homologado para vigas.|0.07|281019|3|
+~C|mt08eva020|m²|Sistema de encofrado recuperable para la ejecución de zunchos de|24.62|140921|3|
+~C|mt09mif010dba|m3|Mortero industrial para albañilería, de cemento, color gris, cat|68.04|281019|3|
+~C|mt09mif020a|m3|Mortero industrial para revoco y enlucido de uso corriente, de c|172.6|090924|3|
+~C|mt09mif020d|m3|Mortero industrial para revoco y enlucido de uso corriente, de c|172.6|090924|3|
+~C|mt09pye010a|m³|Pasta de yeso para aplicación en capa fina C6, según UNE-EN 1327|234.07|090924|3|
+~C|mt09pye010b|m³|Pasta de yeso de construcción B1, según UNE-EN 13279-1.|200.67|090924|3|
+~C|mt09var030a|m²|Malla de fibra de vidrio tejida, con impregnación de PVC, de 10x|1.94|090924|3|
+~C|mt10haf010nsa|m³|Hormigón HA-30/B/20/IIa, fabricado en central.|107.25|140921|3|
+~C|mt27pfs010b|l|Imprimación acrílica, reguladora de la absorción, permeable al v|13.57|090924|3|
+~C|mt27pii020kI|l|Pintura para exteriores, a base de polímeros acrílicos en emulsi|8.93|090924|3|
+~C|mt28vye010|m|Guardavivos de plástico y metal, estable a la acción de los sulf|0.39|090924|3|
+~C|mt28vye020|m²|Malla de fibra de vidrio tejida, antiálcalis, de 5x5 mm de luz d|1.06|090924|3|
+~T|01#|PEM	135204.61+12237.55legalitzacio = 147442.16|
+~T|A0104.0110|Mortero de cemento portland y arena de cantera de 440 kg (1:3)|
+~T|A0104.0120|Mortero de cemento portland y arena de cantera de 350 kg (1:4)|
+~T|B0001.0030|Oficial de 1ª.|
+~T|B0001.0060|Peón especializado.|
+~T|B0101.0010|Agua.|
+~T|B0202.0050|Cemento gris II-BM 32.5, a granel.|
+~T|B0401.0050|Arena de cantera (0/3 mm).|
+~T|B1602.0240|Gafa punta.|
+~T|RE00.01|Todas las mediciones y certificaciones se realizarán de acuerdo a las definiciones siguientes y con arreglo a las unidades especificadas en el Proyecto, y que el Contratista tendrá en cuenta en los precios de su oferta, no abonándose al Contratista los aumentos de obra que previamente no hayan sido sometidos a la aprobación fehaciente del Director de la obra. Las referencias en la medición a las Normas Tecnológicas Españolas (NTE), significan que para esta obra son de obligado cumplimiento, en especial las condiciones de no aceptación automática. TODAS LAS UNIDADES se entienden con suministro de materiales, pp de elementos y medios auxiliares, pp de disposición de medios de seguridad (ESRO), pp de ensayos y pruebas, colocación y en perfecto funcionamiento.
+
+EXCAVACIONES: Se medirán por m3 y por el volumen resultante de los datos del proyecto, sobre el perfil natural, no computándose los excesos que por error del Contratista o por aplicación de la maquinaria no adecuada resulten. Se tendrán en cuenta los ensayos geotécnicos existentes. Se entiende incluidos la pp de esponjamiento, alquiler de contenedores, carga, transporte y descarga a vertedero cualquiera que sea su distancia, así como el canon de vertedero.
+
+RELLENOS: Se medirán por m3 y por volumen resultante de los datos del proyecto una vez terminado y apisonado. El precio incluirá las pruebas necesarias para comprobar el grado de compactación PROCTOR exigido en el proyecto, realizadas por Laboratorio Homologado.
+
+ALBAÑALES: Se medirán por ml. y de extremo a principio de tubo por su longitud útil, descontando las arquetas. Se entienden incluidas las piezas especiales.
+
+BAJANTES: Se medirá por ml. y por la longitud real útil medida desde la primera pieza de desagüe y final de tubería. Se entienden incluidas las piezas especiales y la pp de ventilación superior.
+
+ARQUETAS: Se medirán por unidades, cualquiera que sea su profundidad.
+
+HORMIGÓN EN MASA Y ARMADO: Se medirán por m3 y por el volumen de hormigón resistente resultante de las dimensiones establecidas en el proyecto. Los encofrados y apuntalamientos (cualesquiera que fueren necesarios) se entienden incluidos en el precio. 
+
+ESTRUCTURA: Se medirá por m², en proyección horizontal, según planos, incluiendo pp. de pilares (de hormigón o metálicos), zancas de escaleras, aleros, remates metálicos, zunchos inferiores, jácenas de todo tipo, apuntalamientos, encofrados especiales y vistos realizados con madera cepillada y/o machihembrada, desencofrados, berenjenos de plástico para formación de goterones en aleros y biseles en pilares de sótano, bóvedas si las hubiera, etc, a no ser que especifique lo contrario la descripción de la partida y se contabilice en partida a parte. Se descontarán huecos > 1 m². Se entiende incluido en el precio los trabajos necesarios y la repercusión del tiempo de espera para el curado de los elementos estructurales según la normativa vigente (EH). Todo el hormigón será servido por un único suministrador homologado y previamente aceptado por la dirección facultativa. En estructura metálica se incluye la imprimación antifuego y anticorrosión de todos los elementos. El hormigón que vaya a ir revestido se imprimará con un producto acorde con el material a colocar.
+
+ACERO: Se medirá en Kg. según el peso nominal de acuerdo al proyecto, se incluyen los despuntes, mermas y tolerancias. Todo el acero servido corresponderá al mismo fabricante previa aceptación de la dirección facultativa.
+
+MUROS DE FABRICA Y TABIQUERÍA: Se medirán por m² y por su superficie real de acuerdo a las dimensiones establecidas en el proyecto. Se entiende incluido pp de dinteles, uniones y enjarjes previa aceptación del sistema constructivo por parte de la Dirección Facultativa. Se descontará el 100 % de los huecos > 8 m2, el 50 % de los huecos cuya superficie sea entre 4 y 8 m2 y no se descontarán los huecos menores de 4 m2. Se entienden incluidas la p.p de refuerzos bajo ventanas. Se entiende incluido la repercusión del tiempo de espera y los trabajos necesarios para proceder a la ejecución de la tabiquería desde las plantas superiores hacia abajo.
+
+CUBIERTAS Y AZOTEAS: Se medirán en m² en proyección horizontal. Se entiende incluidos la pp de encuentros, juntas, limahoyas, limatesas, sumideros, desagües, canalones, bordes y aleros, a no ser que especifique lo contrario la descripción de la partida y se contabilice en partida a parte. Se descontarán huecos > 1 m².
+
+ENFOSCADOS, REVOCOS, GUARNECIDOS, ENLUCIDOS y TENDIDOS: Se medirán por m² y por su superficie en proyección sobre el plano vertical u horizontal del elemento que se reviste de acuerdo a las dimensiones establecidas en el proyecto. Se descontarán huecos > 8 m² al 100 % . Los comprendidos entre 4 y 8 m2 al 50 % y el resto no se deducirán. Se entienden incluidos las esquinas, remates, matarrincones, guardavivos, telas pegadas con cemento cola adecuado en encuentros con estructura, etc.
+
+FALSOS SUELOS Y FALSOS TECHOS: Se medirán en m² en proyección horizontal. Se entiende incluido la pp de esquinas, remates, matarrincones, guardavivos, tabicas, tapas de registro, telas en encuentros con estructura, etc, a no ser que especifique lo contrario la descripción de la partida y se contabilice en partida a parte. Se descontarán huecos > 0.15 m². En caso de falsos techos de Knauff o similares se incluyen todos los elementos de fijación y remate necesarios.
+
+PAVIMENTOS: Se medirán por m² y por la superficie real, medida en los interiores por la distancia entre los paramentos verticales y los rodapiés si los hubiera, y en los de azotea por la que haya entre los paramentos interiores de los petos. Se entiende incluidas la pp de juntas perimetrales y juntas de encuentro con otros materiales (tipo Schlütter) así como remates de piezas especiales en exteriores e interiores.
+
+ALICATADOS: Se medirán por su superficie real en m², descontando todos los huecos de superficie > 1m2 y considerando incluidos en el precio unitario los azulejos, las piezas especiales, enfoscado, material de agarre, cemento cola aprobado por la DF, material para rejuntar, guardavivos modelo según partida y limpieza.
+
+RODAPIÉS: Se entiende incluido en la partida correspondiente de pavimento, a no ser que especifique lo contrario la descripción de la partida y se contabilice en partida a parte. Se medirán por ml. Especificaciones según partida.
+
+PELDAÑOS: Se medirán por su longitud real en ml. medida en la intersección de la huella con la contrahuella. Se entiende incluido la pp de los laterales vistos.
+
+CARPINTERÍA DE TALLER Y METÁLICA, ELECTRICIDAD, FONTANERÍA, GAS, CONTRAINCENDIOS, Y VENTILACIÓN: Se computará por unidades, conforme se especifica en las mediciones.
+
+VIDRIOS Y CRISTALES: Se medirán por m² reales de vidrio colocado incluyendo los calzos y silicona de remate.
+
+PINTURA: Muros y techos ídem que los revestimientos. Barandillas, verjas y celosías por m² a dos caras. Puertas, vidrieras y persianas de madera, por m² en proyección, a dos caras, medidas desde exterior de tapajuntas. Puertas de hierro y compuertas, por m², a dos caras, medidas a exteriores de marco. En elementos de carpinteria y cerrajeria puede estar incluido en la misma partida y no en partida a parte en pintura, según descripción de la partida.
+
+VARIOS: Todos aquellos elementos no especificados en estas definiciones se medirán de acuerdo a lo consignado en el Pliego de Condiciones. En caso de discrepancia entre los distintos documentos del proyecto en la forma de medir tendrá preferencia la definición de acuerdo a al siguiente orden de prelación: 1º) Estas definiciones. 2º) Las definiciones incluidas en el texto de la medición 3º) Las definiciones incluidas en el Pliego de Condiciones del proyecto. 4º) Las definiciones del Pliego de Condiciones del ITEC.
+
+PRECIO DE COMPRA: Se entiende por precio de compra, el real, a pie de obra sólo de baldosa base sin incluir el IVA. Las piezas especiales así como las roturas y pérdidas se tendrán en cuenta para el precio de cada partida.
+
+DEFINICIÓN DE "O SIMILAR": Se entiende que las calidades son las descritas en el estado de medición, el juicio de que una calidad sea "similar" es única y exclusivamente potestad de la Dirección Técnica, que deberá autorizar expresamente cualquier cambio a sugerencia de la constructora.|
+~T|RE01.01|Replanteo general de la obra.|
+~T|RE02.01|Los trabajos de demolición relacionados con la modificación de los huecos están en el capítulo de ALBAÑILERIA Y CANTERIA.
+Los trabajos de demolición relacionados con el saneado y picoteado de los revestimientos están en el capítulo de REVOCOS Y ENLUCIDOS.|
+~T|RE02.02|Demolición completa de escalera interior de obra en planta baja de acceso a planta piso, con medios manuales y compresor, sin afectar a la estabilidad de los elementos constructivos contiguos, acopio de escombros a pie de obra, y retirada y carga mecánica o manual sobre camión o contenedor, limpieza de la zona de trabajo, y p.p. de medios auxiliares.|
+~T|RE02.03|Demolición completa de escalera interior de obra en planta piso de acceso a planta cubierta y caja de escalera, con medios manuales y compresor, sin afectar a la estabilidad de los elementos constructivos contiguos, acopio de escombros a pie de obra, y retirada y carga mecánica o manual sobre camión o contenedor, limpieza de la zona de trabajo, y p.p. de medios auxiliares. INCLUYE demolición de la cubierta de la caja de escalera.|
+~T|RE02.04|Demolición completa de forjado plano interior de viguetas  de madera y bovedilla cerámica o de marés, incluso levantado del pavimento y su base, en forjado plano de 15 m2, con medios manuales y compresor, para realización de nuevo forjado, sin afectar a la estabilidad de los elementos constructivos contiguos, acopio de escombros a pie de obra, y retirada y carga mecánica o manual sobre camión o contenedor, limpieza de la zona de trabajo, y p.p. de medios auxiliares.|
+~T|RE02.05|Demolición completa de forjado inclinado de cubierta primer aiguavés de viguetas de madera, bovedilla cerámica o de marés y cobertura de teja cerámica curva, a menos de 20m de altura, en forjado de cubierta inclinada de 42 m2, con medios manuales y compresor (sin recuperación de tejas), para realización de nuevo forjado, sin afectar a la estabilidad de los elementos constructivos contiguos, acopio de escombros a pie de obra, y retirada y carga mecánica o manual sobre camión o contenedor, limpieza de la zona de trabajo, y p.p. de medios auxiliares. INCLUYE demolición de refuerzos existentes.|
+~T|RE02.06|Demolición completa de forjado inclinado de cubierta segundo aiguavés de viguetas de madera, bovedilla cerámica o de marés y cobertura de teja cerámica curva, a menos de 20m de altura, en forjado de cubierta inclinada de 38 m2, con medios manuales y compresor (sin recuperación de tejas), para realización de nuevo forjado, sin afectar a la estabilidad de los elementos constructivos contiguos, acopio de escombros a pie de obra, y retirada y carga mecánica o manual sobre camión o contenedor, limpieza de la zona de trabajo, y p.p. de medios auxiliares. INCLUYE demolición de refuerzos existentes.|
+~T|RE02.07|Demolición completa de forjado plano de cubierta de viguetas y bovedilla de hormigón, incluso levantado del pavimento y su base, en forjado plano de cubierta de 13 m2, con medios manuales y compresor, para realización de nuevo forjado, sin afectar a la estabilidad de los elementos constructivos contiguos, acopio de escombros a pie de obra, y retirada y carga mecánica o manual sobre camión o contenedor, limpieza de la zona de trabajo, y p.p. de medios auxiliares.|
+~T|RE02.08|Demolición con compresor de hoja de fábrica de bloque de hormigón o ladrillo hueco, revestida, de 20 cm de espesor, con medios manuales, sin afectar a la estabilidad de los elementos constructivos contiguos, acopio de escombros a pie de obra y retirada y carga mecánica o manual sobre camión o contenedor, y limpieza de la zona de trabajo.|
+~T|RE02.09|Demolición con compresor de tabique de fábrica de bloque de hormigón o ladrillo hueco, revestida, de 5 cm de espesor, con medios manuales, sin afectar a la estabilidad de los elementos constructivos contiguos, acopio de escombros a pie de obra, y retirada y carga mecánica o manual sobre camión o contenedor, limpieza de la zona de trabajo y p.p. de medios auxiliares.|
+~T|RE02.10|Demolición de vierteaguas situado entre las jambas del hueco cubriendo los alféizares con medios manuales sin deteriorar los elementos constructivos contiguos, y carga manual sobre camión o contenedor.|
+~T|RE02.11|Demolición completa de cubierta de patio interior formada por estructura metálica y cubierta de policarbonato, con medios manuales, sin afectar a la estabilidad de los elementos constructivos contiguos, acopio de escombros a pie de obra, y retirada y carga mecánica o manual sobre camión o contenedor, limpieza de la zona de trabajo, y p.p. de medios auxiliares.|
+~T|RE02.12|Desmontaje de hoja de carpintería acristalada de cualquier tipo situada en fachada, de menos de 3 m2 de superficie, con medios manuales, sin deteriorar los elementos constructivos a los que está sujeta, y carga manual sobre camión o contenedor.|
+~T|RE02.13|Desmontaje de una hoja de puerta interior de carpintería de madera, con medios manuales, sin deteriorar los elementos constructivos a los que está sujeta, y carga manual sobre camión o contenedor.|
+~T|RE02.14|Desmontaje de persiana mallorquina de dos o más hojas, con medios manuales, sin deteriorar los elementos constructivos sobre los que se sujeta, y carga manual sobre camión o contenedor.|
+~T|RE02.15|Desmontaje de canalones y bajantes existentes de red de aguas pluviales, con medios manuales, y carga manual sobre camión o contenedor.|
+~T|RE03.01|Formación de zuncho de apoyo de forjado, recto (e incliando), sobre muro existente de cubiertas, de hormigón armado, de 25x25 cm de media, realizada con hormigón HA-30/F/15/XS1 fabricado en central, y vertido con cubilote, y acero UNE-EN 10080 B 500 S, cuantía de armadura según planos de estructura; montaje y desmontaje del sistema de encofrado, con acabado tipo industrial para revestir. Incluso p/p de replanteo, elaboración de la ferralla (corte, doblado y conformado de elementos) en taller industrial y montaje en el lugar definitivo de su colocación en obra, separadores, elementos de sustentación, fijación y apuntalamiento necesarios para la estabilidad del encofrado, vibrado, curado del hormigón y desencofrado.|
+~T|RE03.02|Forjado plano de viguetas de madera laminada de abeto GL24h (2 unidades), de 10x20 cm de sección, con un intereje de 60 cm y hasta 4,5 m de longitud, para aplicaciones estructurales, calidad estructural S10 según DIN 4074, clase resistente GL24 según UNE-EN 338 y UNE-EN 1912, apoyadas en muros sobre macizados de HM de 20x20 cm de sección; entrevigado con tablero de placas de aglomerado de madera OSB clase 3 hidrófugo de 1,5 cm de espesor; lámina impermeable de PVC de 0.4 mm de espesor; y malla electrosoldada ME 20x20 Ø 6 B 500 T 6x2,20 UNE-EN 10080 en capa de compresión de 5 cm de espesor de hormigón HA-25/F/15/XC1 fabricado en central, vertido y curado, con banda elástica perimetral de 1 cm, bien nivelada, según planos de estructura y de demolición y de obra nueva. Incluso p/p de apuntalamiento y desapuntalamiento, protección de cabezas de vigas mediante lámina de espuma de EPS de 1 cm, solapes y mermas de materiales, CONECTORES entre capa de compresión y vigas de madera de acero tipo M-10 cada 20 cm de 12 cm de longitud y 6 cm de penetración. INCLUYE realización de macizados para apoyo de viguetas. Todo según planos de estructura y detalles de proyecto e indicaciones de la DF, totalmente acabado y limpieza.|
+~T|RE03.03|Forjado plano de viguetas de madera laminada de abeto GL24h (7 unidades), de 10x20 cm de sección, con un intereje de 60 cm y hasta 4 m de longitud, para aplicaciones estructurales, calidad estructural S10 según DIN 4074, clase resistente GL24 según UNE-EN 338 y UNE-EN 1912, apoyadas en muros sobre macizados de HM de 20x20 cm de sección; entrevigado con tablero de placas de aglomerado de madera OSB clase 3 hidrófugo de 1,5 cm de espesor; lámina impermeable de PVC de 0.4 mm de espesor; y malla electrosoldada ME 20x20 Ø 6 B 500 T 6x2,20 UNE-EN 10080 en capa de compresión de 5 cm de espesor de hormigón HA-25/F/15/XC1 fabricado en central, vertido y curado, con banda elástica perimetral de 1 cm, bien nivelada, según planos de estructura y de demolición y de obra nueva. Incluso p/p de apuntalamiento y desapuntalamiento, protección de cabezas de vigas mediante lámina de espuma de EPS de 1 cm, solapes y mermas de materiales, CONECTORES entre capa de compresión y vigas de madera de acero tipo M-10 cada 20 cm de 12 cm de longitud y 6 cm de penetración. INCLUYE realización de macizados para apoyo de viguetas. Todo según planos de estructura y detalles de proyecto e indicaciones de la DF, totalmente acabado y limpieza.|
+~T|RE03.04|Forjado plano de viguetas de madera laminada de abeto GL24h (12 unidades), de 10x20 cm de sección, con un intereje de 60 cm y hasta 4 m de longitud, para aplicaciones estructurales, calidad estructural S10 según DIN 4074, clase resistente GL24 según UNE-EN 338 y UNE-EN 1912, apoyadas en muros sobre macizados de HM de 20x20 cm de sección; entrevigado compuesto por placa inferior de yeso laminado de 12.5 mm de espesor colocado al tresbolillo y fijado a las viguetas con tirafondos, aislamiento de lana mineral de 20 cm de espesor de conductividad térmica 0.036 W/mk, y tablero superior de placas de aglomerado de madera OSB clase 3 hidrófugo de 1,5 cm de espesor, colocado al tresbolillo y fijado a las viguetas con tirafondos; lámina impermeable de PVC de 0.4 mm de espesor; y malla electrosoldada ME 20x20 Ø 6 B 500 T 6x2,20 UNE-EN 10080 en capa de compresión de 5 cm de espesor de hormigón HA-25/F/15/XC1 fabricado en central, vertido y curado, con banda elástica perimetral de 1 cm, bien nivelada, según planos de estructura y de demolición y de obra nueva. Incluso p/p de apuntalamiento y desapuntalamiento, protección de cabezas de vigas mediante lámina de espuma de EPS de 1 cm, solapes y mermas de materiales, CONECTORES entre capa de compresión y vigas de madera de acero tipo M-10 cada 20 cm de 12 cm de longitud y 6 cm de penetración. INCLUYE realización de macizados para apoyo de viguetas en muro sur, en resto de muros se apoyan sobre zunchos contabilizados en partida a parte, y cerramiento perimetral y entrevigado para trabado de cabezas de vigas con bloque cerámico. Todo según planos de estructura y detalles de proyecto e indicaciones de la DF, totalmente acabado y limpieza.|
+~T|RE03.05|Formación de capa de compresión de 5 cm de espesor de hormigón armado HA-25/F/15/XC1 fabricado en central, armado con malla electrosoldada ME 20x20 Ø 6 B 500 T 6x2,20 UNE-EN 10080, vertido y curado, con banda elástica perimetral de 1 cm, bien nivelada, y CONECTORES entre capa de compresión y vigas de madera de acero tipo M-10 con longitud y separación a definir en obra según estado de forjado existente. Todo según planos de estructura y detalles de proyecto e indicaciones de la DF, totalmente acabado y limpieza.|
+~T|RE03.06|Forjado inclinado de viguetas de madera laminada de abeto GL24h (11+7 unidades), de 10x20 cm de sección, con un intereje de 60 cm y hasta 4,5 m de longitud, para aplicaciones estructurales, calidad estructural S10 según DIN 4074, clase resistente GL24 según UNE-EN 338 y UNE-EN 1912, apoyadas en muros sobre zunchos contabilizados en partida a parte; entrevigado con panel sandwich de 14 cm de espesor total, compuesto por placa inferior de 12.5 mm de yeso laminado tipo pladur, núcleo de poliestireno extruido (XPS) de 12 cm de espesor, y tablero superior de aglomerado hidrófugo de 16 mm, macihembrado a 4 caras, según planos de estructura y de demolición y de obra nueva. Incluso p/p de apuntalamiento y desapuntalamiento, protección de cabezas de vigas mediante lámina de espuma de EPS de 1 cm, solapes y mermas de materiales, conectores entre panel sandwich y vigas de madera. INCLUYE cerramiento perimetral y entrevigado para trabado de cabezas de vigas con bloque cerámico. Todo según planos de estructura y detalles de proyecto e indicaciones de la DF, totalmente acabado y limpieza.|
+~T|RE03.07|Forjado inclinado de viguetas de madera laminada de abeto GL24h (4 unidades), de 10x20 cm de sección, con un intereje de 60 cm y hasta 4 m de longitud, para aplicaciones estructurales, calidad estructural S10 según DIN 4074, clase resistente GL24 según UNE-EN 338 y UNE-EN 1912, apoyadas en muros sobre zunchos contabilizados en partida a parte; entrevigado compuesto por placa inferior de yeso laminado de 12.5 mm de espesor colocado al tresbolillo y fijado a las viguetas con tirafondos, aislamiento de lana mineral de 20 cm de espesor de conductividad térmica 0.036 W/mk, y tablero superior de placas de aglomerado de madera OSB clase 3 hidrófugo de 1,5 cm de espesor, colocado al tresbolillo y fijado a las viguetas con tirafondos, según planos de estructura y de demolición y de obra nueva. Incluso p/p de apuntalamiento y desapuntalamiento, protección de cabezas de vigas mediante lámina de espuma de EPS de 1 cm, solapes y mermas de materiales, conectores entre panel sandwich y vigas de madera. INCLUYE cerramiento perimetral y entrevigado para trabado de cabezas de vigas con bloque cerámico. Todo según planos de estructura y detalles de proyecto e indicaciones de la DF, totalmente acabado y limpieza.|
+~T|RE03.08|Forjado inclinado de panel sandwich apoyado directo en muros sobre zunchos contabilizados en partida a parte; formado por panel sandwich de 14 cm de espesor total, compuesto por placa inferior de 12.5 mm de yeso laminado tipo pladur, núcleo de poliestireno extruido (XPS) de 12 cm de espesor, y tablero superior de aglomerado hidrófugo de 16 mm, macihembrado a 4 caras, según planos de estructura y de demolición y de obra nueva. Incluso p/p de apuntalamiento y desapuntalamiento, solapes y mermas de materiales. INCLUYE cerramiento perimetral con bloque cerámico. Todo según planos de estructura y detalles de proyecto e indicaciones de la DF, totalmente acabado y limpieza.|
+~T|RE04.01|Cubierta transitable constituida por: capa de hormigón armada con fibras de polietileno, para la FORMACIÓN DE PENDIENTES de entre 3 hasta 8 cm de espesor, con una pendiente del 1,5%, extendido con vibrado manual, formación de media caña en encuentros con pretil y muros verticales, y lámina antiimpacto de 2 cm en todo el perímetro; y IMPERMEABILIZACIÓN con lámina tipo GURÚ WATER-STOP formada por lámina plástica (EVA C) con fibras sintéticas fijada con cemento cola flex específico en sistema adherido (juntas selladas con sikaflex), según material e indicaciones del fabricante, p.p. cortes, mermas, remate en perimetro lateral de muros perimetrales y puntos singulares, juntas y sellado, lista para solar con pavimento (no incluido en esta partida). Totalmente acabado,  limpieza de zona de trabajo y p.p. de medios auxiliares.|
+~T|RE04.02|Cubierta inclinada de teja cerámica curva tipo árabe, 50x22 cm, normal, fijada con espuma de poliuretano sobre lámina impermeable (contabilizada en partida a parte), según planos de detalle de proyecto e indicaciones de la DF. Incluido p.p de replanteo, preparación del soporte, solapes, remates, mermas y cortes. Totalmente acabado,  limpieza de zona de trabajo y p.p. de medios auxiliares.|
+~T|RE04.03|Formación de alero con dos piezas de marés de 40x80 de 8 cm de espesor, tomado con mortero de cemento cola y anclado al zuncho con varilla de sujección inoxidable con taco químico (2 unidades por pieza de marés). Incluso macizado superior con mortero de hormigón armado con fibras, y limpieza. Completamente terminado.|
+~T|RE04.04|Formación de remate de cubierta con pared en encuentro de la cubierta con edificios colindantes, con la formación de media caña sobre las tejas, colocación de tela impermeable con lámina tipo GURÚ WATER-STOP y protección de esta con mortero de cemento hidrófugo. Totalmente acabado,  limpieza de zona de trabajo y p.p. de medios auxiliares.|
+~T|RE05.01.01|Fábrica de ladrillo cerámico hueco de carga H-20, para revestir, de medidas 24x19x14 cm, de espesor 19cm, recibida con mortero de cemento industrial, color gris, M-5, con junta de 1 cm. Incluso p/p de replanteo, nivelación y aplomado, mermas y roturas, enjarjes, dinteles, jambas y mochetas, entrega a forjado con espuma de poliuretano, humedecido de las piezas, limpieza de zona de trabajo y p.p. de medios auxiliares.|
+~T|RE05.02.01|Trasdosado autoportante interior, de 7.5 cm de espesor total, formado por una estructura de perfiles de chapa de acero galvanizado de 48 mm de anchura, a base de montantes (elementos verticales) separados 60 cm entre sí y anclados al muro con perfiles L cada 60 cm y canales (elementos horizontales), montados sobre banda acústica tanto a forjado superior como inferior y a muros, aplacado con un tablero OSB de 15 mm de espesor y una placa de yeso laminado hidrófugo de 12.5 mm de espesor. Aislamiento mediante panel de lana mineral CON PAPEL KRAFT de espesor 50 mm y conductividad térmica 0.036 W/mk adaptada en el alma de la estructura. INCLUYE replanteo, mermas, aplomado, distribución según planos de proyecto, fijaciones para el anclaje de canales y montantes metálicos, tornillería para la fijación de las placas, pasta y cinta para el tratamiento de juntas, ángulos, formacion de huecos y remate y sellado posterior para paso de instalaciones, sellado del conjunto a suelo y techo. Totalmente acabado, limpieza de zona de trabajo y p.p. de medios auxiliares.|
+~T|RE05.02.02|Tabiquería seca en particiones, de 10.5 cm de espesor total, formado por una estructura de perfiles de chapa de acero galvanizado de 48 mm de anchura, a base de montantes (elementos verticales) separados 40 cm entre sí y canales (elementos horizontales) montados sobre banda acústica tanto a forjado superior como inferior, aplacado a ambas caras con un tablero OSB de 15 mm de espesor y una placa de yeso laminado de 12.5 mm de espesor. Aislamiento mediante panel de lana mineral CON PAPEL KRAFT de espesor 50 mm, y conductividad térmica 0.036 W/mk adaptada en el alma de la estructura. INCLUYE replanteo, mermas, aplomado, distribución según planos de proyecto, fijaciones para el anclaje de canales y montantes metálicos, tornillería para la fijación de las placas, pasta y cinta para el tratamiento de juntas, ángulos, formacion de huecos y remate y sellado posterior para paso de instalaciones, sellado del conjunto a suelo y techo. Totalmente acabado, limpieza y medios auxiliares.|
+~T|RE05.02.03|Armazón metálico de chapa ondulada y travesaños metálicos, preparado para alojar la hoja de una puerta corredera simple, de madera de 60x210 cm y 4 cm de espesor máximo de hoja; colocación en entramado autoportante de placas de yeso, de 10 cm de espesor total, incluyendo el entramado autoportante y las placas. Totalmente acabado, limpieza y medios auxiliares.|
+~T|RE05.02.04|Formación de cajón y repisa para empotrado de depósito Geberit, de 1.5m de altura, compuesto por una estructura de perfiles de chapa de acero galvanizado de 48 mm de anchura, a base de montantes y canales, aplacado frontal, lateral y tapa superior con un tablero OSB de 15 mm de espesor y una placa de yeso laminado de 12.5 mm de espesor. Incluye replanteo, mermas, aplomado, distribución según planos de proyecto, fijaciones para el anclaje de canales y montantes metálicos, tornillería para la fijación de las placas, pasta y cinta para el tratamiento de juntas, ángulos, formacion de huecos y remate y sellado posterior para paso de instalaciones, sellado del conjunto a suelo y techo. Totalmente acabado, limpieza de zona de trabajo y p.p. de medios auxiliares.|
+~T|RE06.01|Instalación general de saneamiento, completamente instalado y en funcionamiento según planos de instalaciones. Incluye instalación interior general desde acometida hasta cuartos húmedos, incluso colectores y bajantes, realizada con tubo de polipropileno con nivel de insonorización medio para la red de desagües. INLCUYE nuevo colector de fecales enterrado en planta baja con conexión a la instalación existente.|
+~T|RE06.02|Instalación general de aguas pluviales, completamente instalado y en funcionamiento según planos de instalaciones. Incluye instalación interior general en zanja desde acometida hasta bajantes, realizada con tubo de polipropileno con nivel de insonorización medio para la red de desagües.|
+~T|RE06.03|Caldereta con sumidero no sifónico extensible de PVC, de salida vertical, con rejilla plana de acero galvanizado de 190x190 mm, para recogida de aguas pluviales en cubiertas. Incluso accesorios de montaje, piezas especiales y elementos de sujeción.|
+~T|RE06.04|Canalón de zinc de 330 mm de desarrollo, incluyendo accesorios de montaje, sujecciones, uniones, codos, anclajes de acero galvanizado, etc..., en canalón pluviales. Completamente instalado.|
+~T|RE06.05|Bajante de zinc de 80 mm de diámetro, incluyendo accesorios de montaje, sujecciones, uniones, codos, piezas especiales, etc..., en bajante de aguas pluviales. Completamente instalado.|
+~T|RE06.06|Gárgola de barro lisa de bajante y rebosadero de terrazas y cubiertas planas, de 100x100 mm de sección útil, recibida con adhesivo cementoso flexible y sellado e impermeabilización de la junta perimetral con masilla de poliuretano, previa aplicación de la imprimación. Incluso nivelación y remate de la impermeabilización en caso necesario.|
+~T|RE07.01|Reparación de desperfectos, cosido de grietas, y picoteado de todo el revestimiento en paramentos existentes interiores planta baja y piso, de hasta 3 m de altura, incluye preparación del soporte para su posterior revestimiento, andamiaje o medios de elevación homologados según normativa, acopio de escombros a pie de obra y carga manual sobre camión o contenedor,  y limpieza de la zona de trabajo.|
+~T|RE07.02|Enfoscado de cemento maestreado, aplicado en paramentos verticales interiores, acabado superficial rugoso, para servir de base a un posterior revestimiento, con mortero de cemento M-5, de espesor según condiciones de muro, previa colocación de malla antiálcalis en cambios de material. INCLUSO p/p de preparación de la superficie soporte a base de un primer paleteado para llenado de juntas y regularización y agarre del soporte, formación de juntas, rincones, maestras con separación entre ellas no superior a un metro, aristas, mochetas, jambas y dinteles, remates en los encuentros con paramentos, revestimientos u otros elementos recibidos en su superficie. Aplicado manualmente sobre una superficie de muros existentes. Incluso entrevigado de vigas de madera. Totalmente acabado, limpieza de zona de trabajo y p.p. de medios auxiliares.|
+~T|RE07.03|Formación de revestimiento continuo interior de yeso, maestreado, sobre paramento vertical previamente maestreado con enfoscado, de hasta 3 m de altura, de 15 mm de espesor, formado por una primera capa de guarnecido con pasta de yeso de construcción B1, aplicado sobre los paramentos a revestir y una segunda capa de enlucido con pasta de yeso de aplicación en capa fina C6, que constituye la terminación o remate, con maestras en las esquinas, rincones, guarniciones de huecos, intercalando las necesarias para que su separación sea del orden de 1 m. Incluso p/p de colocación de guardavivos de plástico y metal con perforaciones, remates con rodapié, con entrevigado de vigas de madera, formación de aristas y rincones, guarniciones de huecos, colocación de malla de fibra de vidrio antiálcalis para refuerzo de encuentros entre materiales diferentes en un 10% de la superficie del paramento y montaje, desmontaje y retirada de andamios.
+NOTA: A DECIDIR EN OBRA SI LOS MUROS DE PIEDRA SE DEJAN VISTOS VACIANDO Y REHACIENDO LA JUNTA ENTRE PIEDRAS|
+~T|RE07.04|Falso techo continuo plano directo sobre tablero osb de entrevigado, con una placa de yeso laminado de 10 mm de espesor para enrasar con cinta y pasta, clavado al tablero osb de forjado. Incuye replanteo de niveles, banda acústica, accesorios de fijación, nivelación, repaso de juntas con cinta y pasta, apertura de huecos para rejillas, focos, registros y accesorios de montaje. Totalmente acabado, limpieza de zona de trabajo y p.p. de medios auxiliares.|
+~T|RE07.05|Reparación de desperfectos y picoteado de revestimiento existente en mal estado, cosido de grietas, y renovación de revestimiento con mortero basto y fino de cemento previa colocación de malla antiálcalis en zonas a reparar, acabado fratasado, en paramentos existentes exteriores de muros de fachada principal en planta baja y planta piso, incluye preparación del soporte, en fachadas hasta 6 m de altura, andamiaje o medios de elevación homologados según normativa, acopio de escombros a pie de obra y carga manual sobre camión o contenedor,  y limpieza de la zona de trabajo.|
+~T|RE07.06|Reparación de desperfectos y picoteado de revestimiento existente en mal estado, cosido de grietas, y renovación de revestimiento con mortero basto y fino de cemento previa colocación de malla antiálcalis en zonas a reparar, acabado fratasado, en paramentos existentes exteriores de muros de fachada posterior en planta baja, incluye preparación del soporte, en fachadas hasta 6 m de altura, andamiaje o medios de elevación homologados según normativa, acopio de escombros a pie de obra y carga manual sobre camión o contenedor,  y limpieza de la zona de trabajo.|
+~T|RE07.07|Eliminación de enfoscado de cemento o cal existente, aplicado sobre paramento vertical de fachadas de hasta 6 m de altura, con medios manuales, sin deteriorar la superficie soporte que quedará al descubierto y preparada para su posterior revestimiento, y carga manual sobre camión o contenedor.|
+~T|RE07.08|Enfoscado de cemento maestreado, aplicado en paramentos verticales exteriores, acabado superficial rugoso, para servir de base a un posterior revestimiento, con mortero de cemento M-5, de espesor según condiciones de muro, previa colocación de malla antiálcalis en cambios de material. INCLUSO p/p de preparación de la superficie soporte a base de un primer paleteado para llenado de juntas y regularización y agarre del soporte, formación de juntas, rincones, maestras con separación entre ellas no superior a un metro, aristas, mochetas, jambas y dinteles, remates en los encuentros con paramentos, revestimientos u otros elementos recibidos en su superficie. Aplicado manualmente sobre una superficie de muros existentes. Totalmente acabado, limpieza de zona de trabajo y p.p. de medios auxiliares.
+NOTA: A DECIDIR EN OBRA SI LOS REVESTIMIENTOS DE FACHADA SE HACEN CON MORTERO DE CEMENTO O CAL|
+~T|RE07.09|Formación de revestimiento continuo exterior de mortero de cemento, tipo GP CSIII W0, maestreado, de 15 mm de espesor, aplicado sobre un paramento vertical acabado superficial fratasado, con colocación de malla de fibra de vidrio antiálcalis en el centro del espesor del mortero, para armarlo y reforzarlo. Incluso p/p de preparación de la superficie soporte, mediante la aplicación de una primera capa de mortero de cemento, industrial, con aditivo hidrófugo, M-15, de 5 mm de espesor, que sirve de agarre al paramento, colocación de malla de fibra de vidrio antiálcalis para refuerzo de encuentros entre materiales diferentes y en los frentes de forjado, en un 20% de la superficie del paramento, formación de juntas, rincones, maestras con separación entre ellas no superior a un metro, aristas, mochetas, jambas, dinteles, remates en los encuentros con paramentos, revestimientos u otros elementos recibidos en su superficie.
+NOTA: A DECIDIR EN OBRA SI LOS REVESTIMIENTOS DE FACHADA SE HACEN CON MORTERO DE CEMENTO O CAL|
+~T|RE07.10|Falso techo continuo plano suspendido exterior, formado por una placa hidrófuga de cemento portland y fibra de vidrio tipo Aquapanel de 12.5 mm de espesor con los cuatro lados rebajados para enrasar con cinta y pasta, colocada sobre una estructura oculta de acero galvanizado, formada por perfiles T/C de 40 mm cada 40 cm y perfilería U de 34x31x34 mm. Sin aislamiento. Incluso pasada de cola acabado raspado sobre las placas para agarre del revestimiento. Incuye replanteo de niveles, p/p de refuerzzos, banda acústica, accesorios de fijación, nivelación, repaso de juntas con cinta y pasta, apertura de huecos para rejillas, focos, registros y accesorios de montaje. Totalmente acabado, limpieza de zona de trabajo y p.p. de medios auxiliares.|
+~T|RE07.11|Tabica vertical en cambio de nivel de falso techo continuo exterior, de 40 cm de altura, formada con estructura metálica y una placa hidrófuga de cemento portland y fibra de vidrio tipo Aquapanel de 12,5 mm de espesor. Incluso pasada de cola acabado raspado sobre las placas para agarre del revestimiento. Incluye p/p de refuerzos, tornillería, anclajes, tratamiento de juntas con cinta y pasta, e incluso perfiles protectores de cantos vivos atornillados y masillados. Incluso replanteo, preparación, totalmente acabado y limpieza.|
+~T|RE07.12|Revestimiento continuo interior de yeso, a buena vista, sobre paramento inclinado curvado de escaleras en ""volta catalana", de 15 mm de espesor, formado por una primera capa de guarnecido con pasta de yeso de construcción B1, aplicado sobre los paramentos a revestir y una segunda capa de enlucido con pasta de yeso de aplicación en capa fina C6. Totalmente acabado, limpieza de zona de trabajo y p.p. de medios auxiliares.|
+~T|RE08.01|Suministro de baldosas cerámicas de gres porcelánico, de 60x60 cm, con capacidad de absorción de agua E<0,5%, grupo Bla, resistencia al deslizamiento Rd<=15, clase 0, Incluso mermas (previa muestra en obra para aceptación de la DF).|
+~T|RE08.02|Colocación de baldosas cerámicas de gres porcelánico, de 60x60 cm, con capacidad de absorción de agua E<0,5%, grupo Bla, resistencia al deslizamiento Rd<=15, clase 0, recibidas con adhesivo cementoso mejorado clase C2 sin ninguna característica adicional, color gris con doble encolado. Incluye adaptación a medidas de proyecto, encuentros a inglete, mermas, cortes, remates, incluso rejuntado con mortero de juntas cementoso, CG1, para junta mínima (entre 1,5 y 3 mm), color a elegir, preparación y nivelación del soporte. Totalmente acabado, limpieza de zona de trabajo y p.p. de medios auxiliares.|
+~T|RE08.03|Suministro de rodapié de gres porcelánico, de 7 cm de altura. Incluso mermas (previa muestra en obra para aceptación de la DF).|
+~T|RE08.04|Suministro de rodapié de gres porcelánico, de 7 cm de altura, recibido con adhesivo cementoso mejorado clase C2 sin ninguna característica adicional. Incluso encuentros, mermas, cortes, remates y rejuntado con mortero de juntas cementoso, CG1, color a elegir. Totalmente acabado, limpieza de zona de trabajo y p.p. de medios auxiliares.|
+~T|RE08.05|Suministro y colocación de baldosas de barro cocido de elaboración mecánica, de 20x20 cm, en terrazas, con tratamiento HIDROFUGANTE y antideslizante, recibida con adhesivo cementoso mejorado C2 S1 para la intemperie, color gris con doble encolado y rejuntado con mortero de juntas cementoso, CG2, color a elegir, sobre lámina impermeable (contabilizada en partida a parte), según planos de detalle e indicaciones de la DF. Incluido p.p. de replanteo, humectación de las piezas, preparación del soporte, solapes, remates, mermas, cortes, y formación de juntas perimetrales continuas. Totalmente acabado, limpieza de zona de trabajo y p.p. de medios auxiliares.|
+~T|RE08.06|Suministro y colocación de rodapié cerámico de barro cocido de elaboración mecánica, 20x20x1.5 cm, en terrazas, con tratamiento HIDROFUANTE, recibido con adhesivo cementoso mejorado clase C2 S1 para la intemperie. Incluso p.p. de replanteo, humectación de las piezas, preparación del soporte, encuentros, solapes, remates, mermas y cortes. Totalmente acabado, limpieza de zona de trabajo y p.p. de medios auxiliares.|
+~T|RE08.07|Suministro de baldosas hidráulicas cuadradas, de 20x20 cm, color a elegir, incluso mermas (previa muestra en obra para aceptación de la DF).|
+~T|RE08.08|Colocación de baldosas hidráulicas cuadradas, de 20x20 cm, color a elegir, en suelo de ducha y desagüe lineal, recibidas con adhesivo cementoso mejorado clase C2 flex, con doble encolado, y rejuntado con mortero de juntas cementoso, CG1, color a elegir, para junta mínima (entre 1,5 y 3 mm), y TRATAMIENTO HIDROFUGO para baldosas hidráulicas, según planos de detalle e indicaciones de la DF. Incluso p.p. de replanteo, humectación de las piezas, preparación del soporte, remates, cortes, formación de huecos y remate posterior para elementos de instalaciones. Totalmente acabado, limpieza de zona de trabajo y p.p. de medios auxiliares.|
+~T|RE08.09|Colocación de baldosas hidráulicas cuadradas, de 20x20 cm, color a elegir, en paramentos verticales de ducha, recibidas con adhesivo cementoso mejorado clase C2 flex, con doble encolado, y rejuntado con mortero de juntas cementoso, CG1, color a elegir, para junta mínima (entre 1,5 y 3 mm), y TRATAMIENTO HIDROFUGO para baldosas hidráulicas, según planos de detalle e indicaciones de la DF. Incluso p.p. de replanteo, humectación de las piezas, preparación del soporte, remates, cortes, formación de huecos y remate posterior para elementos de instalaciones. Totalmente acabado, limpieza de zona de trabajo y p.p. de medios auxiliares.|
+~T|RE08.10|Suministro de fiola para remate de puertas y ventanas, con piedra caliza acabada abujardada, envejecida e hidrofugada de 3 cm de espesor, anchura según muro (media 24 cm) y longitudes varias, cantos vistos pulidos y 1 goterón, empotrada en los laterales para formación de orejas laterales, grava adherida a la superficie de su cara inferior para mejorar adherencia (previa muestra en obra para aceptación de la DF).|
+~T|RE08.11|Suministro de fiola para remate de puertas y ventanas, con piedra caliza acabada abujardada, envejecida e hidrofugada de 3 cm de espesor, anchura según muro (media 28 cm) y longitudes varias, cantos vistos pulidos y 1 goterón, empotrada en los laterales para formación de orejas laterales, grava adherida a la superficie de su cara inferior para mejorar adherencia (previa muestra en obra para aceptación de la DF).|
+~T|RE08.12|Suministro de fiola para remate de puertas y ventanas, con piedra caliza acabada abujardada, envejecida e hidrofugada de 3 cm de espesor, anchura según muro (media 70 cm) y longitudes varias, cantos vistos pulidos y 1 goterón, empotrada en los laterales para formación de orejas laterales, grava adherida a la superficie de su cara inferior para mejorar adherencia (previa muestra en obra para aceptación de la DF).|
+~T|RE08.13|Suministro de fiola para remate de puertas y ventanas, con piedra caliza acabada abujardada, envejecida e hidrofugada de 3 cm de espesor, anchura según muro (media 80 cm) y longitudes varias, cantos vistos pulidos y 1 goterón, empotrada en los laterales para formación de orejas laterales, grava adherida a la superficie de su cara inferior para mejorar adherencia (previa muestra en obra para aceptación de la DF).|
+~T|RE08.14|Colocación de fiola para remate de puertas y ventanas, con piedra caliza acabada abujardada, envejecida e hidrofugada de 3 cm de espesor, anchura según muro (media 24 cm) y longitudes varias, cantos vistos pulidos y 1 goterón, empotrada en los laterales para formación de orejas laterales, grava adherida a la superficie de su cara inferior para mejorar adherencia, recibido con mortero cola cementoso mejorado clase C2 flex, y rejuntado entre piezas y de las uniones con los muros con mortero de juntas especial para piedra natural. Incluso replanteo y cortes. Totalmente acabado, limpieza de zona de trabajo y p.p. de medios auxiliares.|
+~T|RE08.15|Colocación de fiola para remate de puertas y ventanas, con piedra caliza acabada abujardada, envejecida e hidrofugada de 3 cm de espesor, anchura según muro (media 28 cm) y longitudes varias, cantos vistos pulidos y 1 goterón, empotrada en los laterales para formación de orejas laterales, grava adherida a la superficie de su cara inferior para mejorar adherencia, recibido con mortero cola cementoso mejorado clase C2 flex, y rejuntado entre piezas y de las uniones con los muros con mortero de juntas especial para piedra natural. Incluso replanteo y cortes. Totalmente acabado, limpieza de zona de trabajo y p.p. de medios auxiliares.|
+~T|RE08.16|Colocación de fiola para remate de puertas y ventanas, con piedra caliza acabada abujardada, envejecida e hidrofugada de 3 cm de espesor, anchura según muro (media 70 cm) y longitudes varias, cantos vistos pulidos y 1 goterón, empotrada en los laterales para formación de orejas laterales, grava adherida a la superficie de su cara inferior para mejorar adherencia, recibido con mortero cola cementoso mejorado clase C2 flex, y rejuntado entre piezas y de las uniones con los muros con mortero de juntas especial para piedra natural. Incluso replanteo y cortes. Totalmente acabado, limpieza de zona de trabajo y p.p. de medios auxiliares.|
+~T|RE08.17|Colocación de fiola para remate de puertas y ventanas, con piedra caliza acabada abujardada, envejecida e hidrofugada de 3 cm de espesor, anchura según muro (media 80 cm) y longitudes varias, cantos vistos pulidos y 1 goterón, empotrada en los laterales para formación de orejas laterales, grava adherida a la superficie de su cara inferior para mejorar adherencia, recibido con mortero cola cementoso mejorado clase C2 flex, y rejuntado entre piezas y de las uniones con los muros con mortero de juntas especial para piedra natural. Incluso replanteo y cortes. Totalmente acabado, limpieza de zona de trabajo y p.p. de medios auxiliares.|
+~T|RE08.18|Suministro de piezas de baldosa para formación de huellas y contrahuellas de escalones de piedra caliza antideslizante, acabada abujardada y envejecida de 3 cm de espesor, cantos vistos pulidos, las dos piezas cortadas a inglete 45º y pegadas en taller, grava adherida a la superficie de su cara inferior para mejorar adherencia, incluso mermas (previa muestra en obra para aceptación de la DF).|
+~T|RE08.19|Colocación de piezas de baldosa para formación de huellas y contrahuellas de escalones de piedra Lorca antideslizante, acabada abujardada, envejecida e hidrofugada de 3 cm de espesor, cantos vistos pulidos, las dos piezas cortadas a inglete 45º y pegadas en taller, grava adherida a la superficie de su cara inferior para mejorar adherencia, recibido con mortero cola cementoso mejorado clase C2 flex. Incluye adaptación a medidas de proyecto, encuentros a inglete, mermas, cortes, remates, incluso rejuntado con mortero de juntas cementoso, CG1, para junta mínima (entre 1,5 y 3 mm), color a elegir, preparación y nivelación del soporte. Totalmente acabado, limpieza de zona de trabajo y p.p. de medios auxiliares.|
+~T|RE09.01|Impermeabilización de cubierta inclinada con lámina tipo GURÚ WATER-STOP formada por lámina plástica (EVA C) con fibras sintéticas fijada con cemento cola flex específico en sistema adherido (juntas selladas con sikaflex), según material e indicaciones del fabricante. Incluye limpieza y preparación del soporte, solapes, juntas, remates, mermas de materiales, y sellado. Totalmente acabado,  limpieza de zona de trabajo y p.p. de medios auxiliares.|
+~T|RE09.02|Impermeabilización mediante lámina tipo GURÚ WATER-STOP o similar formada por lámina plástica (EVA C) con fibras sintéticas fijada con cemento cola flex específico en sistema adherido, según material e indicaciones del fabricante. Remate en laterales mínimo 15 cm por encima del nivel acabado de la fiola, y aplicación y realización de la pendiente adecuada bajo vierteaguas y umbrales, según planos de detalles constructivos de proyecto. Incluye limpieza y preparación del soporte, solapes, juntas, remates, mermas de materiales, y sellado. Totalmente acabado,  limpieza de zona de trabajo y p.p. de medios auxiliares.|
+~T|RE09.03|Impermeabilización mediante lámina tipo GURÚ WATER-STOP formada por lámina plástica (EVA C) con fibras sintéticas fijada con cemento cola flex específico en sistema adherido, según material e indicaciones del fabricante. Aplicación en suelos de cuartos húmedos. Incluso juntas y remates. La lámina debe levantarse por encima del embaldosado mínimo 25cm y por encima del rodapié mínimo 10cm.|
+~T|RE09.04|Impermeabilización mediante lámina tipo GURÚ WATER-STOP formada por lámina plástica (EVA C) con fibras sintéticas fijada con cemento cola flex específico en sistema adherido, según material e indicaciones del fabricante. Aplicación en paramentos verticales de los platos de ducha, según planos de detalles constructivos de proyecto e indicaciones de la DF. Incluye limpieza y preparación del soporte, solapes, juntas, remates, mermas de materiales y sellado. Totalmente acabado,  limpieza de zona de trabajo y p.p. de medios auxiliares.|
+~T|RE10.01|Solera de paso de instalaciones y aislamiento de base para pavimento, formada por: AISLAMIENTO TÉRMICO a nivel de instalaciones con panel rígido de poliestireno expandido XPS, según UNE-EN 13163, de superficie lisa y mecanizado lateral a media madera, de 70 mm de espesor, densidad igual o superior a 35 kg/m3, resistencia a compresión >= 250 kPa, conductividad térmica 0,036 W/(mK), ADHERIDO con mortero cola cementoso mejorado clase C2 flex para asegurar una perfecta adherencia al soporte; y cubrición de instalaciones y aislamiento con CAPA DE REGULARIZACIÓN de hormigón de 5 cm de espesor armada con fibras, extendido y vibrado manual mediante regla vibrante, sin tartamiento de su superficie con juntas de retracción, incluso replanteo, completamente nivelado y junta elástica perimetral; listo para solar con pavimento (no incluido en esta partida). Incluye limpieza y preparación del soporte, remates y recortes de adaptación y mermas. Totalmente acabada, limpieza de zona de trabajo y p.p. de medios auxiliares.|
+~T|RE10.02|Solera de paso de instalaciones de base para pavimento, formada por: cubrición de instalaciones con CAPA DE REGULARIZACIÓN de hormigón de 5 cm de espesor armada con fibras, extendido y vibrado manual mediante regla vibrante, sin tartamiento de su superficie con juntas de retracción, incluso replanteo, completamente nivelado y junta elástica perimetral; listo para solar con pavimento (no incluido en esta partida). Incluye limpieza y preparación del soporte, remates y recortes de adaptación y mermas. Totalmente acabada, limpieza de zona de trabajo y p.p. de medios auxiliares.|
+~T|RE10.03|Solera de paso de instalaciones y aislamiento de base para pavimento, formada por: AISLAMIENTO TÉRMICO a nivel de instalaciones con panel rígido de poliestireno expandido XPS, según UNE-EN 13163, de superficie lisa y mecanizado lateral a media madera, de 340 mm de espesor, densidad igual o superior a 35 kg/m3, resistencia a compresión >= 250 kPa, conductividad térmica 0,036 W/(mK), ADHERIDO con mortero cola cementoso mejorado clase C2 flex para asegurar una perfecta adherencia al soporte; cubrición de instalaciones y aislamiento con CAPA DE REGULARIZACIÓN de hormigón de 5 cm de espesor armada con fibras, extendido y vibrado manual mediante regla vibrante, sin tartamiento de su superficie con juntas de retracción, incluso replanteo, completamente nivelado y junta elástica perimetral; listo para solar con pavimento (no incluido en esta partida). Incluye limpieza y preparación del soporte, remates y recortes de adaptación y mermas. Totalmente acabada, limpieza de zona de trabajo y p.p. de medios auxiliares.|
+~T|RE11.01|Modificación y abertura de hueco apeo 1 en muro existente interior entre sala estar y comedor, con modificación y ampliación de hueco con la realización de nuevo dintel con 3 viguetas metálicas HEB120 unidas con barra roscada de 12 mm de diámetro, y apoyadas en los extremos mínimo 25 cm sobre macizados de HM, según planos de estructura y de demolición y de obra nueva, con revestimiento de ladrillo en ambas caras y placa de pladur inferior, incluso reconstrucción parcial del mur, listo para recibido de revestimiento. Apuntalamiento previo necesario y acopio de escombros a pie de obra y retirada y carga mecánica o manual sobre camión o contenedor. Limpieza de la zona de trabajo y p.p. de medios auxiliares.|
+~T|RE11.02|Modificación y abertura de hueco apeo 2 en muro existente de fachada salida a patio, con modificación y ampliación de hueco con la realización de nuevo dintel con 2 viguetas metálicas HEB120 unidas con barra roscada de 12 mm de diámetro, y apoyadas en los extremos mínimo 25 cm sobre macizados de HM, según planos de estructura y de demolición y de obra nueva, con revestimiento de ladrillo en ambas caras y placa de pladur inferior, incluso reconstrucción parcial del mur, listo para recibido de revestimiento. Apuntalamiento previo necesario y acopio de escombros a pie de obra y retirada y carga mecánica o manual sobre camión o contenedor. Limpieza de la zona de trabajo y p.p. de medios auxiliares.|
+~T|RE11.03|Abertura de hueco apeo 3 en muro existente de fachada entre patio y jardín, con la realización de dintel con 2 viguetas metálicas HEB120 unidas con barra roscada de 12 mm de diámetro, y apoyadas en los extremos mínimo 25 cm sobre macizados de HM, según planos de estructura y de demolición y de obra nueva, con revestimiento de ladrillo en ambas caras y placa de aquapanel inferior, incluso reconstrucción parcial del mur, listo para recibido de revestimiento. Apuntalamiento previo necesario y acopio de escombros a pie de obra y retirada y carga mecánica o manual sobre camión o contenedor. Limpieza de la zona de trabajo y p.p. de medios auxiliares.|
+~T|RE11.04|Modificación y abertura de hueco apeo 4 en muro existente de fachada entre patio y baño planta baja, con modificación y ampliación de hueco con la realización de nuevo dintel con 2 viguetas metálicas HEB120 unidas con barra roscada de 12 mm de diámetro, y apoyadas en los extremos mínimo 25 cm sobre macizados de HM, según planos de estructura y de demolición y de obra nueva, con revestimiento de ladrillo en ambas caras, incluso reconstrucción parcial del mur, listo para recibido de revestimiento. Apuntalamiento previo necesario y acopio de escombros a pie de obra y retirada y carga mecánica o manual sobre camión o contenedor. Limpieza de la zona de trabajo y p.p. de medios auxiliares.|
+~T|RE11.05|Modificado de hueco en balconera actual B4 de dormitorio 2 planta piso, en muro existente de cerramiento de fachada, con ampliación en altura de hueco (sin realización de nuevo apeo, el nuevo dintel será el zuncho superior de muro contabilizado en partida a parte), incluso reconstrucción parcial del muro, según planos de demolición y de obra nueva, listo para recibido de revestimiento y carpinteria. Apuntalamiento previo necesario y carga manual de escombros sobre camión o contenedor. Limpieza de la zona de trabajo y p.p. de medios auxiliares.|
+~T|RE11.06|Modificado de hueco en ventana actual F1 de dormitorio 3 planta piso, en muro existente de cerramiento de fachada, con ampliación en anchura y en altura de hueco (sin realización de nuevo apeo, el nuevo dintel será el zuncho superior de muro contabilizado en partida a parte), incluso reconstrucción parcial del muro, según planos de demolición y de obra nueva, listo para recibido de revestimiento y carpinteria. Apuntalamiento previo necesario y carga manual de escombros sobre camión o contenedor. Limpieza de la zona de trabajo y p.p. de medios auxiliares.|
+~T|RE11.07|Modificado de hueco en ventana actual B2 de dormitorio 1 planta piso, en muro existente de cerramiento de fachada, con ampliación en anchura y en altura de hueco (sin realización de nuevo apeo, el nuevo dintel será el zuncho superior de muro contabilizado en partida a parte), incluso reconstrucción parcial del muro y eliminación de dinteles de maderas antiguas, según planos de demolición y de obra nueva, listo para recibido de revestimiento y carpinteria. Apuntalamiento previo necesario y carga manual de escombros sobre camión o contenedor. Limpieza de la zona de trabajo y p.p. de medios auxiliares.|
+~T|RE11.08|Tapiado de hueco en muro existente de fachada planta piso en dormitorio 1, con ladrillo cerámico hueco H-20 de carga, según planos de demolición y de obra nueva, listo para recibido de revestimiento. Limpieza de la zona de trabajo y p.p. de medios auxiliares.|
+~T|RE11.09|Modificado de hueco en ventana actual bajo escalera de dormitorio 1 planta piso, en muro existente de cerramiento de fachada, con ampliación en anchura y en altura de hueco (sin realización de nuevo apeo, el nuevo dintel será el zuncho superior de muro contabilizado en partida a parte), incluso reconstrucción parcial del muro, según planos de demolición y de obra nueva, listo para recibido de revestimiento y carpinteria. Apuntalamiento previo necesario y carga manual de escombros sobre camión o contenedor. Limpieza de la zona de trabajo y p.p. de medios auxiliares.|
+~T|RE11.10|Recrecido de pared con ladrillo cerámico, de espesor según el caso, para revestir, en paramentos verticales interiores de hueco de paso entre sala estar y comedor, listo para recibido de revestimiento. Incluso p/p de replanteo, nivelación y aplomado, mermas y roturas, ejecución de encuentros y limpieza.|
+~T|RE11.11|Abertura y recuperación de hueco en muro central interior de planta piso acceso a dormitorio 3, de tabique existente, sin deteriorar los elementos constructivos contiguos, según planos de demolición y de obra nueva, incluso reconstrucción parcial del muro, listo para recibido de revestimiento. Apuntalamiento previo necesario y acopio de escombros a pie de obra y retirada y carga mecánica o manual sobre camión o contenedor. Limpieza de la zona de trabajo y p.p. de medios auxiliares.|
+~T|RE11.12|Recrecido de pared con ladrillo cerámico, de espesor según el caso, para revestir, en paramentos verticales interiores de hueco de paso entre distribuidor y dormitorio 1 en planta piso, listo para recibido de revestimiento. Incluso p/p de replanteo, nivelación y aplomado, mermas y roturas, ejecución de encuentros y limpieza.|
+~T|RE11.13|Bóveda de escalera, dos plantas, formada por ladrillo cerámico hueco y capa de compresión armada, para revestir.|
+~T|RE11.14|Formación de peldañeado de escalera con pieza de ladrillo cerámico de 15,5x27x33 cm recibido con mortero de cemento, industrial, M-5, sobre la losa o bóveda de escalera, como base para la posterior colocación del acabado de peldaños.|
+~T|RE11.15|Formación de plato de ducha de medidas aprox. 1.40x0.90 m, mediante pendiente de mortero impermeable de cemento y arena, colocacion de tela impermeable WATER STOP GURÚ para duchas con desagüe lineal termosellado (modelo previa aceptación de la DF) y preparación del paramento perimetral para remonte vertical de la tela, con posterior remate para recibir material de acabado de paredes, protección de chapa de mortero en toda la superficie del plato lista para recibir revestimiento de acabado (baldosa). Incluye preparación y limpieza del soporte, totalmente acabado, limpieza de zona de trabajo y p.p. de medios auxiliares.|
+~T|RE11.16|Formación de chimenea de cubierta para salida de humos de 100x60cm y 1 m por encima de la cumbrera, con bloques prefabricados de hormigón tipo shunt y bovedilla cerámica plana, tomado con cemento cola, revestido exterior igual que el de la fachada, forma y acabado según planos e indicaciones de la D.F., incluso replanteo y sellado de todas las juntas y encuentros. Incluso espumado completo de tubo, sombrerete, acabado y medidas según planos, y medios auxiliares.|
+~T|RE12.01.01|Puerta balconera de dos hojas correderas vidriadas B1 de madera de pino norte, de medida 229x220 cm, y acristalamiento con lunas de 4+4/6/4+4mm transparentes incoloras con lámina de baja emisividad, bisagras ocultas, según planos de carpinterías. Incluye tratamiento en aceite, suministro de premarco en fase de albañilería, tapajuntas sobre una cara en madera de pino norte, sellado de carpintería garantizando la hermeticidad, todas las juntas exteriores selladas con sellador adhesivo Fischer MS o similar, comprobación y repaso de remates y medidas de hueco en obra antes de fabricación, sistema de fijación, herrajes, accesorios, tonillería, maneta de acero inox mate a elegir por la D.F., herraje para microabertura de puerta corredera para ventilación híbrida y ajuste final en obra. Totalmente montada, probada y limpieza. Las medidas deberán comprobarse en obra.|
+~T|RE12.01.02|Ventana de dos hojas abatibles vidriadas B2 de madera de pino norte, de medida 160x147 cm, y acristalamiento con lunas de 4+4/6/4+4mm transparentes incoloras con lámina de baja emisividad, bisagras ocultas, según planos de carpinterías. Incluye tratamiento en aceite, suministro de premarco en fase de albañilería, tapajuntas sobre una cara en madera de pino norte, sellado de carpintería garantizando la hermeticidad, todas las juntas exteriores selladas con sellador adhesivo Fischer MS, comprobación y repaso de remates y medidas de hueco en obra antes de fabricación, sistema de fijación, herrajes, accesorios, tonillería, maneta de acero inox mate a elegir por la D.F., herraje para microabertura de ventana para ventilación híbrida y ajuste final en obra. Totalmente montada, probada y limpieza. Las medidas deberán comprobarse en obra.|
+~T|RE12.01.03|Puerta balconera de una hoja abatible vidriada B2 de madera de pino norte, de medida 85x220 cm, y acristalamiento con luna de 4+4/6/4+4mm transparente incolora con lámina de baja emisividad, bisagras ocultas, según planos de carpinterías. Incluye tratamiento en aceite, suministro de premarco en fase de albañilería, tapajuntas sobre una cara en madera de pino norte, sellado de carpintería garantizando la hermeticidad, todas las juntas exteriores selladas con sellador adhesivo Fischer MS o similar, comprobación y repaso de remates y medidas de hueco en obra antes de fabricación, sistema de fijación, herrajes, accesorios, tonillería, maneta de acero inox mate a elegir por la D.F., herraje para microabertura de puerta para ventilación híbrida y ajuste final en obra. Totalmente montada, probada y limpieza. Las medidas deberán comprobarse en obra.|
+~T|RE12.01.04|Puerta balconera de dos hojas abatibles vidriadas B4 de madera de pino norte, de medida 98x207 cm, y acristalamiento con lunas de 4+4/6/4+4mm transparentes incoloras con lámina de baja emisividad, bisagras ocultas, según planos de carpinterías. Incluye tratamiento en aceite, suministro de premarco en fase de albañilería, tapajuntas sobre una cara en madera de pino norte, sellado de carpintería garantizando la hermeticidad, todas las juntas exteriores selladas con sellador adhesivo Fischer MS o similar, comprobación y repaso de remates y medidas de hueco en obra antes de fabricación, sistema de fijación, herrajes, accesorios, tonillería, maneta de acero inox mate a elegir por la D.F., herraje para microabertura de puerta para ventilación híbrida y ajuste final en obra. Totalmente montada, probada y limpieza. Las medidas deberán comprobarse en obra.|
+~T|RE12.01.05|Puerta balconera de una hoja abatible y tres fijos vidriadas FR de madera de pino norte, de medida 308x196 cm, marco superior inclinado y acristalamiento con lunas de 4+4/6/4+4mm transparentes incoloras con lámina de baja emisividad, bisagras ocultas, según planos de carpinterías. Incluye tratamiento en aceite, suministro de premarco en fase de albañilería, tapajuntas sobre una cara en madera de pino norte, sellado de carpintería garantizando la hermeticidad, todas las juntas exteriores selladas con sellador adhesivo Fischer MS o similar, comprobación y repaso de remates y medidas de hueco en obra antes de fabricación, sistema de fijación, herrajes, accesorios, tonillería, maneta de acero inox mate a elegir por la D.F., herraje para microabertura de puerta para ventilación híbrida y ajuste final en obra. Totalmente montada, probada y limpieza. Las medidas deberán comprobarse en obra.|
+~T|RE12.01.06|Ventana de una hoja abatible vidriada F1 de madera de pino norte, de medida 72x121 cm, y acristalamiento con luna de 4+4/6/4+4mm transparente incolora con lámina de baja emisividad, bisagras ocultas, según planos de carpinterías. Incluye tratamiento en aceite, suministro de premarco en fase de albañilería, tapajuntas sobre una cara en madera de pino norte, sellado de carpintería garantizando la hermeticidad, todas las juntas exteriores selladas con sellador adhesivo Fischer MS, comprobación y repaso de remates y medidas de hueco en obra antes de fabricación, sistema de fijación, herrajes, accesorios, tonillería, maneta de acero inox mate a elegir por la D.F., herraje para microabertura de ventana para ventilación híbrida y ajuste final en obra. Totalmente montada, probada y limpieza. Las medidas deberán comprobarse en obra.|
+~T|RE12.01.07|Ventana de una hoja abatible vidriada F2 de madera de pino norte, de medida 57x90 cm, y acristalamiento con luna de 4+4/6/4+4mm transparente incolora con lámina de baja emisividad, bisagras ocultas, según planos de carpinterías. Incluye tratamiento en aceite, suministro de premarco en fase de albañilería, tapajuntas sobre una cara en madera de pino norte, sellado de carpintería garantizando la hermeticidad, todas las juntas exteriores selladas con sellador adhesivo Fischer MS, comprobación y repaso de remates y medidas de hueco en obra antes de fabricación, sistema de fijación, herrajes, accesorios, tonillería, maneta de acero inox mate a elegir por la D.F., herraje para microabertura de ventana para ventilación híbrida y ajuste final en obra. Totalmente montada, probada y limpieza. Las medidas deberán comprobarse en obra.|
+~T|RE12.01.08|Ventana de una hoja abatible vidriada F3 de madera de pino norte, de medida 44x65 cm, y acristalamiento con luna de 4+4/6/4+4mm transparente incolora con lámina de baja emisividad, bisagras ocultas, según planos de carpinterías. Incluye tratamiento en aceite, suministro de premarco en fase de albañilería, tapajuntas sobre una cara en madera de pino norte, sellado de carpintería garantizando la hermeticidad, todas las juntas exteriores selladas con sellador adhesivo Fischer MS, comprobación y repaso de remates y medidas de hueco en obra antes de fabricación, sistema de fijación, herrajes, accesorios, tonillería, maneta de acero inox mate a elegir por la D.F., herraje para microabertura de ventana para ventilación híbrida y ajuste final en obra. Totalmente montada, probada y limpieza. Las medidas deberán comprobarse en obra.|
+~T|RE12.01.09|Persiana mallorquina de lamas fijas de 2 hojas abatibles PS-B2 de 160x147 cm de 4 cm de espesor, en madera de pino norte acabada en aceite, herrajes inox mate y cierre pasador. Las medidas deberán comprobarse en obra.|
+~T|RE12.01.10|Persiana mallorquina de lamas fijas de 2 hojas abatibles PS-B4 de 98x207 cm de 4 cm de espesor, en madera de pino norte acabada en aceite, herrajes inox mate y cierre pasador. Las medidas deberán comprobarse en obra.|
+~T|RE12.01.11|Persiana mallorquina de lamas fijas de 1 hoja abatible PS-F1 de 72x121 cm de 4 cm de espesor, en madera de pino norte acabada en aceite, herrajes inox mate y cierre pasador. Las medidas deberán comprobarse en obra.|
+~T|RE12.01.12|Persiana mallorquina de lamas fijas de 1 hoja abatible PS-F3 de 44x65 cm de 4 cm de espesor, en madera de pino norte acabada en aceite herrajes inox mate y cierre pasador. Las medidas deberán comprobarse en obra.|
+~T|RE12.02.01|Puerta de paso interior ciega de una hoja abatible PP21, de medida 82x214 cm, bisagras ocultas, de madera de pino norte acabada en aceite o barniz ecológico certificado, precerco y tapajuntas en ambas caras, según planos de carpinterías. Incluye suministro de premarco en fase de albañilería, comprobación y repaso de remates y medidas de hueco en obra antes de fabricación, sistema de fijación,  herrajes, accesorios, tonillería, maneta de acero inox mate a elegir por la D.F, y microventilación. Totalmente montada, probada y limpieza. Las medidas deberán comprobarse en obra.|
+~T|RE12.02.02|Puerta de paso interior ciega de una hoja abatible PP3, de medida 79x214 cm, bisagras ocultas, de madera de pino norte acabada en aceite o barniz ecológico certificado, precerco y tapajuntas en ambas caras, según planos de carpinterías. Incluye suministro de premarco en fase de albañilería, comprobación y repaso de remates y medidas de hueco en obra antes de fabricación, sistema de fijación,  herrajes, accesorios, tonillería, maneta de acero inox mate a elegir por la D.F, y microventilación. Totalmente montada, probada y limpieza. Las medidas deberán comprobarse en obra.|
+~T|RE12.02.03|Puerta de paso interior ciega de una hoja abatible PP4, de medida 90x214 cm, bisagras ocultas, de madera de pino norte acabada en aceite o barniz ecológico certificado, precerco y tapajuntas en ambas caras, según planos de carpinterías. Incluye suministro de premarco en fase de albañilería, comprobación y repaso de remates y medidas de hueco en obra antes de fabricación, sistema de fijación,  herrajes, accesorios, tonillería, maneta de acero inox mate a elegir por la D.F, y microventilación. Totalmente montada, probada y limpieza. Las medidas deberán comprobarse en obra.|
+~T|RE12.02.04|Puerta de paso interior ciega de dos hojas abatibles PP5, de medida 108x214 cm, bisagras ocultas, de madera de pino norte acabada en aceite o barniz ecológico certificado, precerco y tapajuntas en ambas caras, según planos de carpinterías. Incluye suministro de premarco en fase de albañilería, comprobación y repaso de remates y medidas de hueco en obra antes de fabricación, sistema de fijación,  herrajes, accesorios, tonillería, maneta de acero inox mate a elegir por la D.F, y microventilación. Totalmente montada, probada y limpieza. Las medidas deberán comprobarse en obra.|
+~T|RE12.02.05|Puerta de paso interior ciega de una hoja corredera PP6, de medida 60x210 cm, colocada en cajón oculto en tabiqueria con gúia y rail superior, de madera de pino norte acabada en aceite o barniz ecológico certificado, según planos de carpinterías. Incluye comprobación y repaso de remates y medidas de hueco en obra antes de fabricación, sistema de fijación,  herrajes, accesorios, tonillería, maneta de acero inox mate a elegir por la D.F, y microventilación. Totalmente montada, probada y limpieza. Las medidas deberán comprobarse en obra.|
+~T|RE12.02.06|Armario completo empotrado A1 con puertas abatibles lisas de madera maciza de pino norte, de medida 221x220cm, acabada en aceite o barniz ecológico certificado, con cuerpo interior de tablero forrado con melamina con cajones inferiores y estantes superiores con barra de colgar, según planos de carpinteria. Incluye comprobación y repaso de remates y medidas de hueco en obra antes de fabricación, ajustado de hojas, tiradores de acero ino mate, fijación de los herrajes, nivelación, y ajuste final. Totalmente montado y probado. Las medidas deberán comprobarse en obra.|
+~T|RE12.02.07|Armario completo empotrado A2 con puertas abatibles lisas de madera maciza de pino norte, de medida 99x220cm, acabada en aceite o barniz ecológico certificado, con cuerpo interior de tablero forrado con melamina con cajones inferiores y estantes superiores con barra de colgar, según planos de carpinteria. Incluye comprobación y repaso de remates y medidas de hueco en obra antes de fabricación, ajustado de hojas, tiradores de acero ino mate, fijación de los herrajes, nivelación, y ajuste final. Totalmente montado y probado. Las medidas deberán comprobarse en obra.|
+~T|RE13.01|Barandilla interior escalera, de 100cm de altura, anclajes inox, realizada con acero negro normal, con pletinas de 50x8mm y barrotes macizos de 8mm de diámetro, separados 10cm, y pasamanos en madera de iroko de diámetro 5cm con tratamiento en aceite, según planos de cerrajeria. Incluye pintura al esmalte sobre cerrajeria de hierro, una mano de capa de protección contra la oxidación y dos de esmalte al agua de gran adherencia, elasticidad y resistencia a la intemperie, color negro, raspados de óxidos y limpieza previa de los elementos a esmaltar, pequeño material y soldadura. Totalmente montada, acabado, limpieza de zona de trabajo y p.p. de medios auxiliares.|
+~T|RE13.02|Barandilla exterior recta general balconeras, de 90cm de altura (100 cm sobre el nivel de suelo acabado), anclajes inox al muro existente, realizada con acero inoxidable mate, con pletinas de 50x8mm y barrotes macizos de 8mm de diámetro, separados 10cm, según planos de cerrajeria. Incluye pintura al esmalte sobre cerrajeria de hierro, una mano de capa de protección contra la oxidación y dos de esmalte al agua de gran adherencia, elasticidad y resistencia a la intemperie, color negro, raspados de óxidos y limpieza previa de los elementos a esmaltar, pequeño material y soldadura. Totalmente montada, acabado, limpieza de zona de trabajo y p.p. de medios auxiliares.|
+~T|RE13.03|Barandilla exterior recta general ventanas, de 32cm de altura, anclajes inox al muro existente, realizada con acero inoxidable mate, con tubo de diámetro 5 cm,, según planos de cerrajeria. Incluye pintura al esmalte sobre cerrajeria de hierro, una mano de capa de protección contra la oxidación y dos de esmalte al agua de gran adherencia, elasticidad y resistencia a la intemperie, color negro, raspados de óxidos y limpieza previa de los elementos a esmaltar, pequeño material y soldadura. Totalmente montada, acabado, limpieza de zona de trabajo y p.p. de medios auxiliares.|
+~T|RE14.01|Aplicación manual de dos manos de pintura al silicato color blanco, acabado mate, textura lisa, la primera mano diluida con un 10% de agua y la siguiente diluida con un 5% de agua, (rendimiento: 0,14 l/m² cada mano); previa preparación y limpieza del soporte con cepillos o elementos adecuados y lijado de pequeñas adherencias e imperfecciones, aplicación de una mano de imprimación no orgánica, a base soluciones de silicato potásico, sobre paramento interior enyesado o de placas de yeso laminado. Incluye la protección de los elementos del entorno que puedan verse afectados durante los trabajos y la resolución de puntos singulares o adaptación a las vigas. Totalmente acabado, limpieza de zona de trabajo y p.p. de medios auxiliares.|
+~T|RE14.02|Aplicación manual de dos manos de pintura al silicato color blanco, acabado mate, textura lisa, la primera mano diluida con un 10% de agua y la siguiente diluida con un 5% de agua, (rendimiento: 0,14 l/m² cada mano); previa preparación y limpieza del soporte con cepillos o elementos adecuados y lijado de pequeñas adherencias e imperfecciones, aplicación de una mano de imprimación no orgánica, a base soluciones de silicato potásico, sobre paramento horizontal de techos. Incluye la protección de los elementos del entorno que puedan verse afectados durante los trabajos y la resolución de puntos singulares o adaptación a las vigas y tabicas. Totalmente acabado, limpieza de zona de trabajo y p.p. de medios auxiliares.|
+~T|RE14.03|Aplicación manual de dos manos de pintura al silicato color blanco, acabado mate, textura lisa, la primera mano diluida con un 10% de agua y la siguiente diluida con un 5% de agua, (rendimiento: 0,14 l/m² cada mano); previa preparación y limpieza del soporte con cepillos o elementos adecuados y lijado de pequeñas adherencias e imperfecciones, aplicación de una mano de imprimación no orgánica, a base soluciones de silicato potásico, sobre paramento horizontal de techos en entrevigados. Incluye la protección de los elementos del entorno que puedan verse afectados durante los trabajos y la resolución de puntos singulares o adaptación a las vigas y tabicas. Totalmente acabado, limpieza de zona de trabajo y p.p. de medios auxiliares.|
+~T|RE14.04|Aplicación manual de dos manos de pintura plástica, color blanco, acabado mate, textura lisa, la primera mano diluida con un 15 a 20% de agua y la siguiente diluida con un 5 a 10% de agua o sin diluir, (rendimiento: 0,1 l/m² cada mano); previa preparación y limpieza del soporte con cepillos o elementos adecuados y lijado de pequeñas adherencias e imperfecciones y aplicación de una mano de imprimación acrílica reguladora de la absorción, sobre paramento exterior de fachada, previo decapado de la pintura exisente en mal estado. Incluye la protección de los elementos del entorno que puedan verse afectados durante los trabajos y la resolución de puntos singulares. Totalmente acabado, limpieza de zona de trabajo y p.p. de medios auxiliares.
+NOTA: A DECIDIR EN OBRA SI EL ACABADO DE FACHADA SE HACE CON PINTURA PLASTICA O PINTURA A SILICATOS SOBRE MORTERO DE CAL|
+~T|RE14.05|Lasur al agua, para interiores, incoloro, acabado satinado, sobre superficie de elemento estructural de madera, mediante aplicación de una mano de fondo acuoso protector, insecticida, fungicida y termicida, transparente e incoloro, (rendimiento: 0,22 l/m²), como fijador de superficie, y dos manos de acabado con lasur al agua a poro abierto, a base de resinas acrílicas en dispersión acuosa, (rendimiento: 0,055 l/m² cada mano). Preparación del soporte mediante lijado de su superficie y posterior limpieza, antes de comenzar la aplicación de la mano de imprimación y de cada mano de lasur, encintado y tratamiento de juntas. Totalmente acabado, limpieza de zona de trabajo y p.p. de medios auxiliares.|
+~T|RE15.01|Mampara en L para ducha de vidrio M1, de medidas 140+90x200cm, formado por dos fijos y una puerta abatible de vidrio templado transparente de seguridad de cantos pulidos laminado 5+5, con perfilería empotrada y maneta de acero inoxidable, según planos de carpinterías. Incluso p/p de fijaciones y sellado de juntas. Totalmente montado, probado y limpieza. Las medidas deberán comprobarse en obra.|
+~T|RE16.01|Instalación de fontanería general de la vivienda, completamente instalado y en funcionamiento según planos de instalaciones. Incluye conexión a la red pública, sanitarios, agua caliente sanitaria, etc. Realización de pruebas, control de calidad, puesta en marcha y legalización de las instalaciones afectadas por este capítulo.|
+~T|RE17.01|Instalación de electricidad y telecomunicaciones general de la vivienda, completamente instalado y en funcionamiento según planos de instalaciones. Realización de pruebas, control de calidad, puesta en marcha y legalización de las instalaciones afectadas por este capítulo.|
+~T|RE18.01|Instalación de calefacción y climatización general de la vivienda, completamente instalado y en funcionamiento, según planos de instalaciones. Incluye realización de pruebas, control de calidad, puesta en marcha y legalización de las instalaciones afectadas por este capítulo.|
+~T|RE19.01|Instalación de ventilación y extracción de aire de la vivienda, completamente instalado y en funcionamiento según planos de instalaciones. Incluye extractores de cocina y de baños, y realización de pruebas, control de calidad, puesta en marcha y legalización de las instalaciones afectadas por este capítulo.|
+~T|RE20.01|Repercusión por m2 de superficie construida de obra, de ayudas de cualquier trabajo de albañilería, necesarias para la correcta ejecución de la instalación de fontanería formada por: instalación interior, por trasdosados, tabiquerías y soleras destinadas a instalaciones, cualquier otro elemento componente de la instalación, accesorios y piezas especiales, en edificio de vivienda unifamiliar. Incluso material auxiliar para realizar todos aquellos trabajos de apertura y tapado de rozas, apertura de huecos en tabiquería, muros, forjados y losas, para paso de instalaciones, proteccion de tubos, recibido de elementos empotrados, pasamuros, refuerzos en empotrado de cisternas wc, fijación de soportes, recibidos y remates precisos para el correcto montaje de la instalación. Incluso ayudas exteriores.|
+~T|RE20.02|Repercusión por m2 de superficie construida de obra, de ayudas de cualquier trabajo de albañilería, necesarias para la correcta ejecución de la instalación eléctrica y de telecomunicaciones formada por: puesta a tierra, red de equipotencialidad, caja de protección y medida, derivaciones individuales y red de distribución interior, por falsos techos, trasdosados, tabiquerías y soleras destinadas a instalaciones, en edificio de vivienda unifamiliar. Incluso material auxiliar para realizar todos aquellos trabajos de apertura y tapado de rozas, apertura de huecos en tabiquería, muros, forjados y losas, para paso de instalaciones, recibido y colocación de cajetines, cajas de empalmes u otros elementos empotrados, proteccion de tubos, fijación de soportes, recibidos y remates precisos para el correcto montaje de la instalación. Incluso ayudas exteriores.|
+~T|RE20.03|Repercusión por m2 de superficie construida de obra, de ayudas de cualquier trabajo de albañilería, necesarias para la correcta ejecución de la instalación de calefacción y climatización formada por: splits de aire acondicionado con sus tuberías, accesorios y piezas especiales, y p/p de conexiones a las redes eléctrica, de fontanería y de salubridad, en edificio de vivienda unifamiliar. Incluso material auxiliar para realizar todos aquellos trabajos de apertura y tapado de rozas, apertura de huecos en tabiquería, muros, forjados y losas, para paso de instalaciones, recibido de elementos empotrados, protección de tubos, fijación de soportes, recibidos y remates precisos para el correcto montaje de la instalación.|
+~T|RE20.04|Repercusión por m2 de superficie construida de obra, de ayudas de cualquier trabajo de albañilería, necesarias para la correcta ejecución de la instalación de saneamiento y ventilación formada por: canalizaciones e instalación interior y exterior, canalizaciones de aguas fecales y pluviales, extractores de cocina y baños, cualquier otro elemento componente de la instalación, accesorios y piezas especiales, y conexiones a la red existente, en edificio de vivienda unifamiliar. Incluso material auxiliar para realizar todos aquellos trabajos de apertura y tapado de rozas, apertura de huecos en tabiquería, muros, forjados y losas, para paso de instalaciones, hormigonado y proteccion de tubos, recibido de elementos empotrados pasamuros, fijación de soportes, recibidos y remates precisos para el correcto montaje de la instalación.
+INLCUYE nuevo colector de fecales enterrado en planta baja con conexión a la instalación existente, realización de zanja mediante base de cama de arena debidamente compactada, colocación de tubo con la pendiente adecuada y protección con tapado de hormiggón y relleno de zanja.|
+~T|RE20.05|Recibido de marcos zoquetes y normales, hasta 3 m2.|
+~T|RE20.06|Recibido de cercos en muros, hasta 3 m2.|
+~T|RE20.07|Recibido de cercos en muros, mayores de 3 m2.|
+~T|RE20.08|Recibido de persiana de librillo con correas y topes, hasta 3 m2.|
+~T|RE20.09|Recibido de barandillas de escaleras.|
+~T|RE20.10|Recibido de barandillas balconeras.|
+~T|RE20.11|Ayudas de albañileria para la colocación de perfil empotrado de fijo de mampara de ducha (suministro de perfil por parte del  mamparista). Incluso p/p. de fijaciones, sellado de juntas, listo para colocación de vidrio mampara. Totalmente montado, y limpieza.|
+~T|RE21.01|Toma de muestra de hormigon fresco, fabricación de una serie de probetas cilindricas de 150x300mm, incluyendo determinación de la consistencia, curado en cámara húmeda y rotura a compresión, según UNE-EN 12350-1:2006, UNE-EN 12390-2:2001, UNE-EN 12390-3:2003, UNE-EN 12390-4:2001 y UNE-EN 12350-2:2006 (incluso desplazamientos).|
+~T|RE21.02|Ensayo de tracción sobre una barra de acero corrugada, incluyendo determinación del límite elástico, carga, alargamiento de rotura y alargamiento total bajo carga máxima, según UNE-EN ISO 15630-1:2003 o UNE 36065:2000.|
+~T|RE21.03|Ensayo sobre dos barras de acero corrugada de características geométricas, sección equivalente y doblado-desdoblado, según UNE-EN ISO 15630-1:2003 o UNE 36065:2000.|
+~T|RE21.04|Prueba de servicio de estanqueidad de una cubierta de unos 100 metros cuadrados.|
+~T|RE22.01|Transporte en camión de residuos de construcción y demolición no peligrosos inertes limpios (tierras, arenas y piedras), a vertedero autorizado, situado a 20 km de distancia, considerando el tiempo de espera para la carga a máquina en obra, ida, descarga y vuelta. Incluye p.p. de taxa de vertedero. LA MEDICIÓN ES UNA ESTIMACIÓN, A CORREGIR EN OBRA.|
+~T|RE22.02|Carga y transporte en camión de residuos de construcción y demolición no peligrosos inertes limpios realizados durante la ejecución de la obra (restos de materiales cerámicos, hormigón, pétreos, térreos y similares), a vertedero autorizado, situado a 20 km de distancia, considerando el tiempo de espera para la carga a máquina en obra, ida, descarga y vuelta. Incluye p.p. de taxa de vertedero. LA MEDICIÓN ES UNA ESTIMACIÓN, A CORREGIR EN OBRA.|
+~T|RE22.03|Transporte en camión de residuos de construcción y demolición no peligrosos no inertes limpios (madera, hierro, vidrio y plástico), a vertedero autorizado, situado a 20 km de distancia, considerando el tiempo de espera para la carga a máquina en obra, ida, descarga y vuelta. Incluye p.p. de taxa de vertedero. LA MEDICIÓN ES UNA ESTIMACIÓN, A CORREGIR EN OBRA.|
+~T|RE22.04|Gestión y tratamiento de residuos de construcción y demolición no peligrosos no inertes limpios realizados durante la ejecución de la obra (envases de cualquier tipo, restos metálicos, maderas, vidrios, plásticos y similares), incluye carga y transporte en camión a vertedero autorizado, situado a 20 km de distancia, considerando el tiempo de espera para la carga a máquina en obra, ida, descarga y vuelta. Incluye p.p. de taxa de vertedero. Incluye la valoración y clasificación de dichos residuos en contenedores debidamente situados y separados, reutilización y eliminación, asi como las medidas de prevención necesarias para llevar a cabo la adecuada organización de la gestión de dichos residuos.|
+~T|RE23.01|Seguridad y salud según el EBSS.|
+~L|B0101.0010|PROV\EMAYA  1.07 euros/m3\|||
+~L|B0202.0050|PROV\CEMEX      135.60 euros/Tn\|||
+~L|B0401.0050|PROV\Son amat.SA          11,67 €/t
+Gravera Monti-sion   11,66 €/t\|||
+~L|B1602.0240|PROV\Massanella     0,10 €/ud
+amengual Dols  0,10 €/ud\|||
+~L|RE03.06|\
+
+
+
+
+\|RE03.06.RTF||
+~L|RE09.02|\SI HAY QUE EMPOTRAR OREJAS HACER MAS LARGA LONGITUD???????Y FIOLA??NO LO PONGO
+\|RE09.02.RTF||
+~L|RE10.01|\
+
+\|RE10.01.RTF||
+~L|RE11.01|\
+\|RE11.01.RTF||
+~L|RE11.08|\
+\|RE11.08.RTF||
+~L|RE11.10|\
+\|RE11.10.RTF||
+~L|RE14.01|\
+
+
+\|RE14.01.RTF||
+~M|01#\RE01.01|2\1\|1||
+~M|02#\RE02.02|3\2\|1|\escalera pbaja acceso a ppiso\1\\\\|
+~M|02#\RE02.03|3\3\|1|\escalera ppiso a pcubierta\1\\\\|
+~M|02#\RE02.04|3\4\|1|\forjado interior plano comedor\1\\\\|
+~M|02#\RE02.05|3\5\|1|\forj. incl. cub. primer aiguavés\1\\\\|
+~M|02#\RE02.06|3\6\|1|\forj. incl. cub. segundo aiguavés\1\\\\|
+~M|02#\RE02.07|3\7\|1|\forjado plano cubierta\1\\\\|
+~M|02#\RE02.08|3\8\|27.79|\MUROS INTERIORES\\\\\\PLANTA BAJA\\\\\\entrada\1\3\\3.14\\comedor\1\3.2\\3.14\\PLANTA CUBIERTA\\\\\\caja escalera\1\0.8\\2.3\\pretil terraza plana\1\5.4\\1.2\|
+~M|02#\RE02.09|3\9\|38.59|\TABIQUERIAS\\\\\\PLANTA BAJA\\\\\\escalera\1\3.27\\3.14\\sala estar\1\4\\3.14\\PLANTA PISO\\\\\\escalera\1\2.6\\2.6\\PLANTA CUBIERTA\\\\\\caja escalera\2\3\\1.5\|
+~M|02#\RE02.10|3\10\|5.2|\PLANTA PISO\\\\\\fachada principal\1\1\\\\\1\0.7\\\\fachada posterior\1\0.9\\\\\1\0.7\\\\fachada patio interior\2\0.7\\\\\1\0.5\\\|
+~M|02#\RE02.11|3\11\|1|\cubierta patio interior\1\\\\|
+~M|02#\RE02.12|3\12\|14|\planta baja\7\\\\\planta piso\7\\\\|
+~M|02#\RE02.13|3\13\|6|\planta baja\2\\\\\planta piso\4\\\\|
+~M|02#\RE02.14|3\14\|2|\planta piso\2\\\\|
+~M|02#\RE02.15|3\15\|1|\Aguas pluviales\1\\\\|
+~M|03#\RE03.01|4\1\|5.58|\ZUNCHOS HA\\\\\\FORJ. TECHO PLANTA PISO\\\\\\forjado plano planta piso cubierta\\\\\\Z1\1\3.57\0.2\0.2\\Z1\1\2.95\0.5\0.2\\\1\5.27\0.64\0.2\\CUBIERTA INCLINADA\\\\\\primer aiguavés calle\\\\\\Z3\1\6.81\0.73\0.2\\Z4\1\7.76\0.7\0.2\\Z5\2\4.8\0.2\0.2\\tercer aiguavés patio jardin\\\\\\Z5\1\4.72\0.2\0.2\\\1\4.1\0.2\0.2\\Z6\1\5.05\0.72\0.2\\Z7\1\4.1\0.15\0.2\\segundo aiguavés caja escalera\\\\\\Z5\1\2.24\0.2\0.2\\\1\3.6\0.2\0.2\\\1\2.58\0.2\0.2\\zona bajo cubierta sala maq.\2\2\0.2\0.2\\\2\4\0.2\0.2\|
+~M|03#\RE03.02|4\2\|5|\FORJADO INTERIOR\\\\\\forj. plano hueco entrada antigua escalera\1\1.25\4\\|
+~M|03#\RE03.03|4\3\|10.21|\FORJADO INTERIOR\\\\\\forjado plano comedor\1\3.25\3.14\\|
+~M|03#\RE03.04|4\4\|22.25|\CUBIERTA PLANA\\\\\\forjado plano cubierta\1\6.45\3.45\\|
+~M|03#\RE03.05|4\5\|47.39|\INTERIOR\\\\\\PLANTA PISO\\\\\\dormitorio 2\9.83\\\\\dormitorio 3\13.46\\\\\baño 1\9\\\\\dormitorio 1\15.1\\\\|
+~M|03#\RE03.06|4\6\|53.18|\CUBIERTA INCLINADA\\\\\\primer aiguavés calle\1\7.3\4.6\\\tercer aiguavés patio jardin\1\4.9\4\\|
+~M|03#\RE03.07|4\7\|9.75|\CUBIERTA INCLINADA\\\\\\segundo aiguavés caja escalera\1\2.6\3.75\\|
+~M|03#\RE03.08|4\8\|8|\CUBIERTA INCLINADA\\\\\\zona bajo cub. sala maq.\1\2\4\\|
+~M|04#\RE04.01|5\1\|21.56|\CUBIERTA PLANA\\\\\\terraza cubierta\1\6.25\3.45\\|
+~M|04#\RE04.02|5\2\|90.6|\CUBIERTA INCLINADA\\\\\\primer aiguavés calle\1\7.6\5.55\\\tercer aiguavés patio jardin\1\5.4\4.9\\\segundo aiguavés caja escalera\1\2.55\4.1\\\zona bajo cub. sala maq.\1\2\4.25\\\sobre muros cubierta\1\1.4\0.6\\\\1\3.6\0.6\\|
+~M|04#\RE04.03|5\3\|7.25|\CUBIERTA\\\\\\fachada principal\1\7.25\\\|
+~M|04#\RE04.04|5\4\|23.55|\CUBIERTA\\\\\\medianera derecha\1\5.5\\\\\1\3.9\\\\\1\4.45\\\\medianera izquierda\1\5.5\\\\\1\4.2\\\|
+~M|RE05.01#\RE05.01.01|6\1\1\|65.85|\PLANTA BAJA\\\\\\baño\1\1.24\\2.55\\\1\1.1\\2.55\\PLANTA PISO\\\\\\dormitorio 1\1\0.6\\3.4\\\1\1.05\\3.25\\PLANTA CUBIERTA\\\\\\escalera\1\2.69\\1.75\\\1\3.29\\1.4\\\1\2.33\\0.45\\bajo cub. sala maquinas\1\2\\2\\\1\2\\1.1\\\2\3.25\\1.55\\RECRECIDO MUROS CUBIERTA\\\\\\muro fach. prinicpal\2\7.25\\0.2\\muros terraza\1\5.6\\1.1\\\1\3.6\\1.1\\\1\3.6\\1.5\\\1\8\\0.4\\muro fach. posterior\2\5.4\\0.2\\Puntos singulares\4\\\\|
+~M|RE05.02#\RE05.02.01|6\2\1\|69.05|\PLANTA BAJA\\\\\\sala estar\1\4.15\\3\\PLANTA PISO\\\\\\dormitorio 2\1\4\\3\\baño 1\1\2.32\\2.4\\\1\0.8\\2.4\\dormitorio 1\1\2.21\\3.6\\\1\0.6\\3.4\\\1\1.09\\3.25\\\2\4.32\\1.3\\PLANTA CUBIERTA\\\\\\escalera\1\2.37\\1.9\\\1\3.29\\1.6\\\1\2.06\\1.25\|
+~M|RE05.02#\RE05.02.02|6\2\2\|24.73|\PLANTA BAJA\\\\\\trastero\1\1.6\\2.97\\lavabo\1\1.7\\2.97\\\1\0.88\\2.97\\PLANTA PISO\\\\\\baño 1\1\2.8\\2.4\\\1\0.8\\2.4\\hueco dorm. 1-escalera\1\0.8\\2.4\\hueco dorm. 2 y 3\1\0.8\\2.2\|
+~M|RE05.02#\RE05.02.03|6\2\3\|2|\lavabo\1\\\\\baño 1\1\\\\|
+~M|RE05.02#\RE05.02.04|6\2\4\|0.88|\BAÑOS\\\\\\lavabo\1\0.88\\\|
+~M|06#\RE06.01|7\1\|1||
+~M|06#\RE06.02|7\2\|1||
+~M|06#\RE06.03|7\3\|2|\patio interior\1\\\\\terraza cubierta\1\\\\|
+~M|06#\RE06.04|7\4\|15.15|\CUBIERTAS\\\\\\primer aiguavés calle\1\7.25\\\\tercer aiguavés patio jardin\1\5.5\\\\segundo aiguavés caja escalera\1\2.4\\\|
+~M|06#\RE06.05|7\5\|17.4|\CUBIERTAS\\\\\\primer aiguavés calle\1\\\5.4\\tercer aiguavés patio jardin\1\\\5.5\\segundo aiguavés caja escalera\1\\\0.5\\terraza cubierta\1\\\6\|
+~M|06#\RE06.06|7\6\|1|\bajante terraza cubierta\1\\\\|
+~M|07#\RE07.01|8\1\|1|\Vivienda\1\\\\|
+~M|07#\RE07.02|8\2\|294.91|\INTERIOR\\\\\\PLANTA BAJA\\\\\\entrada\2\1.05\\2.7\\\2\1.32\\2.7\\sala estar\1\1.3\\2.7\\\1\0.72\\2.7\\\1\4.03\\2.7\\\1\6.02\\2.7\\trastero\1\1.5\\2.7\\\1\2.26\\2.7\\lavabo\1\1.64\\2.7\\\1\0.88\\2.7\\comedor\1\7.47\\2.7\\\1\3.13\\2.7\\\1\7.76\\2.7\\dto. hueco B1\-0.5\2.29\\2.2\\\1\3.2\\2.7\\PLANTA PISO\\\\\\dormitorio 2\1\3.3\\2.5\\\2\0.45\\2.5\\\1\4\\3\\\1\3.3\\3.5\\dormitorio 3\1\3.06\\2.5\\\2\0.45\\2.5\\\2\4\\3\\\1\3.64\\3.5\\baño 1\1\1.25\\2.4\\\1\1.34\\2.4\\\1\4\\2.4\\\1\2.69\\2.4\\distribuidor\1\4.66\\2.4\\\1\3.09\\2.8\\\1\4.95\\2.4\\\1\3.08\\2.4\\dormitorio 1\1\4.32\\3.43\\\1\3.17\\3.05\\\1\3.97\\2.6\|
+~M|07#\RE07.03|8\3\|322.03|\INTERIOR\\\\\\PLANTA BAJA\\\\\\entrada\2\1.05\\2.7\\\2\1.32\\2.7\\sala estar\1\1.3\\2.7\\\1\0.72\\2.7\\\1\4.03\\2.7\\\1\6.02\\2.7\\trastero\1\1.5\\2.7\\\1\2.26\\2.7\\lavabo\1\1.64\\2.7\\\1\0.88\\2.7\\comedor\1\7.47\\2.7\\\1\3.13\\2.7\\\1\7.76\\2.7\\dto. hueco B1\-0.5\2.29\\2.2\\\1\3.2\\2.7\\baño\1\3\\2.4\\PLANTA PISO\\\\\\dormitorio 2\1\3.3\\2.5\\\2\0.45\\2.5\\\1\4\\3\\\1\3.3\\3.5\\dormitorio 3\1\3.06\\2.5\\\2\0.45\\2.5\\\2\4\\3\\\1\3.64\\3.5\\baño 1\1\1.25\\2.4\\\1\1.34\\2.4\\\1\4\\2.4\\\1\2.69\\2.4\\distribuidor\1\4.66\\2.4\\\1\3.09\\2.8\\\1\4.95\\2.4\\\1\3.08\\2.4\\dormitorio 1\1\4.32\\3.43\\\1\3.17\\3.05\\\1\3.97\\2.6\\PLANTA CUBIERTA\\\\\\bajocubierta sala maq.\1\1.6\\1\\\1\1.6\\1.9\\\2\3.2\\1.45\\Puntos singulares\6\\\\|
+~M|07#\RE07.04|8\4\|13.42|\PLANTA BAJA\\\\\\entrevigado\\\\\\forj. plano hueco entrada antigua escalera\2\0.5\4\\\forjado plano comedor\6\0.5\3.14\\|
+~M|07#\RE07.05|8\5\|1|\fachada prinicpal\\\\\\planta baja y piso\1\\\\|
+~M|07#\RE07.06|8\6\|1|\fachada posterior\\\\\\planta baja\1\\\\|
+~M|07#\RE07.07|8\7\|36.12|\PLANTA PISO\\\\\\fachada posterior\1\5.4\\2.5\\fachada patio interior\1\4.05\\3\\\1\3.49\\3\|
+~M|07#\RE07.08|8\8\|46.47|\PLANTA PISO\\\\\\fachada posterior\1\5.4\\3.3\\fachada patio interior\1\4.05\\3.8\\\1\3.49\\3.8\|
+~M|07#\RE07.09|8\9\|104.93|\FACHADAS\\\\\\fachada prinicpal\1\7.22\\0.5\\fachada posterior\1\5.4\\3.3\\fachada patio interior\1\4.05\\4\\\1\3.49\\4.3\\dto. hueco B1\-0.5\2.29\\2.2\\\3\0.85\\2.4\\paso cubierto\1\3\\2.4\\\1\1.25\\2.4\\caja escalera\1\2.69\\1.05\\\1\3.6\\1.5\\\1\2.33\\0.5\\\1\3.58\\1.8\\caja bajocubierta sala maq.\1\2\\0.5\\\1\2\\0.8\\\1\3.6\\1.5\\terraza\1\3.61\\1.15\\\1\3.61\\1.25\\Puntos singulares\6\\\\|
+~M|07#\RE07.10|8\10\|0.72|\FALSO TECHO EXTERIOR\\\\\\PLANTA PISO\\\\\\dormitorio 1\\\\\\balcón\1\0.85\0.85\\|
+~M|07#\RE07.11|8\11\|0.85|\TABICA EXTERIOR\\\\\\PLANTA PISO\\\\\\dormitorio 1\\\\\\balcón\1\0.85\\\|
+~M|07#\RE07.12|8\12\|9|\INTERIOR\\\\\\Bajo losa escalera\2\5\0.9\\|
+~M|08#\RE08.01|9\1\|118.7|\INTERIOR\\\\\\PLANTA BAJA\\\\\\entrada\1.53\\\\\sala estar\21.92\\\\\trastero\1.79\\\\\lavabo\1.45\\\\\comedor\24.05\\\\\pasos\1\2.33\0.69\\\\1\1\0.69\\\\1\0.93\0.59\\\PLANTA PISO\\\\\\dormitorio 2\13.64\\\\\dormitorio 3\13.46\\\\\baño 1\8.65\\\\\distribuidor\12.03\\\\\dormitorio 1\14.71\\\\\PLANTA CUBIERTA\\\\\\caja escalera\1\0.85\3.08\\|
+~M|08#\RE08.02|9\2\|118.7|\INTERIOR\\\\\\PLANTA BAJA\\\\\\entrada\1.53\\\\\sala estar\21.92\\\\\trastero\1.79\\\\\lavabo\1.45\\\\\comedor\24.05\\\\\pasos\1\2.33\0.69\\\\1\1\0.69\\\\1\0.93\0.59\\\PLANTA PISO\\\\\\dormitorio 2\13.64\\\\\dormitorio 3\13.46\\\\\baño 1\8.65\\\\\distribuidor\12.03\\\\\dormitorio 1\14.71\\\\\PLANTA CUBIERTA\\\\\\caja escalera\1\0.85\3.08\\|
+~M|08#\RE08.03|9\3\|137.88|\INTERIOR\\\\\\PLANTA BAJA\\\\\\entrada\5.04\\\\\sala estar\19.48\\\\\trastero\6.15\\\\\lavabo\5.05\\\\\comedor\21.55\\\\\pasos\2\\\\\PLANTA PISO\\\\\\dormitorio 2\15.46\\\\\dormitorio 3\15.17\\\\\baño 1\15.75\\\\\distribuidor\13.08\\\\\dormitorio 1\17.45\\\\\PLANTA CUBIERTA\\\\\\caja escalera\2\0.85\\\|
+~M|08#\RE08.04|9\4\|137.88|\INTERIOR\\\\\\PLANTA BAJA\\\\\\entrada\5.04\\\\\sala estar\19.48\\\\\trastero\6.15\\\\\lavabo\5.05\\\\\comedor\21.55\\\\\pasos\2\\\\\PLANTA PISO\\\\\\dormitorio 2\15.46\\\\\dormitorio 3\15.17\\\\\baño 1\15.75\\\\\distribuidor\13.08\\\\\dormitorio 1\17.45\\\\\PLANTA CUBIERTA\\\\\\caja escalera\2\0.85\\\|
+~M|08#\RE08.05|9\5\|37.98|\TERRAZAS\\\\\\PLANTA BAJA\\\\\\patio interior\24.05\\\\\paso cubierto\2.35\\\\\PLANTA CUBIERTA\\\\\\terraza\11.58\\\\|
+~M|08#\RE08.06|9\6\|28.37|\TERRAZAS\\\\\\PLANTA BAJA\\\\\\patio interior\13.67\\\\\paso cubierto\4.25\\\\\PLANTA CUBIERTA\\\\\\terraza\10.45\\\\|
+~M|08#\RE08.07|9\7\|6.78|\DUCHAS\\\\\\baño 1\\\\\\paredes\1\1.4\\2.4\\\1\0.9\\2.4\\suelo\1\1.4\0.9\\|
+~M|08#\RE08.08|9\8\|1.26|\DUCHAS\\\\\\baño 1\\\\\\suelo\1\1.4\0.9\\|
+~M|08#\RE08.09|9\9\|5.52|\DUCHAS\\\\\\baño 1\\\\\\paredes\1\1.4\\2.4\\\1\0.9\\2.4\|
+~M|08#\RE08.10|9\10\|2.86|\B1 - comedor\1\2.29\\\\F2 - baño 1\1\0.57\\\|
+~M|08#\RE08.11|9\11\|7.8|\B4 - dormitorio 2\1\0.98\\\\F1 - dormitorio 3\1\0.72\\\\F3 - distribuidor ppiso\1\0.44\\\\FR - rellano superior esc.\1\3.08\\\\paso cubierto\1\1.25\\\\\1\1.33\\\|
+~M|08#\RE08.12|9\12\|1.6|\B2 - dormitorio 1\1\1.6\\\|
+~M|08#\RE08.13|9\13\|0.85|\B3 - dormitorio 1\1\0.85\\\|
+~M|08#\RE08.14|9\14\|2.86|\B1 - comedor\1\2.29\\\\F2 - baño 1\1\0.57\\\|
+~M|08#\RE08.15|9\15\|7.8|\B4 - dormitorio 2\1\0.98\\\\F1 - dormitorio 3\1\0.72\\\\F3 - distribuidor ppiso\1\0.44\\\\FR - rellano superior esc.\1\3.08\\\\paso cubierto\1\1.25\\\\\1\1.33\\\|
+~M|08#\RE08.16|9\16\|1.6|\B2 - dormitorio 1\1\1.6\\\|
+~M|08#\RE08.17|9\17\|0.85|\B3 - dormitorio 1\1\0.85\\\|
+~M|08#\RE08.18|9\18\|17.57|\ESCALERA INTERIOR\\\\\\ESC1 planta baja\\\\\\huellas\8\0.9\0.26\\\\3\0.96\0.26\\\\2\0.9\0.48\\\\1\1.25\0.5\\\\1\0.9\0.56\\\\1\1.4\0.6\\\\1\0.96\0.6\\\contrahuellas\10\0.9\\0.2\\\3\0.96\\0.2\\\2\1.05\\0.2\\\1\1.1\\0.2\\\1\1.15\\0.2\\ESC2 planta piso\\\\\\huellas\9\0.9\0.26\\\\2\0.9\0.48\\\\1\1.25\0.5\\\\2\0.9\0.56\\\\1\1.4\0.6\\\contrahuellas\11\0.9\\0.2\\\2\1.05\\0.2\\\2\1.1\\0.2\|
+~M|08#\RE08.19|9\19\|17.57|\ESCALERA INTERIOR\\\\\\ESC1 planta baja\\\\\\huellas\8\0.9\0.26\\\\3\0.96\0.26\\\\2\0.9\0.48\\\\1\1.25\0.5\\\\1\0.9\0.56\\\\1\1.4\0.6\\\\1\0.96\0.6\\\contrahuellas\10\0.9\\0.2\\\3\0.96\\0.2\\\2\1.05\\0.2\\\1\1.1\\0.2\\\1\1.15\\0.2\\ESC2 planta piso\\\\\\huellas\9\0.9\0.26\\\\2\0.9\0.48\\\\1\1.25\0.5\\\\2\0.9\0.56\\\\1\1.4\0.6\\\contrahuellas\11\0.9\\0.2\\\2\1.05\\0.2\\\2\1.1\\0.2\|
+~M|09#\RE09.01|10\1\|88.84|\CUBIERTA INCLINADA\\\\\\primer aiguavés calle\1\7.6\5.45\\\tercer aiguavés patio jardin\1\5.4\4.8\\\segundo aiguavés caja escalera\1\2.55\4\\\zona bajo cub. sala maq.\1\2\4.15\\\sobre muros cubierta\1\1.4\0.6\\\\1\3.6\0.6\\|
+~M|09#\RE09.02|10\2\|4.66|\B1 - comedor\1\2.29\0.24\\\B2 - dormitorio 1\1\1.6\0.7\\\B3 - dormitorio 1\1\0.85\0.8\\\B4 - dormitorio 2\1\0.98\0.28\\\F1 - dormitorio 3\1\0.72\0.28\\\F2 - baño 1\1\0.57\0.24\\\F3 - distribuidor ppiso\1\0.44\0.28\\\FR - rellano superior esc.\1\3.08\0.28\\\paso cubierto\1\1.25\0.28\\\\1\1.33\0.28\\|
+~M|09#\RE09.03|10\3\|8.65|\PLANTA PISO\\\\\\baño 1\8.65\\\\|
+~M|09#\RE09.04|10\4\|5.52|\DUCHAS\\\\\\PLANTA PISO\\\\\\baño 1\1\1.4\\2.4\\\1\0.9\\2.4\|
+~M|10#\RE10.01|11\1\|53.59|\INTERIOR\\\\\\PLANTA BAJA\\\\\\entrada\1.53\\\\\sala estar\21.92\\\\\trastero\1.79\\\\\lavabo\1.45\\\\\comedor\24.05\\\\\pasos\1\2.33\0.69\\\\1\1\0.69\\\\1\0.93\0.59\\|
+~M|10#\RE10.02|11\2\|18.85|\INTERIOR\\\\\\PLANTA PISO\\\\\\dormitorio 2\1\1.05\4\\\distribuidor\12.03\\\\\PLANTA CUBIERTA\\\\\\caja escalera\1\0.85\3.08\\|
+~M|10#\RE10.03|11\3\|15.1|\INTERIOR\\\\\\PLANTA PISO\\\\\\dormitorio 1\15.1\\\\|
+~M|11#\RE11.01|12\1\|1|\PLANTA BAJA\\\\\\apeo 1 entre estar y comedor\1\\\\|
+~M|11#\RE11.02|12\2\|1|\PLANTA BAJA\\\\\\apeo 2 comedor salida a patio\1\\\\|
+~M|11#\RE11.03|12\3\|1|\PLANTA BAJA\\\\\\apeo 3 entre baño y jardin\1\\\\|
+~M|11#\RE11.04|12\4\|1|\PLANTA BAJA\\\\\\apeo 4 entre patio y baño\1\\\\|
+~M|11#\RE11.05|12\5\|1|\PLANTA PISO\\\\\\fachada principal\\\\\\balconera B4 dorm. 2\1\\\\|
+~M|11#\RE11.06|12\6\|1|\PLANTA PISO\\\\\\fachada prinicpal\\\\\\ventana F1 dorm. 3\1\\\\|
+~M|11#\RE11.07|12\7\|1|\PLANTA PISO\\\\\\fachada posterior\\\\\\ventana dormitorio 1\1\\\\|
+~M|11#\RE11.08|12\8\|1|\PLANTA PISO\\\\\\fachada posterior\\\\\\tapiado hueco dormitorio 1\1\\\\|
+~M|11#\RE11.09|12\9\|1|\PLANTA PISO\\\\\\fachada patio\\\\\\balconera dormitorio 1\1\\\\|
+~M|11#\RE11.10|12\10\|1|\PLANTA BAJA\\\\\\recrecido brancales entre estar y comedor\1\\\\|
+~M|11#\RE11.11|12\11\|1|\PLANTA PISO\\\\\\recuperacion hueco dormitorio 3\1\\\\|
+~M|11#\RE11.12|12\12\|1|\PLANTA PISO\\\\\\recrecido brancales entre distribuidor dorm. 1\1\\\\|
+~M|11#\RE11.13|12\13\|1|\escalera 2 plantas\1\\\\|
+~M|11#\RE11.14|12\14\|30.43|\ESCALERA INTERIOR\\\\\\ESC1 planta baja\\\\\\peldaños\10\0.9\\\\\3\0.96\\\\\2\1.05\\\\\1\1.1\\\\\1\1.15\\\\ESC2 planta piso\\\\\\peldaños\11\0.9\\\\\2\1.05\\\\\2\1.1\\\|
+~M|11#\RE11.15|12\15\|1|\SUELOS DUCHA\\\\\\PLANTA PISO\\\\\\baño 1\1\\\\|
+~M|11#\RE11.16|12\16\|1|\Salida chimenea\1\\\\|
+~M|RE12.01#\RE12.01.01|13\1\1\|1|\B1 - comedor\1\\\\|
+~M|RE12.01#\RE12.01.02|13\1\2\|1|\B2 - dormitorio 1\1\\\\|
+~M|RE12.01#\RE12.01.03|13\1\3\|1|\B3 - dormitorio 1\1\\\\|
+~M|RE12.01#\RE12.01.04|13\1\4\|1|\B4 - dormitorio 2\1\\\\|
+~M|RE12.01#\RE12.01.05|13\1\5\|1|\FR - rellano superior esc.\1\\\\|
+~M|RE12.01#\RE12.01.06|13\1\6\|1|\F1 - dormitorio 3\1\\\\|
+~M|RE12.01#\RE12.01.07|13\1\7\|1|\F2 - baño 1\1\\\\|
+~M|RE12.01#\RE12.01.08|13\1\8\|1|\F3 - distribuidor ppiso\1\\\\|
+~M|RE12.01#\RE12.01.09|13\1\9\|1|\PS B2 - dormitorio 1\1\\\\|
+~M|RE12.01#\RE12.01.10|13\1\10\|1|\PS B4 - dormitorio 2\1\\\\|
+~M|RE12.01#\RE12.01.11|13\1\11\|1|\PS F1 - dormitorio 3\1\\\\|
+~M|RE12.01#\RE12.01.12|13\1\12\|1|\PS F3 - distribuidor ppiso\1\\\\|
+~M|RE12.02#\RE12.02.01|13\2\1\|3|\PP2 - baño pbaja\1\\\\\PP2 - dormitorio 1\1\\\\\PP2 - baño 1 ppiso\1\\\\|
+~M|RE12.02#\RE12.02.02|13\2\2\|1|\PP3 - dormitorio 2\1\\\\|
+~M|RE12.02#\RE12.02.03|13\2\3\|1|\PP4 - dormitorio 3\1\\\\|
+~M|RE12.02#\RE12.02.04|13\2\4\|1|\PP5 - baño 1 ppiso\1\\\\|
+~M|RE12.02#\RE12.02.05|13\2\5\|2|\PP6 - lavabo\1\\\\\PP6- baño 1 ppiso\1\\\\|
+~M|RE12.02#\RE12.02.06|13\2\6\|1|\A1 - dormitorio 1\1\\\\|
+~M|RE12.02#\RE12.02.07|13\2\7\|1|\A2 - entrada\1\\\\|
+~M|13#\RE13.01|14\1\|9.63|\INTERIOR\\\\\\ESC1\\\\\\tramo inclinado\1\0.95\\\\\1\1.59\\\\\1\0.64\\\\tramo recto\1\1.28\\\\ESC2\\\\\\tramo inclinado\1\0.48\\\\\1\1.57\\\\\1\0.94\\\\tramo recto\1\2.18\\\|
+~M|13#\RE13.02|14\2\|1.83|\EXTERIOR\\\\\\BARANDILLAS GENERALES 1\\\\\\balconera B3\1\0.85\\\\balconera B4\1\0.98\\\|
+~M|13#\RE13.03|14\3\|1.6|\EXTERIOR\\\\\\BARANDILLAS GENERALES 2\\\\\\balconera B2\1\1.6\\\|
+~M|14#\RE14.01|15\1\|417.69|\INTERIOR\\\\\\PLANTA BAJA\\\\\\entrada\5.04\\\2.7\\sala estar\19.48\\\2.7\\trastero\6.15\\\2.7\\lavabo\5.05\\\2.7\\comedor\21.55\\\\\dto. hueco B1\-0.5\2.29\\2.2\\cocina\15.68\\\2.8\\baño\1\3\\2.4\\PLANTA PISO\\\\\\dormitorio 2\1\3.3\\2.5\\\1\3.3\\3.5\\\2\4\\3\\dormitorio 3\1\3.06\\2.5\\\1\3.64\\3.5\\\2\4\\3\\baño 1\15.75\\\2.4\\distribuidor\18.63\\\2.4\\dormitorio 1\1\3.97\\2.6\\\1\0.6\\3\\\1\4.32\\3.43\\\2\3.2\\3.05\\PLANTA CUBIERTA\\\\\\caja escalera\1\2.06\\1.25\\\1\2.37\\1.9\\\1\3.09\\1.6\\bajocubierta sala maq.\1\1.6\\1\\\1\1.6\\1.9\\\2\3.2\\1.45\\Puntos singulares\8\\\\|
+~M|14#\RE14.02|15\2\|76.17|\INTERIOR\\\\\\PLANTA BAJA\\\\\\sala estar\1\6\3.93\\\comedor\1\3.05\3.2\\\PLANTA PISO\\\\\\baño 1\8.65\\\\\distribuidor\12.03\\\\\PLANTA CUBIERTA\\\\\\caja escalera\7\\\\\bajocubierta sala maq.\5.15\\\\\Escaleras\10\\\\|
+~M|14#\RE14.03|15\3\|77.06|\INTERIOR\\\\\\PLANTA BAJA\\\\\\entrada\1.53\\\\\trastero\1.79\\\\\lavabo\1.45\\\\\comedor\14.45\\\\\cocina\14.71\\\\\PLANTA PISO\\\\\\dormitorio 2\1\3.3\4.15\\\dormitorio 3\1\3.35\4.15\\\dormitorio 1\1\4.5\3.45\\|
+~M|14#\RE14.04|15\4\|194.15|\fachada prinicpal\1\7.33\\5.42\\fachada posterior\1\5.4\\5.55\\fachada patio interior\1\4.05\\6.85\\\1\3.49\\6.85\\dto. hueco B1\-0.5\2.29\\2.2\\\1\3.88\\3.5\\\1\2.55\\3.5\\\3\0.85\\2.4\\paso cubierto\1\3\\2.4\\\1\1.25\\2.4\\caja escalera\1\2.69\\1.05\\\1\3.6\\1.5\\\1\2.33\\0.5\\\1\3.58\\1.8\\caja bajocubierta sala maq.\1\2\\0.5\\\1\2\\0.8\\\1\3.6\\1.5\\terraza\1\3.61\\1.15\\\1\3.61\\1.25\\Puntos singulares\4\\\\|
+~M|14#\RE14.05|15\5\|53.61|\VIGAS DE MADERA\\\\\\PLANTA BAJA\\\\\\trastero y lavabo\2\4\0.5\\\comedor\7\3.15\0.5\\\PLANTA PISO\\\\\\dormitorio 2 y 3\11\4.5\0.5\\\dormitorio 1\7\3.95\0.5\\|
+~M|15#\RE15.01|16\1\|1|\M1 - baño 1 ppiso\1\\\\|
+~M|16#\RE16.01|17\1\|1|\Vivienda\1\\\\|
+~M|17#\RE17.01|18\1\|1|\Vivienda\1\\\\|
+~M|18#\RE18.01|19\1\|1||
+~M|19#\RE19.01|20\1\|1|\Vivienda\1\\\\|
+~M|20#\RE20.01|21\1\|207.65|\Vivienda\207.65\\\\|
+~M|20#\RE20.02|21\2\|207.65|\Vivienda\207.65\\\\|
+~M|20#\RE20.03|21\3\|207.65|\Vivienda\207.65\\\\|
+~M|20#\RE20.04|21\4\|207.65|\Vivienda\207.65\\\\|
+~M|20#\RE20.05|21\5\|6|\PP2\3\\\\\PP3\1\\\\\PP4\1\\\\\PP5\1\\\\|
+~M|20#\RE20.06|21\6\|6|\B2 - dormitorio 1\1\\\\\B3 - dormitorio 1\1\\\\\B4 - dormitorio 2\1\\\\\F1 - dormitorio 3\1\\\\\F2 - baño 1\1\\\\\F3 - distribuidor ppiso\1\\\\|
+~M|20#\RE20.07|21\7\|2|\B1 - comedor\1\\\\\FR - rellano superior esc.\1\\\\|
+~M|20#\RE20.08|21\8\|4|\PS B2 - dormitorio 1\1\\\\\PS B4 - dormitorio 2\1\\\\\PS F1 - dormitorio 3\1\\\\\PS F3 - distribuidor ppiso\1\\\\|
+~M|20#\RE20.09|21\9\|9.63|\INTERIOR\\\\\\ESC1\\\\\\tramo inclinado\1\0.95\\\\\1\1.59\\\\\1\0.64\\\\tramo recto\1\1.28\\\\ESC2\\\\\\tramo inclinado\1\0.48\\\\\1\1.57\\\\\1\0.94\\\\tramo recto\1\2.18\\\|
+~M|20#\RE20.10|21\10\|3.43|\EXTERIOR\\\\\\balconera B3\1\0.85\\\\balconera B4\1\0.98\\\\balconera B2\1\1.6\\\|
+~M|20#\RE20.11|21\11\|1|\M1 - baño 1\1\\\\|
+~M|21#\RE21.01|22\1\|3|\zunchos\3\\\\|
+~M|21#\RE21.02|22\2\|1|\Serie media\1\\\\|
+~M|21#\RE21.03|22\3\|1|\Serie media\1\\\\|
+~M|21#\RE21.04|22\4\|1|\Terraza cubierta\1\\\\|
+~M|22#\RE22.01|23\1\|64.06|\DEMOLICIÓN\\\\\\escaleras\3\\\\\forj. comedor\1.2\15\\0.25\\forj. y cub. 1er aiguavés\1.2\42\\0.2\\forj. y cub. 2o aiguavés\1.2\38\\0.2\\forj. y cub. plana\1.2\13\\0.25\\fábrica 20 cm\1.2\27.79\0.2\\\tabique 5 cm\1.2\38.59\0.08\\\vierteaguas\1.2\5.2\0.3\0.05\\repicado revest. interior\2\\\\\repicado revest. exterior\1\\\\\demolicion huecos y varios\16\\\\\fontaneria y sanitarios\2\\\\\varios\2\\\\|
+~M|22#\RE22.02|23\2\|16|\PREVISION\16\\\\|
+~M|22#\RE22.03|23\3\|8.97|\DEMOLICIÓN\\\\\\CARPINTERIA FACHADA\\\\\\puertas, ventanas y persianas\\\\\\menos de 3m2\14\2\0.05\\\CARPINTERIA INTERIOR\\\\\\puertas 1h\6\1.5\0.05\\\PERSIANAS\\\\\\2h\2\1.2\0.05\\\CANALES Y BAJANTES PLUVIALES\1\\\\\VIGAS DE MADERA\4\\\\\VARIOS\2\\\\|
+~M|22#\RE22.04|23\4\|1||
+~M|23#\RE23.01|24\1\|1||

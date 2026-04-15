@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
     Plus,
     FolderPlus,
@@ -40,12 +40,28 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
-// --- Utilitats de Format ---
-const round2 = (val) => Math.round(((Number(val) || 0) + Number.EPSILON) * 100) / 100; // Minimal error rounding
-const formatCurrency = (val) => new Intl.NumberFormat('ca-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val || 0);
-const formatNumber = (val, decimals = 2) => Number(val || 0).toLocaleString('ca-ES', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+// --- Imports Modularitzats ---
+import {
+    round2,
+    normalizeCode,
+    formatCurrency,
+    formatNumber,
+    getComponentCategory,
+    calcMeasureTotal,
+    calcItemTotalQty,
+    getItemUnitPrice,
+    calcItemCertifiedQty,
+    calcItemCertifiedAmount,
+    calcChapterCertifiedTotal,
+    calcItemTotalAmount,
+    calcChapterTotal,
+    getPreviousCertId
+} from './utils/calculations';
+import { useCertification } from './hooks/useCertification';
+import CertificationBar from './components/Certification/CertificationBar';
+import CertificationSidebar from './components/Certification/CertificationSidebar';
+
 const formatPrice = (val) => formatNumber(val, 2);
-const normalizeCode = (code) => code ? code.trim().replace(/#+$/, '') : '';
 
 const numberToTextCatalan = (n) => {
     const units = ['', 'UN', 'DOS', 'TRES', 'QUATRE', 'CINC', 'SIS', 'SET', 'VUIT', 'NOU'];
@@ -94,7 +110,7 @@ const numberToTextCatalan = (n) => {
     return result.trim();
 };
 
-const flattenBudget = (nodes, level = 0, parentRef = '', counterObj = { val: 0 }, config, calcChapterTotal, calcItemTotalAmount, priceDatabase) => {
+const flattenBudget = (nodes, level = 0, parentRef = '', counterObj = { val: 0 }, config, priceDatabase) => {
     let rows = [];
     nodes.forEach((node) => {
         const isChapter = !node.unit;
@@ -104,7 +120,7 @@ const flattenBudget = (nodes, level = 0, parentRef = '', counterObj = { val: 0 }
             counterObj.val++;
             const currentRef = parentRef ? `${parentRef}.${counterObj.val}` : `${counterObj.val}`;
             const displayCode = config.useCorrelativeCodes ? currentRef : node.code;
-            const totalAmount = isChapter ? calcChapterTotal(node) : calcItemTotalAmount(node);
+            const totalAmount = isChapter ? calcChapterTotal(node, priceDatabase) : calcItemTotalAmount(node, priceDatabase);
 
             if (isChapter) {
                 // Chapter Header Row
@@ -131,94 +147,28 @@ const flattenBudget = (nodes, level = 0, parentRef = '', counterObj = { val: 0 }
 
                 // Recursive children - New counter for next level
                 const children = [...(node.subChapters || []), ...(node.items || [])];
-                rows.push(...flattenBudget(children, level + 1, currentRef, { val: 0 }, config, calcChapterTotal, calcItemTotalAmount, priceDatabase));
-
-                // Chapter Footer Total
-                rows.push({
-                    type: 'chapter-total',
-                    level: level,
-                    data: [
-                        '',
-                        { content: `TOTAL ${level === 0 ? 'CAPÍTOL' : 'SUBCAPÍTOL'} ${displayCode} ${node.description} ..........................................................................................`, colSpan: 8 },
-                        formatNumber(totalAmount, 2)
-                    ]
-                });
+                rows.push(...flattenBudget(children, level + 1, currentRef, { val: 0 }, config, priceDatabase));
             } else {
-                // Item Header Row
+                // Item Row
                 rows.push({
                     type: 'item',
                     data: [
                         displayCode,
-                        { content: `${node.unit} ${node.description}`, colSpan: 9 }
+                        node.description,
+                        node.unit,
+                        formatNumber(calcItemTotalQty(node), 2),
+                        formatPrice(getItemUnitPrice(node, priceDatabase)),
+                        formatNumber(totalAmount, 2)
                     ]
                 });
-
-                // Long Description Row
-                if (config.showLongDesc && node.fullDescription && node.fullDescription !== node.description) {
-                    rows.push({
-                        type: 'item-long-desc',
-                        data: [
-                            '',
-                            { content: node.fullDescription, colSpan: 9 }
-                        ]
-                    });
-                }
-
-                // Measurement Lines
-                if (config.showMeasurements && node.measurements && node.measurements.length > 0) {
-                    node.measurements.forEach(m => {
-                        rows.push({
-                            type: 'measurement',
-                            data: [
-                                '',
-                                `    ${m.description}`,
-                                formatNumber(m.units, 0),
-                                (m.length > 1 || (m.width === 1 && m.height === 1 && m.length !== 0) ? formatNumber(m.length, 2) : ''),
-                                (m.width > 1 ? formatNumber(m.width, 2) : ''),
-                                (m.height > 1 ? formatNumber(m.height, 2) : ''),
-                                formatNumber(m.units * m.length * m.width * m.height, 2),
-                                '', '', ''
-                            ]
-                        });
-                    });
-
-                    // Item Total Row
-                    const totalQty = node.measurements.reduce((acc, m) => acc + (m.units * m.length * m.width * m.height), 0);
-                    const unitPrice = priceDatabase[normalizeCode(node.code)]?.price ?? node.price;
-                    rows.push({
-                        type: 'item-total',
-                        data: [
-                            '', '', '', '', '', '', '',
-                            formatNumber(totalQty, 2),
-                            formatNumber(unitPrice, 2),
-                            formatNumber(totalAmount, 2)
-                        ]
-                    });
-                } else {
-                    const totalQty = node.measurements?.reduce((acc, m) => acc + (m.units * m.length * m.width * m.height), 0) || 0;
-                    const unitPrice = priceDatabase[normalizeCode(node.code)]?.price ?? node.price;
-                    rows.push({
-                        type: 'item-total',
-                        data: [
-                            '', '', '', '', '', '', '',
-                            formatNumber(totalQty, 2),
-                            formatNumber(unitPrice, 2),
-                            formatNumber(totalAmount, 2)
-                        ]
-                    });
-                }
             }
-        } else if (isChapter && !shouldShowHeader) {
-            // HIDDEN CHAPTER: Bubble up children at the SAME level using SAME counterObj
-            const children = [...(node.subChapters || []), ...(node.items || [])];
-            rows.push(...flattenBudget(children, level, parentRef, counterObj, config, calcChapterTotal, calcItemTotalAmount, priceDatabase));
         }
     });
     return rows;
 };
 
 // --- Component de Vista d'Impressió ---
-const PrintView = ({ budget, priceDatabase, calcItemTotalAmount, calcChapterTotal, budgetTotal, config, setConfig, onOpenConfig, onClose, onExportPDF, onExportSummaryPDF, handleExportXLSX }) => {
+const PrintView = ({ budget, priceDatabase, budgetTotal, config, setConfig, onOpenConfig, onClose, onExportPDF, onExportSummaryPDF, handleExportXLSX }) => {
     const [date] = useState(new Date().toLocaleDateString('ca-ES'));
     const [viewMode, setViewMode] = useState('amidaments'); // 'amidaments' | 'resum'
 
@@ -236,9 +186,9 @@ const PrintView = ({ budget, priceDatabase, calcItemTotalAmount, calcChapterTota
             displayCode = config.useCorrelativeCodes ? currentRef : node.code;
         }
 
-        const totalAmount = isChapter ? calcChapterTotal(node) : calcItemTotalAmount(node);
-        const totalQty = isChapter ? 0 : (node.measurements?.reduce((acc, m) => acc + (m.units * m.length * m.width * m.height), 0) || 0);
-        const unitPrice = isChapter ? 0 : (priceDatabase[normalizeCode(node.code)]?.price ?? node.price);
+        const totalAmount = isChapter ? calcChapterTotal(node, priceDatabase) : calcItemTotalAmount(node, priceDatabase);
+        const totalQty = isChapter ? 0 : calcItemTotalQty(node);
+        const unitPrice = isChapter ? 0 : getItemUnitPrice(node, priceDatabase);
 
         return (
             <React.Fragment key={node.id}>
@@ -917,10 +867,12 @@ export default function App() {
     const [budget, setBudget] = useState(() => {
         const saved = localStorage.getItem('amidaments_budget');
         try {
-            return saved ? JSON.parse(saved) : { id: '1', name: 'Projecte BC3', chapters: [] };
+            const data = saved ? JSON.parse(saved) : { id: '1', name: 'Projecte BC3', chapters: [] };
+            if (!data.certifications) data.certifications = [];
+            return data;
         } catch (e) {
             console.error("Error parsing saved budget", e);
-            return { id: '1', name: 'Projecte BC3', chapters: [] };
+            return { id: '1', name: 'Projecte BC3', chapters: [], certifications: [] };
         }
     });
 
@@ -933,6 +885,9 @@ export default function App() {
             return {};
         }
     });
+
+    const [appMode, setAppMode] = useState('budget'); // 'budget' | 'certification'
+    const [activeCertId, setActiveCertId] = useState(null);
 
     const [lastSaved, setLastSaved] = useState(null);
 
@@ -954,6 +909,12 @@ export default function App() {
         window.addEventListener('beforeunload', handleBeforeUnload);
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
     }, [budget, priceDatabase]);
+
+    useEffect(() => {
+        if (!activeCertId && budget.certifications?.length > 0) {
+            setActiveCertId(budget.certifications[0].id);
+        }
+    }, [budget.certifications, activeCertId]);
     const [activeTab, setActiveTab] = useState('editor');
     const [selectedId, setSelectedId] = useState(null);
     const [showJustification, setShowJustification] = useState({});
@@ -979,6 +940,11 @@ export default function App() {
     const [searchTerm, setSearchTerm] = useState('');
     const [showSaveDropdown, setShowSaveDropdown] = useState(false);
 
+    const notify = (msg, type = 'info') => {
+        setNotification({ msg, type });
+        setTimeout(() => setNotification(null), 5000);
+    };
+
     // Reordering State
     const [draggedNodeId, setDraggedNodeId] = useState(null);
     const [dragOverTarget, setDragOverTarget] = useState(null); // { id, position: 'before' | 'after' }
@@ -989,7 +955,8 @@ export default function App() {
         title: true,
         description: true,
         measurements: true,
-        justification: true
+        justification: true,
+        certification: true
     });
 
     // Mobile state
@@ -997,7 +964,10 @@ export default function App() {
     const [showMobileSidebar, setShowMobileSidebar] = useState(false);
     const [showSearchExpanded, setShowSearchExpanded] = useState(false);
 
-    const isResizing = React.useRef(false);
+    const isResizing = useRef(false);
+
+    // Initialize Certification Actions
+    const certActions = useCertification(budget, setBudget, notify);
 
 
 
@@ -1033,100 +1003,48 @@ export default function App() {
     const toggleSidebarSection = (section) => {
         setExpandedSidebarSections(prev => ({ ...prev, [section]: !prev[section] }));
     };
-    const notify = (msg, type = 'info') => {
-        setNotification({ msg, type });
-        setTimeout(() => setNotification(null), 5000);
-    };
+
+    const [showNewCertInput, setShowNewCertInput] = useState(false);
+    const [newCertName, setNewCertName] = useState('');
+
+    const createCertification = useCallback(() => {
+        const name = newCertName.trim() || `Certificació ${budget.certifications.length + 1}`;
+        const newId = Date.now().toString();
+        const newCert = {
+            id: newId,
+            name: name,
+            date: new Date().toISOString(),
+            method: 'origin' // Default to 'At Origin' (Presto style)
+        };
+
+        setBudget(prev => ({
+            ...prev,
+            certifications: [...(prev.certifications || []), newCert]
+        }));
+        setActiveCertId(newId);
+        setShowNewCertInput(false);
+        setNewCertName('');
+        setNotification({ msg: `Nova certificació "${name}" creada`, type: 'success' });
+        setTimeout(() => setNotification(null), 3000);
+    }, [newCertName, budget.certifications]);
 
 
 
-    // --- Lògica de Càlcul ---
-    const calcMeasureTotal = (m) => round2((m.units || 0) * (m.length || 1) * (m.width || 1) * (m.height || 1));
-    const calcItemTotalQty = (item) => {
-        if (!item.measurements || item.measurements.length === 0) return 0;
 
-        let subtotal = 0;
-        item.measurements.forEach(m => {
-            if (!m.isIncrement) {
-                subtotal += calcMeasureTotal(m);
-            }
-        });
 
-        const incrementTotal = item.measurements
-            .filter(m => m.isIncrement)
-            .reduce((acc, m) => {
-                const percentage = parseFloat(m.units) || 0;
-                return acc + (subtotal * (percentage / 100));
-            }, 0);
 
-        return round2(subtotal + incrementTotal);
-    };
 
-    // --- Helper de Categories ---
-    const getComponentCategory = (code) => {
-        if (!code) return 'directCost';
-        const c = code.toLowerCase();
-        if (c.startsWith('mo')) return 'labor';
-        if (c.startsWith('mt') || c.startsWith('mq')) return 'material';
-        if (c.includes('%')) return 'percent';
-        return 'directCost';
-    };
 
-    const getItemUnitPrice = useCallback((item) => {
-        // Dynamic re-calc based on current priceDatabase
-        if (item.breakdown && item.breakdown.length > 0) {
-            // 1. Calculate Base (Labor + Material + Direct Costs, excluding other percents)
-            let baseTotal = 0;
-            item.breakdown.forEach(line => {
-                const cat = getComponentCategory(line.code);
-                if (cat !== 'percent') {
-                    const dbPrice = priceDatabase[normalizeCode(line.code)]?.price;
-                    const unitPrice = dbPrice !== undefined ? dbPrice : (line.price || 0);
-                    baseTotal = round2(baseTotal + round2(unitPrice * (line.yield || 0)));
-                }
-            });
-            baseTotal = round2(baseTotal);
 
-            // 2. Sum everything, handling % specifically
-            return round2(item.breakdown.reduce((acc, line) => {
-                const cat = getComponentCategory(line.code);
-
-                if (cat === 'percent') {
-                    const percentage = line.yield || 0;
-                    const dbUnit = priceDatabase[normalizeCode(line.code)]?.unit;
-                    const isActuallyPercent = dbUnit === '%' || line.unit === '%' || line.code === '%';
-                    const lineTotal = round2(baseTotal * (isActuallyPercent ? percentage / 100 : percentage));
-                    return acc + lineTotal;
-                }
-
-                const dbPrice = priceDatabase[normalizeCode(line.code)]?.price;
-                const unitPrice = dbPrice !== undefined ? dbPrice : (line.price || 0);
-                return acc + round2(unitPrice * (line.yield || 0));
-            }, 0));
-        }
-        const code = normalizeCode(item.code);
-        return priceDatabase[code]?.price ?? item.price ?? 0;
-    }, [priceDatabase]);
-
-    const calcItemTotalAmount = useCallback((item) => {
-        const qty = calcItemTotalQty(item);
-        const unitPrice = getItemUnitPrice(item);
-        const total = qty * unitPrice;
-        // Divide by 100 only if unit is '%' AND it's a simple item (no breakdown)
-        // If it has breakdown, the price is calculated from components which are already correct.
-        const isSimplePercent = item.unit === '%' && (!item.breakdown || item.breakdown.length === 0);
-        return round2(isSimplePercent ? total / 100 : total);
-    }, [getItemUnitPrice]);
-
-    const calcChapterTotal = useCallback((chapter) => {
-        const itemsTotal = (chapter.items || []).reduce((acc, item) => acc + calcItemTotalAmount(item), 0);
-        const subChaptersTotal = (chapter.subChapters || []).reduce((acc, sub) => acc + calcChapterTotal(sub), 0);
-        return itemsTotal + subChaptersTotal;
-    }, [calcItemTotalAmount]);
 
     const budgetTotal = useMemo(() => {
-        return budget.chapters.reduce((acc, ch) => acc + calcChapterTotal(ch), 0);
-    }, [budget.chapters, calcChapterTotal]);
+        return budget.chapters.reduce((acc, ch) => acc + calcChapterTotal(ch, priceDatabase), 0);
+    }, [budget.chapters, priceDatabase]);
+
+    const certifiedTotal = useMemo(() => {
+        if (appMode !== 'certification' || !activeCertId) return 0;
+        return budget.chapters.reduce((acc, ch) => acc + calcChapterCertifiedTotal(ch, activeCertId, priceDatabase), 0);
+    }, [budget.chapters, appMode, activeCertId, priceDatabase]);
 
     const handleExportPDF = useCallback((config) => {
         const doc = new jsPDF('p', 'mm', 'a4');
@@ -1938,6 +1856,7 @@ export default function App() {
         const relations = {};
         const measurements = [];
         const longTexts = {};
+        const phases = []; // [{ id, code, name, date }]
 
         records.forEach(record => {
             const type = record[0];
@@ -1965,6 +1884,22 @@ export default function App() {
                     const tCode = normalizeCode(tCodeRaw);
                     if (tCode) longTexts[tCode] = fields[1]?.trim();
                     break;
+                case 'F':
+                    // ~F|CODIGO|FECHA|TITULO
+                    const fCode = fields[0]?.trim();
+                    const fDate = fields[1]?.trim();
+                    const fTitle = fields[2]?.trim();
+                    if (fCode && fCode !== '0') {
+                        phases.push({
+                            id: crypto.randomUUID(),
+                            code: fCode,
+                            name: fTitle || `Certificació ${fCode}`,
+                            date: fDate ? `${fDate.substring(0, 4)}-${fDate.substring(4, 6)}-${fDate.substring(6, 8)}` : new Date().toISOString().split('T')[0],
+                            approved: true, // Imported certs are treated as approved/closed
+                            method: 'origin' // Assume origin for imported ones
+                        });
+                    }
+                    break;
                 case 'D':
                     const pCode = normalizeCode(fields[0]);
                     const rawChildren = fields[1]?.trim() || fields[2]?.trim();
@@ -1985,40 +1920,98 @@ export default function App() {
                     }
                     break;
                 case 'M':
-                    const mParts = fields[0]?.split('\\');
-                    const targetCode = normalizeCode(mParts[mParts.length - 1]);
-                    if (fields[3]) {
-                        const mLines = fields[3].split('\\');
-                        for (let i = 0; i < mLines.length; i += 6) {
-                            if (mLines[i + 1] || mLines[i + 2]) {
-                                measurements.push({
-                                    target: targetCode,
-                                    description: mLines[i + 1]?.trim() || 'Importat',
-                                    units: parseFloat(mLines[i + 2]) || 0,
-                                    length: parseFloat(mLines[i + 3]) || 1,
-                                    width: parseFloat(mLines[i + 4]) || 1,
-                                    height: parseFloat(mLines[i + 5]) || 1
-                                });
+                    const mPathParts = fields[0]?.split('\\') || [];
+                    const targetCode = normalizeCode(mPathParts[mPathParts.length - 1]);
+
+                    // Refined detection: pick the field (1-4) with most backslashes that looks like measurements
+                    let mLinesRaw = null;
+                    let maxWeight = -1;
+
+                    for (let i = 1; i <= 4; i++) {
+                        const content = fields[i] || '';
+                        const bCount = (content.match(/\\/g) || []).length;
+                        if (bCount > 0) {
+                            const parts = content.split('\\');
+                            const actualParts = parts[0] === '' ? parts.slice(1) : parts;
+                            // Heuristic: weight by backslashes and by structural compatibility
+                            let weight = bCount;
+                            if (actualParts.length >= 6 && (actualParts.length % 6 === 0 || actualParts.length % 7 === 0)) {
+                                weight += 10;
+                            }
+                            if (weight > maxWeight) {
+                                maxWeight = weight;
+                                mLinesRaw = content;
                             }
                         }
-                    } else if (fields[2]) {
-                        measurements.push({
-                            target: targetCode,
-                            description: 'Amidament base',
-                            units: parseFloat(fields[2].replace(',', '.')) || 0,
-                            length: 0, width: 0, height: 0
-                        });
                     }
-                    break;
-                case 'R':
-                    // Ignorem registres de residus (~R) ja que hem eliminat la funcionalitat
+
+                    if (mLinesRaw) {
+                        const mLines = mLinesRaw.split('\\');
+
+                        // Robust detection of 7-field (phase-enabled) vs 6-field format
+                        let step = 6;
+                        let offset = 1; // offset to description
+
+                        if (mLines.length >= 7 && mLines.length % 7 === 0) {
+                            // If it's a multiple of 7, check if the second subfield (TIPO) is a valid numeric type
+                            // Note: we check the first potential 'tipo' field after potential leading empty
+                            const startIdx = mLines[0] === '' ? 1 : 0;
+                            const potentialType = parseInt(mLines[startIdx + 1]);
+                            if (!isNaN(potentialType) && potentialType >= 1 && potentialType <= 4) {
+                                step = 7;
+                                offset = 2;
+                            }
+                        }
+
+                        const startIdx = mLines[0] === '' ? 1 : 0;
+                        for (let i = startIdx; i < mLines.length; i += step) {
+                            const phaseVal = (step === 7) ? (parseInt(mLines[i]) || 0) : 0;
+                            const desc = mLines[i + offset]?.trim() || '';
+                            const uStr = (mLines[i + offset + 1] || '0').replace(',', '.');
+                            const u = parseFloat(uStr);
+                            const l = parseFloat((mLines[i + offset + 2] || '1').replace(',', '.')) || 1;
+                            const a = parseFloat((mLines[i + offset + 3] || '1').replace(',', '.')) || 1;
+                            const h = parseFloat((mLines[i + offset + 4] || '1').replace(',', '.')) || 1;
+
+                            // Skip junk: 0 units AND no real description
+                            if (isNaN(u) || (u === 0 && (!desc || desc === 'Importat'))) {
+                                continue;
+                            }
+
+                            measurements.push({
+                                target: targetCode,
+                                phase: phaseVal,
+                                description: desc || 'Importat',
+                                units: u,
+                                length: l,
+                                width: a,
+                                height: h
+                            });
+                        }
+                    } else {
+                        // Look for a numeric quantity in fields 1-4 if no structural lines were found
+                        for (let i = 1; i <= 4; i++) {
+                            const valStr = (fields[i] || '').replace(',', '.');
+                            const val = parseFloat(valStr);
+                            if (!isNaN(val) && val !== 0 && !fields[i].includes('\\')) {
+                                measurements.push({
+                                    target: targetCode,
+                                    phase: 0,
+                                    description: 'Amidament base',
+                                    units: val,
+                                    length: 1, width: 1, height: 1
+                                });
+                                break;
+                            }
+                        }
+                    }
                     break;
             }
         });
 
         const newPrices = { ...concepts };
 
-        const buildTree = (normCode, stack = new Set()) => {
+        const buildTree = (normCode, stack = new Set(), defaultQuantity = 0) => {
             if (stack.has(normCode)) return null; // Prevent infinite recursion
             const concept = concepts[normCode];
             if (!concept) return null;
@@ -2046,8 +2039,6 @@ export default function App() {
                 breakdown.push(lineItem);
             });
 
-            // If it's an item with a price but NO decomposition components,
-            // create an automatic decomposition line with 'pa' prefix.
             if (breakdown.length === 0 && concept.unit && concept.price > 0) {
                 breakdown.push({
                     code: 'pa' + concept.originalCode,
@@ -2056,6 +2047,32 @@ export default function App() {
                     yield: 1,
                     price: concept.price,
                     total: concept.price
+                });
+            }
+
+            // Organize certifications
+            const certMeasurements = {};
+            measurements.filter(m => m.target === normCode && m.phase > 0).forEach(m => {
+                const phase = phases.find(p => parseInt(p.code) === m.phase);
+                if (phase) {
+                    if (!certMeasurements[phase.id]) certMeasurements[phase.id] = { measurements: [] };
+                    certMeasurements[phase.id].measurements.push({ ...m, id: crypto.randomUUID() });
+                }
+            });
+
+            // Leaf items: if no measurements found, use defaultQuantity from parent decomposition
+            let nodeMeasurements = measurements
+                .filter(m => m.target === normCode && m.phase === 0)
+                .map(m => ({ ...m, id: crypto.randomUUID() }));
+
+            if (nodeMeasurements.length === 0 && concept.unit && defaultQuantity > 0) {
+                nodeMeasurements.push({
+                    id: crypto.randomUUID(),
+                    target: normCode,
+                    phase: 0,
+                    description: 'Amidament per defecte (factor ~D)',
+                    units: defaultQuantity,
+                    length: 1, width: 1, height: 1
                 });
             }
 
@@ -2070,12 +2087,13 @@ export default function App() {
                 waste: [],
                 items: [],
                 subChapters: [],
-                measurements: measurements.filter(m => m.target === normCode).map(m => ({ ...m, id: crypto.randomUUID() }))
+                measurements: nodeMeasurements,
+                certifications: certMeasurements
             };
 
             if (!concept.unit) {
                 (relations[normCode] || []).forEach(rel => {
-                    const childNode = buildTree(rel.child, nextStack);
+                    const childNode = buildTree(rel.child, nextStack, rel.yield);
                     if (childNode) {
                         if (childNode.unit) node.items.push(childNode);
                         else node.subChapters.push(childNode);
@@ -2091,37 +2109,41 @@ export default function App() {
         );
 
         const finalChapters = [];
+        let projectName = budget.name || 'Projecte Importat';
         rootCandidates.forEach(candidate => {
             const rootNode = buildTree(candidate);
             if (rootNode) {
-                // Si és un node de projecte (##), n'agafem els fills com a capítols de primer nivell
                 if (concepts[candidate].originalCode.includes('##')) {
+                    projectName = concepts[candidate].summary || projectName;
                     finalChapters.push(...(rootNode.subChapters || []), ...(rootNode.items || []));
                 } else if (!rootNode.unit || (rootNode.items?.length > 0 || rootNode.subChapters?.length > 0)) {
-                    // Si és un orphan i sembla un capítol (no té unitat o té fills), l'afegim
                     finalChapters.push(rootNode);
                 }
             }
         });
 
         if (finalChapters.length > 0) {
-            // Eliminar duplicats per id (per si un cas)
             const seen = new Set();
             const uniqueChapters = finalChapters.filter(ch => {
                 if (seen.has(ch.id)) return false;
                 seen.add(ch.id);
                 return true;
             });
-            return { chapters: uniqueChapters, prices: newPrices };
+            return {
+                chapters: uniqueChapters,
+                prices: newPrices,
+                certifications: phases,
+                name: projectName
+            };
         }
 
         return null;
-    }, []);
+    }, [budget.name]);
 
     // --- Exportació BC3 ---
     const generateBC3 = useCallback(() => {
         const concepts = new Map(); // normCode -> { data, isDecomposed }
-        const measurementsByCode = new Map(); // normCode -> Array of measurement lines
+        const measurementsByCode = new Map(); // normCode -> Array of { phase, ...measurementObject }
         const relationships = new Map(); // normCode -> Array of { childNormCode, factor, yield }
 
         const getExportCode = (normCode) => {
@@ -2131,12 +2153,17 @@ export default function App() {
 
         const fNum = (n) => (n || 0).toString().replace('.', ',');
 
+        // Map certifications to phase numbers (Budget is 0, Certs are 1, 2, 3...)
+        const phaseMap = new Map();
+        (budget.certifications || []).forEach((c, i) => {
+            phaseMap.set(c.id, i + 1);
+        });
+
         // 1. First Pass: Collect all data and determine decomposition
         const processNode = (node) => {
             const norm = normalizeCode(node.code);
             const hasChildren = (node.subChapters?.length > 0 || node.items?.length > 0);
             const hasBreakdown = (node.breakdown?.length > 0);
-            const hasMeasurements = (node.measurements?.length > 0);
 
             if (!concepts.has(norm)) {
                 concepts.set(norm, {
@@ -2183,10 +2210,25 @@ export default function App() {
                 });
             }
 
-            // Measurement aggregation
-            if (hasMeasurements) {
+            // Measurement aggregation (Phase 0: Budget)
+            if (node.measurements?.length > 0) {
                 if (!measurementsByCode.has(norm)) measurementsByCode.set(norm, []);
-                measurementsByCode.get(norm).push(...node.measurements);
+                node.measurements.forEach(m => {
+                    measurementsByCode.get(norm).push({ phase: 0, ...m });
+                });
+            }
+
+            // Measurements for each certification phase
+            if (node.certifications) {
+                Object.entries(node.certifications).forEach(([certId, certData]) => {
+                    const phaseNum = phaseMap.get(certId);
+                    if (phaseNum !== undefined && certData.measurements?.length > 0) {
+                        if (!measurementsByCode.has(norm)) measurementsByCode.set(norm, []);
+                        certData.measurements.forEach(m => {
+                            measurementsByCode.get(norm).push({ phase: phaseNum, ...m });
+                        });
+                    }
+                });
             }
 
             if (node.subChapters) node.subChapters.forEach(processNode);
@@ -2194,7 +2236,8 @@ export default function App() {
         };
 
         budget.chapters.forEach(processNode);
-        // Also ensure price database entries are present as concepts
+
+        // Ensure price database entries are present as concepts
         Object.entries(priceDatabase).forEach(([code, data]) => {
             const norm = normalizeCode(code);
             if (!concepts.has(norm)) {
@@ -2211,7 +2254,12 @@ export default function App() {
         lines.push('~V|FIEBDC-3/2016|PreuArq BIM|ANSI');
         lines.push('~K|\\0\\0\\0\\2\\2\\2\\2\\');
 
-        // 2. Second Pass: Generate records
+        // Phase Records (~F)
+        (budget.certifications || []).forEach((cert, i) => {
+            const phaseNum = i + 1;
+            const dateStr = cert.date ? cert.date.substring(0, 10).replace(/-/g, '') : '';
+            lines.push(`~F|${phaseNum}|${dateStr}|${cert.name}`);
+        });
 
         // Root Concept
         if (budget.chapters.length > 0) {
@@ -2226,7 +2274,9 @@ export default function App() {
         // Concepts records (~C, ~T)
         concepts.forEach((data, norm) => {
             const exportCode = getExportCode(norm);
-            lines.push(`~C|${exportCode}|${data.unit}|${data.description}|${fNum(data.price)}|0|0|0\\0\\0`);
+            const isPercent = data.unit === '%';
+            const price = isPercent ? (data.price / 100) : data.price;
+            lines.push(`~C|${exportCode}|${data.unit}|${data.description}|${fNum(price)}|0|0|0\\0\\0`);
             if (data.fullDescription) {
                 lines.push(`~T|${exportCode}|${data.fullDescription}`);
             }
@@ -2235,27 +2285,47 @@ export default function App() {
         // Decomposition records (~D)
         relationships.forEach((rels, norm) => {
             const exportCode = getExportCode(norm);
-            const childStr = rels.map(r => `${getExportCode(r.child)}\\${fNum(r.factor)}\\${fNum(r.yield)}`).join('\\');
+            const childStr = rels.map(r => {
+                const childConcept = concepts.get(r.child);
+                const isPercent = childConcept?.unit === '%';
+                const yld = isPercent ? (r.yield / 100) : r.yield;
+                return `${getExportCode(r.child)}\\${fNum(r.factor)}\\${fNum(yld)}`;
+            }).join('\\');
             if (childStr) {
                 lines.push(`~D|${exportCode}|${childStr}`);
             }
         });
 
         // Quantity (~Q) and Measurement (~M) records
-        const codesWithActivity = new Set([...measurementsByCode.keys()]);
-
-        codesWithActivity.forEach(norm => {
+        measurementsByCode.forEach((measurements, norm) => {
             const exportCode = getExportCode(norm);
-            const measurements = measurementsByCode.get(norm) || [];
 
+            // Generate ~Q for budget (Phase 0)
+            const budgetMeasurements = measurements.filter(m => m.phase === 0);
+            if (budgetMeasurements.length > 0) {
+                const totalQty = budgetMeasurements.reduce((acc, m) => acc + (m.units || 0) * (m.length || 1) * (m.width || 1) * (m.height || 1), 0);
+                lines.push(`~Q|${exportCode}|${fNum(totalQty)}|0`);
+            }
+
+            // Generate ~Q for each certification phase (Accumulated)
+            (budget.certifications || []).forEach((cert, i) => {
+                const phaseNum = i + 1;
+                // Importante: BC3 ~Q con FASE suele esperar el acumulado. 
+                // Nuestra lógica en calculations.js ya calcula acumulados según el método.
+                // Para el BC3, lo más seguro es enviar el acumulado a esa fase.
+                const accumulatedQty = calcItemCertifiedQty({ code: norm, certifications: budget.certifications }, cert.id, budget.certifications);
+                if (accumulatedQty > 0) {
+                    lines.push(`~Q|${exportCode}|${fNum(accumulatedQty)}|${phaseNum}`);
+                }
+            });
+
+            // Generate ~M with all phases
             if (measurements.length > 0) {
-                const totalQty = measurements.reduce((acc, m) => acc + (m.units || 0) * (m.length || 1) * (m.width || 1) * (m.height || 1), 0);
-                lines.push(`~Q|${exportCode}|${fNum(totalQty)}`);
-
                 const mLines = measurements.map(m => {
-                    return `2\\${m.description}\\${fNum(m.units)}\\${fNum(m.length)}\\${fNum(m.width)}\\${fNum(m.height)}`;
+                    // Format: FASE \ TIPO (2=measurement) \ DESC \ U \ L \ A \ H
+                    return `${m.phase}\\2\\${m.description || ''}\\${fNum(m.units)}\\${fNum(m.length)}\\${fNum(m.width)}\\${fNum(m.height)}`;
                 }).join('\\');
-                lines.push(`~M|${exportCode}|1\\${mLines}`);
+                lines.push(`~M|${exportCode}|${mLines}`);
             }
         });
 
@@ -2393,7 +2463,8 @@ export default function App() {
             reader.onload = (ev) => {
                 const result = processBC3Data(ev.target.result);
                 if (result) {
-                    startImportProcess(result);
+                    // "Open Project" replaces the current one
+                    startImportProcess(result, { replace: true });
                 } else {
                     notify("Format BC3 no reconegut", "error");
                 }
@@ -2418,9 +2489,14 @@ export default function App() {
         notify("Nou projecte creat");
     };
 
+    const startImportProcess = (result, options = {}) => {
+        const { replace = false } = options;
 
+        if (replace) {
+            finalizeImport(result, { replace: true });
+            return;
+        }
 
-    const startImportProcess = (result) => {
         // Find duplicates
         const existingCodes = new Set();
         const collectExisting = (nodes) => {
@@ -2556,13 +2632,26 @@ export default function App() {
         });
     };
 
-    const finalizeImport = (result) => {
-        setPriceDatabase(prev => ({ ...prev, ...result.prices }));
-        setBudget(prev => ({
-            ...prev,
-            chapters: mergeTreeBranches(prev.chapters, result.chapters)
-        }));
-        notify("Dades importades correctament");
+    const finalizeImport = (result, options = {}) => {
+        const { replace = false } = options;
+
+        if (replace) {
+            setPriceDatabase(result.prices || {});
+            setBudget({
+                id: crypto.randomUUID(),
+                name: result.name || 'Projecte Importat',
+                chapters: result.chapters,
+                certifications: result.certifications || []
+            });
+            notify("Projecte obert correctament");
+        } else {
+            setPriceDatabase(prev => ({ ...prev, ...result.prices }));
+            setBudget(prev => ({
+                ...prev,
+                chapters: mergeTreeBranches(prev.chapters, result.chapters)
+            }));
+            notify("Dades importades correctament");
+        }
     };
 
     // --- BC3 URL Handlers (defined after dependencies) ---
@@ -3287,36 +3376,105 @@ export default function App() {
                                     {node.description}
                                 </span>
                                 {/* Mobile: Show unit, qty, price below description with labels */}
-                                <div className="md:hidden flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-[10px] text-slate-500">
-                                    {node.unit && (
-                                        <>
-                                            <div className="flex items-center gap-1">
-                                                <span className="text-[8px] uppercase font-bold text-slate-300">Ud</span>
-                                                <span className="italic">{node.unit}</span>
-                                            </div>
-                                            <div className="flex items-center gap-1">
-                                                <span className="text-[8px] uppercase font-bold text-slate-300">Q</span>
-                                                <span className="font-mono">{formatNumber(calcItemTotalQty(node), 2)}</span>
-                                            </div>
-                                            <div className="flex items-center gap-1">
-                                                <span className="text-[8px] uppercase font-bold text-slate-300">Pr</span>
-                                                <span className="font-mono">{formatPrice(getItemUnitPrice(node))}</span>
-                                            </div>
-                                        </>
-                                    )}
-                                </div>
+                                {appMode === 'budget' ? (
+                                    <div className="md:hidden flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-[10px] text-slate-500">
+                                        {node.unit && (
+                                            <>
+                                                <div className="flex items-center gap-1">
+                                                    <span className="text-[8px] uppercase font-bold text-slate-300">Ud</span>
+                                                    <span className="italic">{node.unit}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1">
+                                                    <span className="text-[8px] uppercase font-bold text-slate-300">Q</span>
+                                                    <span className="font-mono">{formatNumber(calcItemTotalQty(node), 2)}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1">
+                                                    <span className="text-[8px] uppercase font-bold text-slate-300">Pr</span>
+                                                    <span className="font-mono">{formatPrice(getItemUnitPrice(node))}</span>
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="md:hidden flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-[10px] text-slate-500">
+                                        {node.unit && (() => {
+                                            const originQty = calcItemCertifiedQty(node, activeCertId, budget.certifications);
+                                            const prevCertId = getPreviousCertId(budget.certifications, activeCertId);
+                                            const prevQty = prevCertId ? calcItemCertifiedQty(node, prevCertId, budget.certifications) : 0;
+                                            const actQty = round2(originQty - prevQty);
+                                            return (
+                                                <>
+                                                    <div className="flex items-center gap-1">
+                                                        <span className="text-[8px] uppercase font-bold text-slate-300">Ud</span>
+                                                        <span className="italic">{node.unit}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1">
+                                                        <span className="text-[8px] uppercase font-bold text-slate-300">Prev</span>
+                                                        <span className="font-mono">{formatNumber(calcItemTotalQty(node), 2)}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1 text-emerald-600 font-bold">
+                                                        <span className="text-[8px] uppercase font-bold text-emerald-300">Orig</span>
+                                                        <span className="font-mono">{formatNumber(originQty, 2)}</span>
+                                                    </div>
+                                                    {actQty !== 0 && (
+                                                        <div className={`flex items-center gap-1 ${actQty > 0 ? 'text-blue-600' : 'text-amber-600'}`}>
+                                                            <span className="text-[8px] uppercase font-bold opacity-50">Act</span>
+                                                            <span className="font-mono">{actQty > 0 ? '+' : ''}{formatNumber(actQty, 2)}</span>
+                                                        </div>
+                                                    )}
+                                                </>
+                                            );
+                                        })()}
+                                    </div>
+                                )}
                             </div>
                         </td>
                         {/* Desktop: Separate columns */}
-                        <td className="hidden md:table-cell p-2 text-center text-slate-400 italic w-14 text-[10px]">{node.unit || ''}</td>
-                        <td className="hidden md:table-cell p-2 text-right font-mono w-20 text-[11px] text-slate-500">{node.unit ? formatNumber(calcItemTotalQty(node), 2) : ''}</td>
-                        <td className="hidden md:table-cell p-2 text-right font-mono w-28 text-[11px] text-slate-600">
-                            {node.unit ? formatPrice(getItemUnitPrice(node)) : ''}
-                        </td>
+                        {appMode === 'budget' ? (
+                            <>
+                                <td className="hidden md:table-cell p-2 text-center text-slate-400 italic w-14 text-[10px]">{node.unit || ''}</td>
+                                <td className="hidden md:table-cell p-2 text-right font-mono w-20 text-[11px] text-slate-500">{node.unit ? formatNumber(calcItemTotalQty(node), 2) : ''}</td>
+                                <td className="hidden md:table-cell p-2 text-right font-mono w-28 text-[11px] text-slate-600">
+                                    {node.unit ? formatPrice(getItemUnitPrice(node)) : ''}
+                                </td>
+                            </>
+                        ) : (() => {
+                            const originQty = calcItemCertifiedQty(node, activeCertId, budget.certifications);
+                            const prevCertId = getPreviousCertId(budget.certifications, activeCertId);
+                            const prevQty = prevCertId ? calcItemCertifiedQty(node, prevCertId, budget.certifications) : 0;
+                            const actQty = round2(originQty - prevQty);
+                            const totalQty = calcItemTotalQty(node) || 1;
+
+                            const antPct = (prevQty / totalQty) * 100;
+                            const actPct = (actQty / totalQty) * 100;
+                            const originPct = (originQty / totalQty) * 100;
+
+                            return (
+                                <>
+                                    <td className="hidden md:table-cell p-2 text-center text-slate-400 italic w-10 text-[10px]">{node.unit || ''}</td>
+                                    <td className="hidden md:table-cell p-2 text-right font-mono w-16 text-[10px] text-slate-400">{node.unit ? formatNumber(totalQty, 2) : ''}</td>
+                                    <td className="hidden lg:table-cell p-2 text-right font-mono w-12 text-[10px] text-slate-400">
+                                        {node.unit && prevQty !== 0 ? `${formatNumber(antPct, 1)}%` : '-'}
+                                    </td>
+                                    <td className={`hidden lg:table-cell p-2 text-right font-mono w-12 text-[10px] ${actQty > 0 ? 'text-blue-600 font-bold' : 'text-slate-300'}`}>
+                                        {node.unit && actQty !== 0 ? `${actQty > 0 ? '+' : ''}${formatNumber(actPct, 1)}%` : '-'}
+                                    </td>
+                                    <td className="p-1 md:p-2 text-right font-mono w-16 md:w-20 text-[11px] text-emerald-600 font-bold bg-emerald-50/50">
+                                        {node.unit ? formatNumber(originQty, 2) : ''}
+                                    </td>
+                                    <td className="hidden md:table-cell p-2 text-right font-mono w-12 text-[10px] text-slate-500">
+                                        {node.unit ? `${formatNumber(originPct, 1)}%` : ''}
+                                    </td>
+                                </>
+                            );
+                        })()}
                         {/* Total - Always visible */}
                         <td className="p-1 md:p-2 text-right font-mono font-bold text-slate-700 w-20 md:w-32 text-[11px] md:text-[11px]">
                             <div className="flex items-center justify-end gap-2">
-                                {node.unit ? formatCurrency(calcItemTotalAmount(node)) : formatCurrency(calcChapterTotal(node))}
+                                {appMode === 'budget'
+                                    ? (node.unit ? formatCurrency(calcItemTotalAmount(node)) : formatCurrency(calcChapterTotal(node)))
+                                    : (node.unit ? formatCurrency(calcItemCertifiedAmount(node, activeCertId, priceDatabase, budget.certifications)) : formatCurrency(calcChapterCertifiedTotal(node, activeCertId, priceDatabase, budget.certifications)))
+                                }
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
@@ -3591,7 +3749,23 @@ export default function App() {
                     <div className="bg-blue-600 p-1.5 md:p-2">
                         <Calculator size={20} className="md:w-6 md:h-6 text-white" />
                     </div>
-                    <h1 className="hidden md:block font-bold text-xl tracking-tighter leading-none uppercase">PreuArq <span className="text-blue-400 font-light">BIM</span></h1>
+                    <h1 className="hidden sm:block font-bold text-xl tracking-tighter leading-none uppercase">PreuArq <span className="text-blue-400 font-light">BIM</span></h1>
+                </div>
+
+                {/* Center: Mode Switch */}
+                <div className="flex bg-slate-900 border border-slate-800 p-1 rounded-lg">
+                    <button
+                        onClick={() => setAppMode('budget')}
+                        className={`flex items-center gap-2 px-3 md:px-4 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all ${appMode === 'budget' ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40' : 'text-slate-400 hover:text-white'}`}
+                    >
+                        <FileText size={14} /> <span className="hidden xs:inline">Pressupost</span>
+                    </button>
+                    <button
+                        onClick={() => setAppMode('certification')}
+                        className={`flex items-center gap-2 px-3 md:px-4 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all ${appMode === 'certification' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/40' : 'text-slate-400 hover:text-white'}`}
+                    >
+                        <Layers size={14} /> <span className="hidden xs:inline">Certificació</span>
+                    </button>
                 </div>
 
                 {/* Center/Right: Actions */}
@@ -3600,10 +3774,14 @@ export default function App() {
                     <button
                         onClick={() => setShowPemModal(true)}
                         className="flex flex-col items-end gap-0.5 group cursor-pointer"
-                        title="Ajustar PEM"
+                        title={appMode === 'budget' ? "Ajustar PEM" : "Total Certificat"}
                     >
-                        <span className="text-[8px] md:text-[9px] uppercase text-slate-500 font-bold tracking-widest leading-none group-hover:text-blue-400 transition-colors">Total PEM</span>
-                        <span className="text-sm md:text-xl font-mono text-emerald-400 font-bold tracking-tighter leading-none">{formatCurrency(budgetTotal)}</span>
+                        <span className="text-[8px] md:text-[9px] uppercase text-slate-500 font-bold tracking-widest leading-none group-hover:text-blue-400 transition-colors">
+                            {appMode === 'budget' ? 'Total PEM' : 'Total Certificat'}
+                        </span>
+                        <span className={`text-sm md:text-xl font-mono font-bold tracking-tighter leading-none ${appMode === 'budget' ? 'text-emerald-400' : 'text-blue-400'}`}>
+                            {formatCurrency(appMode === 'budget' ? budgetTotal : certifiedTotal)}
+                        </span>
                     </button>
 
                     {/* Desktop: All buttons visible */}
@@ -3742,6 +3920,22 @@ export default function App() {
                 </div>
             </header>
 
+            {/* Certification Management Bar */}
+            {appMode === 'certification' && (
+                <CertificationBar
+                    certifications={budget.certifications}
+                    activeCertId={activeCertId}
+                    setActiveCertId={setActiveCertId}
+                    showNewCertInput={showNewCertInput}
+                    setShowNewCertInput={setShowNewCertInput}
+                    newCertName={newCertName}
+                    setNewCertName={setNewCertName}
+                    onCreateCertification={createCertification}
+                    onApproveCertification={certActions.approveCertification}
+                    onToggleMethod={certActions.toggleCertificationMethod}
+                />
+            )}
+
             {/* Hidden file input for opening projects (JSON + BC3) */}
             <input
                 ref={fileInputRef}
@@ -3763,7 +3957,8 @@ export default function App() {
                         reader.onload = (ev) => {
                             const result = processBC3Data(ev.target.result);
                             if (result) {
-                                startImportProcess(result);
+                                // Explicitly merge (not replace) for the "Import" button
+                                startImportProcess(result, { replace: false });
                             } else {
                                 notify("Format BC3 no reconegut", "error");
                             }
@@ -3903,9 +4098,24 @@ export default function App() {
                                         <th className="p-1 md:p-2 w-6 md:w-10 text-center"></th>
                                         <th className="p-1 md:p-2 w-16 md:w-28 text-left">Codi</th>
                                         <th className="p-1 md:p-2 text-left">Descripció</th>
-                                        <th className="hidden md:table-cell p-2 w-14 text-center">Ud.</th>
-                                        <th className="hidden md:table-cell p-2 w-20 text-right">Quantitat</th>
-                                        <th className="hidden md:table-cell p-2 w-28 text-right">Preu Ud.</th>
+
+                                        {appMode === 'budget' ? (
+                                            <>
+                                                <th className="hidden md:table-cell p-2 w-14 text-center">Ud.</th>
+                                                <th className="hidden md:table-cell p-2 w-20 text-right">Quantitat</th>
+                                                <th className="hidden md:table-cell p-2 w-28 text-right">Preu Ud.</th>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <th className="hidden md:table-cell p-2 w-10 text-center text-[7px]">Ud.</th>
+                                                <th className="hidden md:table-cell p-2 w-16 text-right text-[7px]">Previst</th>
+                                                <th className="hidden lg:table-cell p-2 w-12 text-right text-[7px]">Ant. %</th>
+                                                <th className="hidden lg:table-cell p-2 w-12 text-right text-[7px]">Act. %</th>
+                                                <th className="p-1 md:p-2 w-16 md:w-20 text-right text-[7px]">Cert. Origen</th>
+                                                <th className="hidden md:table-cell p-2 w-12 text-right text-[7px]">%</th>
+                                            </>
+                                        )}
+
                                         <th className="p-1 md:p-2 w-20 md:w-32 text-right">Total</th>
                                     </tr>
                                 </thead>
@@ -3943,24 +4153,21 @@ export default function App() {
                 )}
 
                 {/* Mobile: Bottom Sheet Toggle Tab (only when item selected) */}
-                {selectedId && (
+                {selectedId && !showMobileSidebar && (
                     <button
                         className="md:hidden fixed bottom-0 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white px-6 py-2 rounded-t-lg shadow-lg z-50 flex items-center gap-2"
                         onClick={() => setShowMobileSidebar(!showMobileSidebar)}
-                        style={{ display: showMobileSidebar ? 'none' : 'flex' }}
                     >
                         <ChevronDown className={showMobileSidebar ? 'rotate-180' : ''} size={16} />
                         <span className="text-xs font-bold uppercase tracking-wider">Detall</span>
                     </button>
                 )}
 
-                {/* Right Edit Sidebar */}
                 <aside
                     className={`
                         bg-slate-50 border-l border-slate-200 overflow-y-auto flex flex-col
-                        md:relative md:block
                         ${selectedId ? 'fixed md:relative' : 'hidden md:block'}
-                        ${showMobileSidebar ? 'bottom-0 left-0 right-0' : '-bottom-full'}
+                        ${showMobileSidebar ? 'max-md:bottom-0 max-md:left-0 max-md:right-0' : 'max-md:-bottom-full'}
                         transition-all duration-300 ease-in-out
                         z-50 md:z-auto
                         max-h-[80vh] md:max-h-none
@@ -4010,6 +4217,19 @@ export default function App() {
                                     </header>
 
                                     <div className="flex-1 p-4 space-y-4">
+                                        {/* Certification Section - Only in Certification Mode */}
+                                        {appMode === 'certification' && activeCertId && node.unit && (
+                                            <CertificationSidebar
+                                                node={node}
+                                                activeCertId={activeCertId}
+                                                certifications={budget.certifications}
+                                                priceDatabase={priceDatabase}
+                                                expanded={expandedSidebarSections.certification}
+                                                onToggle={() => toggleSidebarSection('certification')}
+                                                actions={certActions}
+                                            />
+                                        )}
+
                                         {/* Títol & Codi Section */}
                                         <div className="bg-white border border-slate-200 rounded shadow-sm overflow-hidden">
                                             <button
