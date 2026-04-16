@@ -34,7 +34,9 @@ import {
     User,
     FileSpreadsheet,
     Percent,
-    Menu
+    Menu,
+    Cloud,
+    LogOut,
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -58,8 +60,11 @@ import {
     getPreviousCertId
 } from './utils/calculations';
 import { useCertification } from './hooks/useCertification';
+import { useGoogleDrive } from './hooks/useGoogleDrive';
+import { useDriveConfig } from './context/DriveConfigContext';
 import CertificationBar from './components/Certification/CertificationBar';
 import CertificationSidebar from './components/Certification/CertificationSidebar';
+import DriveSettingsModal from './components/DriveSettingsModal';
 
 const formatPrice = (val) => formatNumber(val, 2);
 
@@ -969,6 +974,45 @@ export default function App() {
     // Initialize Certification Actions
     const certActions = useCertification(budget, setBudget, notify);
 
+    // ── Google Drive ─────────────────────────────────────────────────────────
+    const { config: driveConfig, setCredentials, hasCredentials } = useDriveConfig();
+    const [showDriveSettings, setShowDriveSettings] = useState(false);
+    const [showOpenDropdown, setShowOpenDropdown] = useState(false);
+
+    // Referència a generateBC3 (definit més avall) per passar-la al hook
+    const generateBC3Ref = useRef(null);
+
+    // Callback quan Drive carrega un BC3 (ArrayBuffer) → reutilitza el flux existent
+    const handleBC3FromDrive = useCallback((arrayBuffer, fileName) => {
+        const decoder = new TextDecoder('windows-1252');
+        const text = decoder.decode(arrayBuffer);
+        const result = processBC3Data(text);
+        if (result) {
+            startImportProcess(result, { replace: true });
+        } else {
+            notify('Format BC3 no reconegut', 'error');
+        }
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const drive = useGoogleDrive({
+        clientId: driveConfig.clientId,
+        apiKey: driveConfig.apiKey,
+        appId: driveConfig.appId,
+        onProjectLoaded: ({ budget: b, priceDatabase: pd }) => {
+            setBudget(b);
+            setPriceDatabase(pd);
+        },
+        onBC3Loaded: handleBC3FromDrive,
+        notify,
+        getBc3Content: () => generateBC3Ref.current?.(),
+        budgetRef: budget,
+    });
+
+    // Helper: connecta Drive, obrint settings si cal
+    const requireDrive = useCallback(async (action) => {
+        if (!hasCredentials) { setShowDriveSettings(true); return; }
+        await action();
+    }, [hasCredentials]);
 
 
     const startResizing = useCallback(() => {
@@ -2331,6 +2375,16 @@ export default function App() {
 
         return lines.join('\n');
     }, [budget, priceDatabase]);
+
+    // Actualitza la referència cada vegada que generateBC3 canvia
+    // (el hook de Drive la usa per exportar BC3)
+    useEffect(() => {
+        generateBC3Ref.current = generateBC3;
+    }, [generateBC3]);
+
+    const handleExportBC3ToDrive = useCallback(() => {
+        requireDrive(() => drive.exportBC3ToDrive(generateBC3(), budget.name));
+    }, [drive, requireDrive, generateBC3, budget.name]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleExportBC3 = () => {
         const content = generateBC3();
@@ -3702,6 +3756,19 @@ export default function App() {
             onDrop={handleDrop}
             onPaste={handlePaste}
         >
+            {/* 1. DRIVE SETTINGS MODAL */}
+            {showDriveSettings && (
+                <DriveSettingsModal
+                    config={driveConfig}
+                    onSave={(newConfig) => {
+                        setCredentials(newConfig);
+                        setShowDriveSettings(false);
+                        // Trigger sign in directly after saving if needed
+                    }}
+                    onClose={() => setShowDriveSettings(false)}
+                />
+            )}
+
             {/* 2. ITEM CREATOR MODAL */}
             {showCreator && (
                 <ItemCreator
@@ -3744,12 +3811,39 @@ export default function App() {
 
             {/* Header Flat */}
             <header className="bg-slate-950 text-white p-3 md:p-4 flex justify-between items-center border-b border-slate-800 z-30">
-                {/* Left: Logo + Title */}
+                {/* Left: Logo + Title + Drive Status */}
                 <div className="flex items-center gap-2 md:gap-4">
                     <div className="bg-blue-600 p-1.5 md:p-2">
                         <Calculator size={20} className="md:w-6 md:h-6 text-white" />
                     </div>
-                    <h1 className="hidden sm:block font-bold text-xl tracking-tighter leading-none uppercase">PreuArq <span className="text-blue-400 font-light">BIM</span></h1>
+                    <div className="flex flex-col">
+                        <h1 className="hidden sm:block font-bold text-xl tracking-tighter leading-none uppercase">PreuArq <span className="text-blue-400 font-light">BIM</span></h1>
+                        {/* Drive Status Indicator */}
+                        <div className="hidden sm:flex items-center gap-2 mt-1">
+                            {drive.isSignedIn ? (
+                                <div className="flex items-center gap-2 text-[10px]">
+                                    <span className="text-blue-400 font-medium flex items-center gap-1" title={drive.userName}>
+                                        <Cloud size={12} /> {drive.userName.split(' ')[0]}
+                                    </span>
+                                    {drive.currentFileName && (
+                                        <span className="text-slate-400 max-w-[120px] truncate" title={drive.currentFileName}>
+                                            | {drive.currentFileName}
+                                        </span>
+                                    )}
+                                    <button onClick={drive.signOut} className="text-slate-500 hover:text-red-400 transition-colors ml-1" title="Desconnectar de Drive">
+                                        <LogOut size={10} />
+                                    </button>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={() => requireDrive(drive.signIn)}
+                                    className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-blue-400 transition-colors"
+                                >
+                                    <Cloud size={12} /> Connecta Drive
+                                </button>
+                            )}
+                        </div>
+                    </div>
                 </div>
 
                 {/* Center: Mode Switch */}
@@ -3792,11 +3886,36 @@ export default function App() {
                             <span className="text-[10px] font-bold uppercase tracking-widest">Nou</span>
                         </button>
 
-                        {/* Obrir (JSON + BC3) */}
-                        <button onClick={handleOpenProject} className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-4 py-2 border border-slate-700 transition-colors" title="Obrir Projecte (JSON o BC3)">
-                            <FolderOpen size={16} className="text-slate-400" />
-                            <span className="text-[10px] font-bold uppercase tracking-widest">Obrir</span>
-                        </button>
+                        {/* Obrir (Dropdown) */}
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowOpenDropdown(!showOpenDropdown)}
+                                className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-4 py-2 border border-slate-700 transition-colors"
+                                title="Obrir"
+                            >
+                                <FolderOpen size={16} className="text-slate-400" />
+                                <span className="text-[10px] font-bold uppercase tracking-widest">Obrir</span>
+                                <ChevronDown size={12} className="text-slate-500" />
+                            </button>
+                            {showOpenDropdown && (
+                                <div className="absolute top-full left-0 mt-1 bg-slate-900 border border-slate-700 shadow-2xl z-50 min-w-[180px]">
+                                    <button
+                                        onClick={() => { handleOpenProject(); setShowOpenDropdown(false); }}
+                                        className="w-full text-left px-4 py-2 text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-colors flex items-center gap-2"
+                                    >
+                                        <FileText size={12} className="text-slate-400" />
+                                        Des del disc local
+                                    </button>
+                                    <button
+                                        onClick={() => { requireDrive(drive.openFromDrive); setShowOpenDropdown(false); }}
+                                        className="w-full text-left px-4 py-2 text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-colors flex items-center gap-2 border-t border-slate-800"
+                                    >
+                                        <Cloud size={12} className="text-blue-400" />
+                                        Des de Google Drive
+                                    </button>
+                                </div>
+                            )}
+                        </div>
 
                         {/* Desar (Dropdown) */}
                         <div className="relative">
@@ -3810,20 +3929,46 @@ export default function App() {
                                 <ChevronDown size={12} className="text-slate-500" />
                             </button>
                             {showSaveDropdown && (
-                                <div className="absolute top-full right-0 mt-1 bg-slate-900 border border-slate-700 shadow-2xl z-50 min-w-[180px]">
+                                <div className="absolute top-full right-0 mt-1 bg-slate-900 border border-slate-700 shadow-2xl z-50 min-w-[220px]">
+                                    <div className="px-3 py-1 text-[8px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-800">JSON (Natiu)</div>
                                     <button
                                         onClick={() => { handleDownloadProject(); setShowSaveDropdown(false); }}
                                         className="w-full text-left px-4 py-2 text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-colors flex items-center gap-2"
                                     >
-                                        <FileDown size={12} className="text-blue-400" />
-                                        Desar com a JSON
+                                        <FileDown size={12} className="text-emerald-400" />
+                                        Desar JSON (Disc)
                                     </button>
                                     <button
-                                        onClick={() => { handleExportBC3(); setShowSaveDropdown(false); }}
-                                        className="w-full text-left px-4 py-2 text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-colors flex items-center gap-2 border-t border-slate-800"
+                                        onClick={() => { requireDrive(() => drive.saveToDrive(budget, priceDatabase)); setShowSaveDropdown(false); }}
+                                        className="w-full text-left px-4 py-2 text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-colors flex items-center gap-2"
                                     >
-                                        <Download size={12} className="text-emerald-400" />
-                                        Exportar BC3
+                                        <Cloud size={12} className="text-blue-400" />
+                                        Desar a Drive
+                                    </button>
+                                    {drive.currentFileType === 'json' && (
+                                        <button
+                                            onClick={() => { requireDrive(() => drive.saveAsToDrive(budget, priceDatabase)); setShowSaveDropdown(false); }}
+                                            className="w-full text-left px-4 py-2 text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-colors flex items-center gap-2 italic"
+                                        >
+                                            <Cloud size={12} className="text-slate-400" />
+                                            Desar còpia a Drive...
+                                        </button>
+                                    )}
+
+                                    <div className="px-3 py-1 text-[8px] font-bold text-slate-500 uppercase tracking-widest border-b border-t border-slate-800 mt-1">FIEBDC-3 (BC3)</div>
+                                    <button
+                                        onClick={() => { handleExportBC3(); setShowSaveDropdown(false); }}
+                                        className="w-full text-left px-4 py-2 text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-colors flex items-center gap-2"
+                                    >
+                                        <Download size={12} className="text-amber-400" />
+                                        Exportar BC3 (Disc)
+                                    </button>
+                                    <button
+                                        onClick={() => { handleExportBC3ToDrive(); setShowSaveDropdown(false); }}
+                                        className="w-full text-left px-4 py-2 text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-colors flex items-center gap-2"
+                                    >
+                                        <Cloud size={12} className="text-amber-400" />
+                                        Exportar BC3 a Drive
                                     </button>
                                 </div>
                             )}
@@ -3874,35 +4019,60 @@ export default function App() {
                                         <span className="font-medium">Nou Projecte</span>
                                     </button>
 
+                                    <div className="px-4 py-2 text-xs font-bold text-slate-500 border-b border-slate-800 bg-slate-800/50">OBRIR</div>
                                     <button
                                         onClick={() => { handleOpenProject(); setShowMobileMenu(false); }}
                                         className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 transition-colors flex items-center gap-3 border-b border-slate-800"
                                     >
                                         <FolderOpen size={18} className="text-slate-400" />
-                                        <span className="font-medium">Obrir Projecte</span>
+                                        <span className="font-medium">Disc Local</span>
+                                    </button>
+                                    <button
+                                        onClick={() => { requireDrive(drive.openFromDrive); setShowMobileMenu(false); }}
+                                        className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 transition-colors flex items-center gap-3 border-b border-slate-800"
+                                    >
+                                        <Cloud size={18} className="text-blue-400" />
+                                        <span className="font-medium">Google Drive</span>
                                     </button>
 
+                                    <div className="px-4 py-2 text-xs font-bold text-slate-500 border-b border-slate-800 bg-slate-800/50 mt-1">DESAR JSON</div>
                                     <button
                                         onClick={() => { handleDownloadProject(); setShowMobileMenu(false); }}
                                         className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 transition-colors flex items-center gap-3 border-b border-slate-800"
                                     >
-                                        <Save size={18} className="text-emerald-400" />
-                                        <span className="font-medium">Desar (JSON)</span>
+                                        <FileDown size={18} className="text-emerald-400" />
+                                        <span className="font-medium">A Disc Local</span>
+                                    </button>
+                                    <button
+                                        onClick={() => { requireDrive(() => drive.saveToDrive(budget, priceDatabase)); setShowMobileMenu(false); }}
+                                        className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 transition-colors flex items-center gap-3 border-b border-slate-800"
+                                    >
+                                        <Cloud size={18} className="text-blue-400" />
+                                        <span className="font-medium">A Google Drive</span>
                                     </button>
 
+                                    <div className="px-4 py-2 text-xs font-bold text-slate-500 border-b border-slate-800 bg-slate-800/50 mt-1">EXPORTAR BC3</div>
                                     <button
                                         onClick={() => { handleExportBC3(); setShowMobileMenu(false); }}
                                         className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 transition-colors flex items-center gap-3 border-b border-slate-800"
                                     >
-                                        <Download size={18} className="text-emerald-400" />
-                                        <span className="font-medium">Exportar BC3</span>
+                                        <Download size={18} className="text-amber-400" />
+                                        <span className="font-medium">A Disc Local</span>
+                                    </button>
+                                    <button
+                                        onClick={() => { handleExportBC3ToDrive(); setShowMobileMenu(false); }}
+                                        className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 transition-colors flex items-center gap-3 border-b border-slate-800"
+                                    >
+                                        <Cloud size={18} className="text-amber-400" />
+                                        <span className="font-medium">A Google Drive</span>
                                     </button>
 
+                                    <div className="px-4 py-2 text-xs font-bold text-slate-500 border-b border-slate-800 bg-slate-800/50 mt-1">ALTRES</div>
                                     <button
                                         onClick={() => { document.getElementById('bc3-import-input')?.click(); setShowMobileMenu(false); }}
                                         className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 transition-colors flex items-center gap-3 border-b border-slate-800"
                                     >
-                                        <Upload size={18} className="text-blue-400" />
+                                        <Upload size={18} className="text-slate-400" />
                                         <span className="font-medium">Importar BC3</span>
                                     </button>
 
