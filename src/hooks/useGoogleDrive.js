@@ -38,6 +38,7 @@ export const useGoogleDrive = ({
     const [isReady, setIsReady] = useState(false);       // APIs carregades + gapi init
     const [isSignedIn, setIsSignedIn] = useState(false);
     const [userName, setUserName] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
     const [currentFileId, setCurrentFileId] = useState(null);
     const [currentFileName, setCurrentFileName] = useState('');
     const [currentFileType, setCurrentFileType] = useState(null); // 'json' | 'bc3' | null
@@ -332,6 +333,7 @@ export const useGoogleDrive = ({
         isReady,
         isSignedIn,
         userName,
+        isLoading,
         currentFileId,
         currentFileName,
         currentFileType,

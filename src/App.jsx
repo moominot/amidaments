@@ -4656,6 +4656,15 @@ export default function App() {
                     handleExportXLSX={handleExportXLSX}
                 />
             )}
+
+            {drive.isLoading && (
+                <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-[110]">
+                    <div className="bg-white p-6 rounded-lg shadow-xl flex flex-col items-center gap-4">
+                        <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                        <span className="text-sm font-bold uppercase tracking-widest text-slate-600">Carregant de Drive...</span>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
