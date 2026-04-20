@@ -51,7 +51,9 @@ export const initGapiClient = (apiKey) =>
 
 const SCOPES = [
     'https://www.googleapis.com/auth/drive.file',
+    'https://www.googleapis.com/auth/drive.metadata.readonly',
     'https://www.googleapis.com/auth/userinfo.profile',
+    'https://www.googleapis.com/auth/userinfo.email',
 ].join(' ');
 
 export const createTokenClient = (clientId, callback) =>
@@ -100,7 +102,7 @@ export const openPicker = ({ accessToken, apiKey, appId, onPicked, onCancel }) =
 export const getFileMetadata = async (fileId, accessToken) => {
     console.log('📡 Fetching metadata for:', fileId);
     const res = await fetch(
-        `https://www.googleapis.com/drive/v3/files/${fileId}?fields=id,name,mimeType`,
+        `https://www.googleapis.com/drive/v3/files/${fileId}?fields=id,name,mimeType&supportsAllDrives=true`,
         { headers: { Authorization: `Bearer ${accessToken}` } }
     );
     if (!res.ok) {
@@ -123,7 +125,7 @@ export const getFileMetadata = async (fileId, accessToken) => {
 export const downloadDriveFile = async (fileId, accessToken, fileType) => {
     console.log('📡 Downloading file:', fileId, 'type:', fileType);
     const res = await fetch(
-        `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+        `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`,
         { headers: { Authorization: `Bearer ${accessToken}` } }
     );
     if (!res.ok) {

@@ -69,6 +69,7 @@ export const useGoogleDrive = ({
 
                     // Obtenir nom d'usuari
                     const info = await getUserInfo(resp.access_token);
+                    console.log('👤 Active Google User:', info?.email || 'unknown');
                     if (info?.name) setUserName(info.name);
                 });
 
