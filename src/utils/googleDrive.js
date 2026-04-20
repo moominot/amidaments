@@ -98,12 +98,19 @@ export const openPicker = ({ accessToken, apiKey, appId, onPicked, onCancel }) =
 // ─── Metadata ────────────────────────────────────────────────────────────────
 
 export const getFileMetadata = async (fileId, accessToken) => {
+    console.log('📡 Fetching metadata for:', fileId);
     const res = await fetch(
         `https://www.googleapis.com/drive/v3/files/${fileId}?fields=id,name,mimeType`,
         { headers: { Authorization: `Bearer ${accessToken}` } }
     );
-    if (!res.ok) throw new Error(`Error metadades Drive: ${res.status}`);
-    return res.json();
+    if (!res.ok) {
+        const errText = await res.text();
+        console.error('❌ Metadata fetch failed:', res.status, errText);
+        throw new Error(`Error metadades Drive: ${res.status}`);
+    }
+    const data = await res.json();
+    console.log('✅ Metadata received:', data.name);
+    return data;
 };
 
 // ─── Descàrrega ──────────────────────────────────────────────────────────────
@@ -114,17 +121,25 @@ export const getFileMetadata = async (fileId, accessToken) => {
  * @returns {string | Uint8Array} — text per JSON, Uint8Array per BC3
  */
 export const downloadDriveFile = async (fileId, accessToken, fileType) => {
+    console.log('📡 Downloading file:', fileId, 'type:', fileType);
     const res = await fetch(
         `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
         { headers: { Authorization: `Bearer ${accessToken}` } }
     );
-    if (!res.ok) throw new Error(`Error descàrrega Drive: ${res.status}`);
+    if (!res.ok) {
+        const errText = await res.text();
+        console.error('❌ Download failed:', res.status, errText);
+        throw new Error(`Error descàrrega Drive: ${res.status}`);
+    }
 
     if (fileType === 'json') {
-        return res.text();
+        const text = await res.text();
+        console.log('✅ JSON Downloaded, length:', text.length);
+        return text;
     } else {
         // BC3: retorna ArrayBuffer per decodificar amb windows-1252
         const buf = await res.arrayBuffer();
+        console.log('✅ BC3 Downloaded, size:', buf.byteLength);
         return buf;
     }
 };

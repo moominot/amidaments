@@ -156,8 +156,11 @@ export const useGoogleDrive = ({
     // ── Carregar fitxer ──────────────────────────────────────────────────────
 
     const _loadFile = useCallback(async (fileId, fileName, fileType) => {
+        console.log('📂 _loadFile called for:', fileId, fileName, fileType);
         try {
+            setIsLoading(true);
             const token = await _ensureToken();
+            console.log('🎫 Token acquired for _loadFile');
             const rawFileName = fileName || (await getFileMetadata(fileId, token)).name;
             const ext = rawFileName.toLowerCase().endsWith('.bc3') ? 'bc3' : 'json';
 
@@ -186,6 +189,8 @@ export const useGoogleDrive = ({
         } catch (err) {
             console.error(err);
             notify?.('Error carregant fitxer de Drive: ' + err.message, 'error');
+        } finally {
+            setIsLoading(false);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [onProjectLoaded, onBC3Loaded]);
@@ -201,35 +206,26 @@ export const useGoogleDrive = ({
             const state = JSON.parse(stateStr);
             if (state.action === 'open' && state.ids?.[0]) {
                 const fileId = state.ids[0];
+                console.log('🔄 Drive URL State detected:', state);
+                notify?.('Obrint fitxer des de Google Drive...');
+
                 // Netejar el paràmetre de l'URL sense recarregar
                 const newUrl = window.location.pathname;
                 window.history.replaceState({}, document.title, newUrl);
+                console.log('🧹 URL cleaned');
 
                 // Necessitem token primer
-                await new Promise((resolve, reject) => {
-                    if (!tokenClientRef.current) { reject(new Error('no token client')); return; }
-                    const origCallback = tokenClientRef.current.callback;
-                    tokenClientRef.current.callback = (resp) => {
-                        tokenClientRef.current.callback = origCallback;
-                        if (resp.error) { reject(new Error(resp.error)); return; }
-                        accessTokenRef.current = resp.access_token;
-                        tokenExpiryRef.current = Date.now() + (resp.expires_in - 30) * 1000;
-                        setIsSignedIn(true);
-                        getUserInfo(resp.access_token).then(info => {
-                            if (info?.name) setUserName(info.name);
-                        });
-                        origCallback?.(resp);
-                        resolve();
-                    };
-                    tokenClientRef.current.requestAccessToken({ prompt: '' });
-                });
+                const token = await _ensureToken();
+                console.log('✅ Token acquired for URL state');
 
-                const meta = await getFileMetadata(fileId, accessTokenRef.current);
+                const meta = await getFileMetadata(fileId, token);
+                console.log('📄 Metadata retrieved:', meta.name);
                 const ext = meta.name.toLowerCase().endsWith('.bc3') ? 'bc3' : 'json';
                 await _loadFile(fileId, meta.name, ext);
             }
         } catch (err) {
-            console.error('Error processant state de Drive:', err);
+            console.error('❌ Error processant state de Drive:', err);
+            notify?.('Error al processar l\'obertura des de Drive: ' + err.message, 'error');
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [_loadFile]);
