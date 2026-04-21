@@ -261,6 +261,10 @@ export const processBC3Data = (text) => {
         };
 
         const children = (relations[normCode] || [])
+            .filter(rel => {
+                const childConcept = concepts[rel.child];
+                return childConcept?.unit !== '%'; // No afegim els conceptes de % com a ítems separats
+            })
             .map(rel => buildTree(rel.child, nextStack))
             .filter(n => n !== null);
 
@@ -280,12 +284,43 @@ export const processBC3Data = (text) => {
     const roots = Object.keys(concepts).filter(c => !allChildren.has(c));
     
     // Si no hi ha una arrel clara, usem el primer concepte 'C' que tingui fills
+    
     const finalRoots = roots.length > 0 ? roots : [Object.keys(relations)[0]];
-    const tree = finalRoots.map(r => buildTree(r)).filter(n => n !== null);
+    const tree = [];
+    let projectName = 'Projecte Importat';
+
+    finalRoots.forEach(r => {
+        const node = buildTree(r);
+        if (node) {
+            // Si és un node d'arrel de projecte (té ##), l'aplanem
+            if (node.code.includes('##')) {
+                projectName = node.description || projectName;
+                if (node.subChapters) tree.push(...node.subChapters);
+                if (node.items) tree.push(...node.items);
+            } else {
+                tree.push(node);
+            }
+        }
+    });
+
+    // Construïm la base de dades de preus, excloent els conceptes de %
+    const prices = {};
+    Object.keys(concepts).forEach(c => {
+        const concept = concepts[c];
+        if (concept.unit !== '%') {
+            prices[c] = {
+                code: concept.originalCode,
+                price: concept.price,
+                summary: concept.summary,
+                unit: concept.unit
+            };
+        }
+    });
 
     return {
-        name: concepts[finalRoots[0]]?.summary || 'Projecte Importat',
+        name: projectName,
         chapters: tree,
-        phases: phases
+        phases: phases,
+        prices: prices
     };
 };
