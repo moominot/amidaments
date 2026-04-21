@@ -84,12 +84,14 @@ export const processBC3Data = (text) => {
                 for (let i = 1; i <= 4; i++) {
                     const content = fields[i] || '';
                     const bCount = (content.match(/\\/g) || []).length;
-                    if (bCount > 0) {
+                    // Mínim 4 barres per considerar-ho línies d'amidament (per evitar FASE\LINEA\)
+                    if (bCount >= 4) {
                         const parts = content.split('\\');
                         const actualParts = parts[0] === '' ? parts.slice(1) : parts;
                         let weight = bCount;
+                        // Prioritzem formats coneguts
                         if (actualParts.length >= 5 && (actualParts.length % 5 === 0 || actualParts.length % 6 === 0 || actualParts.length % 7 === 0)) {
-                            weight += 10;
+                            weight += 20;
                         }
                         if (weight > maxWeight) {
                             maxWeight = weight;
@@ -101,37 +103,55 @@ export const processBC3Data = (text) => {
                 if (mLinesRaw) {
                     const mLines = mLinesRaw.split('\\');
                     const startIdx = mLines[0] === '' ? 1 : 0;
-                    
-                    // Detectem el format de línia: 5, 6 o 7 camps
-                    let step = 6; // Per defecte 6 camps (Identificador, U, L, A, H, Tipo/Fase)
-                    let offset = 0; // Index relatiu a la descripció dins del bloc
-
-                    // Heurística per determinar el 'step'
                     const remainingLength = mLines.length - startIdx;
-                    if (remainingLength % 7 === 0) step = 7;
-                    else if (remainingLength % 5 === 0) step = 5;
-                    else if (remainingLength % 6 === 0) step = 6;
+                    
+                    // Millora: Detectem el step provant quin d'ells té més camps numèrics vàlids
+                    const testStep = (s) => {
+                        if (remainingLength % s !== 0) return -1;
+                        let validScore = 0;
+                        let off = (s === 7) ? 1 : 0;
+                        // Provem els primers 3 blocs
+                        for (let k = 0; k < Math.min(3, remainingLength / s); k++) {
+                            const base = startIdx + k * s + off;
+                            // Camps U, L, A, H
+                            for (let j = 1; j <= 4; j++) {
+                                const val = mLines[base + j];
+                                if (val === undefined) continue;
+                                if (val === '' || !isNaN(parseFloat(val.replace(',', '.')))) {
+                                    validScore++;
+                                } else {
+                                    validScore -= 10; // Penalitzem fort si hi ha text on hi hauria d'haver números
+                                }
+                            }
+                        }
+                        return validScore;
+                    };
 
-                    // Si és de 7, el primer camp sol ser la Fase
-                    if (step === 7) offset = 1;
+                    const scores = {
+                        6: testStep(6),
+                        5: testStep(5),
+                        7: testStep(7)
+                    };
+
+                    let step = 6;
+                    if (scores[6] >= scores[5] && scores[6] >= scores[7]) step = 6;
+                    else if (scores[5] >= scores[7]) step = 5;
+                    else if (scores[7] !== -1) step = 7;
+
+                    let offset = (step === 7) ? 1 : 0;
 
                     for (let i = startIdx; i < mLines.length; i += step) {
                         const phaseVal = (step === 7) ? (parseInt(mLines[i]) || 0) : 0;
                         
-                        // Correcció de mapeig segons la queixa de l'usuari:
-                        // L'usuari diu: desc=Ud, units=Ll, llargada=1
-                        // Això passa si estem desplaçats +1.
-                        // El format standard és: IDENTIFICADOR \ UNITATS \ LONGITUD \ AMPLADA \ ALÇADA
                         const desc = mLines[i + offset]?.trim() || '';
                         const uStr = (mLines[i + offset + 1] || '0').replace(',', '.');
-                        const u = parseFloat(uStr);
+                        const u = parseFloat(uStr) || 0;
                         const l = parseFloat((mLines[i + offset + 2] || '1').replace(',', '.')) || 1;
                         const a = parseFloat((mLines[i + offset + 3] || '1').replace(',', '.')) || 1;
                         const h = parseFloat((mLines[i + offset + 4] || '1').replace(',', '.')) || 1;
 
-                        if (isNaN(u) || (u === 0 && (!desc || desc === 'Importat'))) {
-                            continue;
-                        }
+                        // Acceptem línies amb u=0 si tenen descripció (són títols/subcapítols d'amidament)
+                        if (u === 0 && !desc) continue;
 
                         measurements.push({
                             target: targetCode,
