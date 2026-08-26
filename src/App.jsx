@@ -31,6 +31,7 @@ import {
     User,
     FileSpreadsheet,
     Percent,
+    Link as LinkIcon,
     Menu,
     Cloud,
     Undo2,
@@ -72,8 +73,10 @@ import CertificationSummaryModal from './components/Certification/CertificationS
 import DriveSettingsModal from './components/DriveSettingsModal';
 import NumberInput from './components/NumberInput';
 import ProjectLibraryModal from './components/ProjectLibraryModal';
+import LinkItemModal from './components/LinkItemModal';
 import { listProjects, getProject, saveProject, deleteProject } from './utils/projectLibrary';
 import { migrateBudget } from './utils/migrateBudget';
+import { resolveMeasurementRefs, isRefLine, refLabel } from './utils/measurementRefs';
 import { processBC3Data } from './utils/bc3Parser';
 import { numberToTextCatalan } from './utils/numberToText';
 import { exportCertificationPDF } from './utils/certificationPdf';
@@ -860,7 +863,7 @@ export default function App() {
 
             // I una còpia a la biblioteca, perquè obrir-ne un altre no destrueixi aquest.
             if (budget.chapters?.length > 0) {
-                const total = budget.chapters.reduce((acc, ch) => acc + calcChapterTotal(ch, priceDatabase), 0);
+                const total = budgetTotal;
                 const res = saveProject({ id: budget.id, budget, priceDatabase, total });
                 if (res.ok) setLibrary(listProjects());
                 else notify('No hi ha prou espai al navegador per desar la còpia de seguretat', 'error');
@@ -1014,6 +1017,7 @@ export default function App() {
     const [showNewCertInput, setShowNewCertInput] = useState(false);
     const [showCertSummary, setShowCertSummary] = useState(false);
     const [showLibrary, setShowLibrary] = useState(false);
+    const [linkTarget, setLinkTarget] = useState(null); // id de la partida que rep el vincle
     const [library, setLibrary] = useState(() => listProjects());
     const [newCertName, setNewCertName] = useState('');
 
@@ -1108,15 +1112,26 @@ export default function App() {
         if (activeCertId === certId) setActiveCertId(restants.length ? restants[restants.length - 1].id : null);
     }, [budget.certifications, activeCertId, certActions]);
 
+    /**
+     * Arbre amb les línies d'amidament vinculades ja resoltes.
+     *
+     * `budget.chapters` continua essent el que s'edita i el que es desa —amb els vincles
+     * intactes— i aquest és el que es mostra, es calcula i s'exporta. Resoldre-ho aquí, un
+     * sol cop, evita haver d'ensenyar a resoldre vincles a la dotzena de funcions de
+     * `calculations.js`.
+     */
+    const resolt = useMemo(() => resolveMeasurementRefs(budget.chapters), [budget.chapters]);
+    const resolvedChapters = resolt.chapters;
+
     const budgetTotal = useMemo(() => {
-        return budget.chapters.reduce((acc, ch) => acc + calcChapterTotal(ch, priceDatabase), 0);
-    }, [budget.chapters, priceDatabase]);
+        return resolvedChapters.reduce((acc, ch) => acc + calcChapterTotal(ch, priceDatabase), 0);
+    }, [resolvedChapters, priceDatabase]);
 
     // Resum de la certificació activa. Es recalcula a cada canvi de l'arbre, de manera
     // que el percentatge certificat s'actualitza mentre s'edita.
     const certificationSummary = useMemo(
-        () => buildCertificationSummary(budget.chapters, activeCertId, priceDatabase, budget.certifications || []),
-        [budget.chapters, budget.certifications, activeCertId, priceDatabase]
+        () => buildCertificationSummary(resolvedChapters, activeCertId, priceDatabase, budget.certifications || []),
+        [resolvedChapters, budget.certifications, activeCertId, priceDatabase]
     );
 
     // Sense passar budget.certifications, una fase amb mètode 'partial' no acumulava
@@ -1151,10 +1166,10 @@ export default function App() {
         const certs = budget.certifications || [];
         const cert = certs.find(c => c.id === activeCertId);
         exportCertificationPDF({
-            budget,
+            budget: { ...budget, chapters: resolvedChapters },
             summary: certificationSummary,
             detail: printConfig.certItemDetail
-                ? buildCertificationDetail(budget.chapters, activeCertId, priceDatabase, certs)
+                ? buildCertificationDetail(resolvedChapters, activeCertId, priceDatabase, certs)
                 : [],
             cert,
             certIndex: certs.findIndex(c => c.id === activeCertId) + 1,
@@ -1269,12 +1284,12 @@ export default function App() {
         };
 
         if (config.chaptersOnNewPage) {
-            budget.chapters.forEach((ch, idx) => {
+            resolvedChapters.forEach((ch, idx) => {
                 if (idx > 0) doc.addPage();
                 generateTableForNodes([ch], idx === 0, counter);
             });
         } else {
-            generateTableForNodes(budget.chapters, true, counter);
+            generateTableForNodes(resolvedChapters, true, counter);
         }
 
         let finalY = doc.lastAutoTable.finalY + 10;
@@ -1298,7 +1313,7 @@ export default function App() {
         doc.text('LA DIRECCIÓ FACULTATIVA', 155, finalY, { align: 'center' });
 
         doc.save(`Amidaments_${safeFileName(budget.name, 'projecte')}.pdf`);
-    }, [budget, priceDatabase, budgetTotal]);
+    }, [budget, resolvedChapters, priceDatabase, budgetTotal]);
 
     const handleExportSummaryPDF = useCallback((config) => {
         const doc = new jsPDF('p', 'mm', 'a4');
@@ -1311,7 +1326,7 @@ export default function App() {
         const VAT = config.iva.enabled ? PECValue * (config.iva.percentage / 100) : 0;
         const PVValue = PECValue + VAT;
 
-        const rows = budget.chapters.map((ch, index) => {
+        const rows = resolvedChapters.map((ch, index) => {
             const total = calcChapterTotal(ch, priceDatabase);
             const percentage = (total / PEMValue) * 100;
             return [
@@ -1401,7 +1416,7 @@ export default function App() {
         doc.text(`, a ${date}`, 120, finalY);
 
         doc.save(`${safeFileName(budget.name, 'projecte')}_resum.pdf`);
-    }, [budget, priceDatabase, budgetTotal]);
+    }, [budget, resolvedChapters, priceDatabase, budgetTotal]);
 
     const handleExportXLSX = useCallback(() => {
         const wb = XLSX.utils.book_new();
@@ -1465,7 +1480,7 @@ export default function App() {
         if (printConfig.chaptersOnNewPage) {
             // 1. Create Summary Sheet
             const summaryData = [['CODI', 'DESCRIPCIÓ', 'IMPORT']];
-            budget.chapters.forEach(ch => {
+            resolvedChapters.forEach(ch => {
                 summaryData.push([ch.code, ch.description.toUpperCase(), calcChapterTotal(ch, priceDatabase)]);
             });
             const wsResum = XLSX.utils.aoa_to_sheet(summaryData);
@@ -1473,23 +1488,23 @@ export default function App() {
             XLSX.utils.book_append_sheet(wb, wsResum, "Resum");
 
             // 2. Create Sheet for each Top Chapter
-            budget.chapters.forEach((ch, idx) => {
+            resolvedChapters.forEach((ch, idx) => {
                 const ws = createWorksheetData([ch]);
                 // Sheet name derived from code or Index to be safe
                 const name = (ch.code || `Cap ${idx + 1}`).substring(0, 31).replace(/[[\]*?/\\]/g, '');
                 XLSX.utils.book_append_sheet(wb, ws, name);
             });
         } else {
-            const ws = createWorksheetData(budget.chapters);
+            const ws = createWorksheetData(resolvedChapters);
             XLSX.utils.book_append_sheet(wb, ws, "Pressupost");
         }
 
         XLSX.writeFile(wb, `${safeFileName(budget.name, 'projecte')}.xlsx`);
-    }, [budget, priceDatabase, printConfig.chaptersOnNewPage, printConfig.showLongDesc]);
+    }, [budget, resolvedChapters, priceDatabase, printConfig.chaptersOnNewPage, printConfig.showLongDesc]);
 
     // --- Search Filtering ---
     const filteredChapters = useMemo(() => {
-        if (!searchTerm.trim()) return budget.chapters;
+        if (!searchTerm.trim()) return resolvedChapters;
 
         const searchLower = searchTerm.toLowerCase().trim();
 
@@ -1516,8 +1531,8 @@ export default function App() {
             }).filter(Boolean);
         };
 
-        return filterNodes(budget.chapters);
-    }, [budget.chapters, searchTerm]);
+        return filterNodes(resolvedChapters);
+    }, [resolvedChapters, searchTerm]);
 
     // --- Filtered Prices ---
     const filteredPrices = useMemo(() => {
@@ -1674,8 +1689,8 @@ export default function App() {
             });
         };
 
-        if (budget.chapters) {
-            traverse(budget.chapters);
+        if (resolvedChapters) {
+            traverse(resolvedChapters);
         }
 
         const sortedResources = Object.values(resources).sort((a, b) => a.code.localeCompare(b.code));
@@ -1701,7 +1716,7 @@ export default function App() {
         });
 
         return grouped;
-    }, [budget, priceDatabase]);
+    }, [resolvedChapters, priceDatabase]);
 
     // --- Filtered Resources ---
     const filteredResources = useMemo(() => {
@@ -2067,7 +2082,7 @@ export default function App() {
             if (node.items) node.items.forEach(processNode);
         };
 
-        budget.chapters.forEach(processNode);
+        resolvedChapters.forEach(processNode);
 
         // Ensure price database entries are present as concepts
         Object.entries(priceDatabase).forEach(([code, data]) => {
@@ -2094,9 +2109,9 @@ export default function App() {
         });
 
         // Root Concept
-        if (budget.chapters.length > 0) {
+        if (resolvedChapters.length > 0) {
             lines.push(`~C|##|u|${budget.name || 'PROJECTE'}|0|0|0|0\\0\\0`);
-            const rootChildren = budget.chapters.map(ch => {
+            const rootChildren = resolvedChapters.map(ch => {
                 const childNorm = normalizeCode(ch.code);
                 return `${getExportCode(childNorm)}\\1\\1`;
             }).join('\\');
@@ -2154,7 +2169,7 @@ export default function App() {
         });
 
         return lines.join('\n');
-    }, [budget, priceDatabase]);
+    }, [budget, resolvedChapters, priceDatabase]);
 
     const handleExportBC3ToDrive = useCallback(() => {
         requireDrive(() => drive.exportBC3ToDrive(generateBC3(), budget.name));
@@ -2669,6 +2684,38 @@ export default function App() {
         setBudget(prev => ({ ...prev, chapters: updateInTree(prev.chapters) }));
     };
 
+    const findNodeById = (nodes, id) => {
+        for (const n of nodes) {
+            if (n.id === id) return n;
+            const trobat = findNodeById([...(n.subChapters || []), ...(n.items || [])], id);
+            if (trobat) return trobat;
+        }
+        return null;
+    };
+
+    const addLinkedLine = (itemId, refCode) => {
+        const updateInTree = (nodes) => nodes.map(node => {
+            if (node.id === itemId) {
+                return {
+                    ...node,
+                    measurements: [...(node.measurements || []), {
+                        id: crypto.randomUUID(),
+                        description: `Igual que ${refCode}`,
+                        refCode,
+                        factor: 1,
+                    }]
+                };
+            }
+            return {
+                ...node,
+                subChapters: updateInTree(node.subChapters || []),
+                items: updateInTree(node.items || [])
+            };
+        });
+        setBudget(prev => ({ ...prev, chapters: updateInTree(prev.chapters) }));
+        notify(`Amidament vinculat a ${refCode}`);
+    };
+
     const addIncrementLine = (itemId) => {
         const updateInTree = (nodes) => {
             return nodes.map(node => {
@@ -2700,6 +2747,15 @@ export default function App() {
 
         const node = findNode(budget.chapters);
         if (!node) return;
+
+        // Si altres partides prenen l'amidament d'aquesta, avisar-ne abans: es quedarien a zero.
+        const refs = resolt.refsPerCode.get(normalizeCode(node.code)) || 0;
+        if (refs > 0) {
+            const plural = refs === 1 ? 'línia d\'amidament vinculada' : 'línies d\'amidament vinculades';
+            if (!confirm(`"${node.description}" té ${refs} ${plural} que hi apunten.\n\nSi l'elimines, aquelles línies es quedaran a zero. Pots desfer-ho amb Ctrl+Z.`)) {
+                return;
+            }
+        }
 
         const hasChildren = (node.subChapters?.length > 0 || node.items?.length > 0);
         if (hasChildren) {
@@ -4123,7 +4179,7 @@ export default function App() {
                                 }
                                 return null;
                             };
-                            const node = findNode(budget.chapters);
+                            const node = findNode(resolvedChapters);
                             if (!node) return <div className="p-8 text-center text-slate-400 text-xs italic">Element no trobat</div>;
 
                             return (
@@ -4263,8 +4319,40 @@ export default function App() {
                                                                 </tr>
                                                             </thead>
                                                             <tbody className="divide-y divide-slate-100">
+                                                                {/* Línies vinculades: l'amidament ve d'una altra partida, així que
+                                                                    no s'editen Ud/Ll/Am/Al sinó el factor. */}
+                                                                {(node.measurements || []).filter(m => !m.isIncrement && isRefLine(m)).map(m => (
+                                                                    <tr key={m.id} className="group bg-blue-50/40">
+                                                                        <td className="p-1.5">
+                                                                            <input type="text" value={m.description} onChange={(e) => updateMeasurement(node.id, m.id, 'description', e.target.value)} className="w-full bg-transparent border-none text-slate-600 outline-none p-0" />
+                                                                            <span className="flex items-center gap-1 text-[9px] font-mono text-blue-600 mt-0.5">
+                                                                                <LinkIcon size={9} /> {refLabel(m)}
+                                                                            </span>
+                                                                        </td>
+                                                                        <td colSpan={3} className="p-1.5 text-right text-[9px] text-slate-400 uppercase tracking-widest">Factor</td>
+                                                                        <td className="p-1.5">
+                                                                            <NumberInput
+                                                                                value={m.factor ?? 1}
+                                                                                onChange={(v) => updateMeasurement(node.id, m.id, 'factor', v)}
+                                                                                className="w-full text-right bg-transparent border-none font-mono text-blue-700 font-bold outline-none p-0"
+                                                                            />
+                                                                        </td>
+                                                                        <td className="p-1.5 text-right font-bold text-blue-900">
+                                                                            <div className="flex items-center justify-end gap-1">
+                                                                                {formatNumber(calcMeasureTotal(m), 2)}
+                                                                                <button
+                                                                                    onClick={() => deleteMeasurementLine(node.id, m.id)}
+                                                                                    className="opacity-60 md:opacity-0 md:group-hover:opacity-100 text-slate-400 hover:text-red-500 p-2 -m-1 ml-1 touch-manipulation"
+                                                                                >
+                                                                                    <X size={10} />
+                                                                                </button>
+                                                                            </div>
+                                                                        </td>
+                                                                    </tr>
+                                                                ))}
+
                                                                 {/* Normal Lines */}
-                                                                {(node.measurements || []).filter(m => !m.isIncrement).map(m => (
+                                                                {(node.measurements || []).filter(m => !m.isIncrement && !isRefLine(m)).map(m => (
                                                                     <tr key={m.id} className="group">
                                                                         <td className="p-1.5"><input type="text" value={m.description} onChange={(e) => updateMeasurement(node.id, m.id, 'description', e.target.value)} className="w-full bg-transparent border-none text-slate-600 outline-none p-0" /></td>
                                                                         <td className="p-1.5"><NumberInput value={m.units} onChange={(v) => updateMeasurement(node.id, m.id, 'units', v)} className="w-full text-right bg-transparent border-none font-mono outline-none p-0" /></td>
@@ -4316,6 +4404,9 @@ export default function App() {
                                                             <div className="flex gap-2">
                                                                 <button onClick={() => addMeasurementLine(node.id)} className="text-[10px] md:text-[9px] bg-white border border-slate-200 px-2 py-1 flex items-center gap-1 hover:bg-slate-100 transition-colors uppercase font-bold text-slate-600">
                                                                     <Plus size={10} /> Afegir línia
+                                                                </button>
+                                                                <button onClick={() => setLinkTarget(node.id)} className="text-[10px] md:text-[9px] bg-white border border-blue-200 text-blue-700 px-2 py-1 flex items-center gap-1 hover:bg-blue-50 transition-colors uppercase font-bold" title="Prendre l'amidament d'una altra partida">
+                                                                    <LinkIcon size={10} /> Vincular
                                                                 </button>
                                                                 <button onClick={() => addIncrementLine(node.id)} className="text-[10px] md:text-[9px] bg-white border border-slate-200 px-2 py-1 flex items-center gap-1 hover:bg-slate-100 transition-colors uppercase font-bold text-slate-600">
                                                                     <Percent size={10} /> Afegir %
@@ -4382,6 +4473,15 @@ export default function App() {
                 />
             )}
 
+            {linkTarget && (
+                <LinkItemModal
+                    chapters={resolvedChapters}
+                    excludeCode={findNodeById(budget.chapters, linkTarget)?.code}
+                    onPick={(code) => { addLinkedLine(linkTarget, code); setLinkTarget(null); }}
+                    onClose={() => setLinkTarget(null)}
+                />
+            )}
+
             {showLibrary && (
                 <ProjectLibraryModal
                     projects={library}
@@ -4422,7 +4522,7 @@ export default function App() {
 
             {showPrint && (
                 <PrintView
-                    budget={budget}
+                    budget={{ ...budget, chapters: resolvedChapters }}
                     priceDatabase={priceDatabase}
                     budgetTotal={budgetTotal}
                     config={printConfig}

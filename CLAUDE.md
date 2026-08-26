@@ -48,6 +48,9 @@ del sector: *amidament*, *partida*, *capítol*, *descomposat*, *rendiment*, *cer
   de la fase només tria per quin camp s'introdueix; no canvia què val. No hi tornis a penjar
   significat: era l'origen del §22.
 - Qualsevol projecte que entri de fora ha de passar per `migrateBudget` (`utils/migrateBudget.js`).
+- **Per mostrar o calcular, fes servir `resolvedChapters`, no `budget.chapters`.** El primer té
+  les línies d'amidament vinculades ja resoltes; el segon és el que s'edita i es desa. Les
+  mutacions van sempre contra `budget.chapters`.
 - La conversió a Windows-1252 (`toWindows1252Bytes`, a `utils/googleDrive.js`) la
   comparteixen l'exportació BC3 a disc i la de Drive. Toca-la en un sol lloc.
 - `App.jsx` fa 4.380 línies. Abans d'afegir-hi res de nou, mira si toca extreure-ho a

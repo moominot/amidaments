@@ -12,6 +12,8 @@ opcionalment, a Google Drive.
 **Pressupost**
 - Arbre de capítols, subcapítols i partides, amb reordenació per arrossegament.
 - Editor de línies d'amidament (Ud × Llargada × Amplada × Alçada) amb línies d'increment en %.
+- **Amidaments vinculats**: una partida pot prendre l'amidament d'una altra, amb factor. En una
+  terrassa, solera, pendents, impermeabilització, aïllant i paviment s'entren un sol cop.
 - Justificació de preus: descomposat per mà d'obra, materials, maquinària i percentatges.
 - Banc de preus del projecte i llistat de recursos agregats de tota l'obra.
 - Ajust global de PEM per percentatge o per import objectiu.

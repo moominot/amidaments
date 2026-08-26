@@ -24,6 +24,7 @@ Navegador
 | `src/main.jsx` | 13 | Entry point. Munta `<App/>` dins de `<DriveConfigProvider>`. |
 | `src/App.jsx` | ~4380 | **Monòlit**: tot l'estat, tota la lògica de negoci no extreta i tota la UI. |
 | `src/utils/calculations.js` | 154 | Funcions pures de càlcul (quantitats, preus, imports, certificat). |
+| `src/utils/measurementRefs.js` | — | Resolució de les línies d'amidament vinculades. |
 | `src/utils/bc3Parser.js` | 326 | Parser FIEBDC-3 (importació). |
 | `src/utils/googleDrive.js` | 260 | Wrapper de Drive API + Picker + codificació Windows-1252. |
 | `src/hooks/useCertification.js` | 163 | Mutacions d'estat de certificacions. |
@@ -64,6 +65,34 @@ Dins d'`App`, els blocs grans són:
 - **Mutacions de node** (2569–2870): amidaments, descripcions, unitats, esborrat, reordenació, descomposats.
 - **Renderitzadors** (2876–3500): justificació de preus, files de taula, recursos, banc de preus.
 - **JSX principal** (3500–4380): capçalera, barra de certificacions, taula, sidebar de detall, modals.
+
+## Amidaments vinculats
+
+Una línia d'amidament pot prendre el valor d'una altra partida (`refCode` + `factor`). Perquè
+això no obligui a ensenyar a resoldre vincles a la dotzena de funcions de `calculations.js`
+—cadascuna amb un paràmetre nou que es pot oblidar, que és el parany que ja ha causat
+defectes aquí— **es resol abans de calcular**:
+
+```
+budget.chapters            ← el que s'edita i es desa (amb els vincles)
+      │
+      ├─ resolveMeasurementRefs()   useMemo a App.jsx
+      ▼
+resolvedChapters           ← el que es mostra, es calcula i s'exporta
+```
+
+L'arbre resolt té les línies vinculades convertides en línies normals amb la quantitat ja
+calculada, de manera que tot el codi existent hi funciona sense canvis. Es fa servir a la
+taula, al panell de detall, als totals, al resum de certificació, al PDF, a l'Excel i al BC3.
+Les mutacions continuen anant contra `budget.chapters`, per `node.id`.
+
+La resolució detecta referències circulars (es compten com a 0), codis inexistents, i compta
+quantes línies apunten a cada codi per poder avisar abans d'esborrar la partida d'origen. Els
+nodes sense vincles es retornen per referència, de manera que l'arbre resolt gairebé no ocupa
+memòria i els `useMemo` que en depenen segueixen essent útils.
+
+**El vincle només viu al format natiu.** JSON, Drive i projectes recents el conserven; el BC3
+l'aplana a la quantitat calculada, perquè la norma no té cap manera de representar-ho.
 
 ## Flux de dades
 

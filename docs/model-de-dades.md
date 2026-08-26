@@ -78,6 +78,23 @@ Les línies amb `isIncrement: true` (creades per `addIncrementLine`) representen
 d'increment: `subtotal_línies_normals × units / 100`. S'apliquen sempre després de sumar
 totes les línies normals.
 
+### Línies vinculades
+
+Una línia pot prendre l'amidament d'una altra partida en comptes de tenir dimensions pròpies:
+
+```js
+{ id: "uuid", description: "Igual que la solera", refCode: "SOLERA", factor: 1 }
+```
+
+El seu parcial és `factor × quantitat(partida amb aquest codi)`. El cas típic és una terrassa,
+on solera, formació de pendents, impermeabilització, aïllant i paviment comparteixen superfície:
+s'entra un cop i les altres hi apunten. El `factor` cobreix les proporcions (dues capes = 2).
+
+`node.measurements` desa el **vincle**, no el valor. La resolució la fa
+`utils/measurementRefs.js` abans de calcular res, i és el que fa que la resta de
+`calculations.js` no s'hagi d'assabentar de l'existència dels vincles. Veure
+`docs/arquitectura.md`.
+
 ## `BreakdownLine` — component del descomposat
 
 ```js
