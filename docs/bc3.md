@@ -14,14 +14,35 @@ subllistes es separen per `\`.
 | `~D` | Descomposició (pare → fills) | ✔ | ✔ |
 | `~T` | Text descriptiu llarg | ✔ | ✔ |
 | `~M` | Línies d'amidament | ✔ (amb heurística) | ✔ |
-| `~F` | Fases / certificacions | ✔ (a `phases`) | ✔ |
+| `~F` | **Document adjunt** (no fases) | llegit com a fase — **no conforme** | escrit com a fase — **no conforme** |
 | `~Q` | — | — | ja no s'escriu (veure avís) |
 | `~L`, `~P`, `~W`, `~A`, `~G`, `~E`, `~O` | plecs, paramètrics, entitats… | no suportats | no s'escriuen |
 
-> **El `~Q` no existeix a la norma.** L'exportador n'escrivia (`~Q|codi|quantitat|fase`) com si
-> fos el registre de quantitats per fase, però no apareix ni al FIEBDC ni a cap dels fitxers de
-> Presto que hem examinat: el fitxer de mostra només conté `~V ~K ~C ~D ~T ~M ~L`. S'ha eliminat.
-> El total autoritzat viu al camp **MEDICION_TOTAL** del `~M`.
+> **El `~Q` existeix, però és el registre de PLECS DE CONDICIONS**, no de quantitats:
+> `~Q | <CODI_CONCEPTE\> | {CODI_SECCIO_PLEC \ CODI_PARAGRAF \ {AMBIT;}\} |`.
+> L'exportador n'escrivia `~Q|codi|quantitat|fase`, que un altre programa hauria intentat
+> llegir com a assignació de plecs. S'ha eliminat. El total autoritzat viu al camp
+> **MEDICION_TOTAL** del `~M`.
+>
+> Verificat contra
+> [l'especificació oficial FIEBDC-3/2020](https://www.fiebdc.es/web2/datos/uploads/Standard-exchange-format-FIEBDC-3-2020v2_eng-.pdf).
+
+> **Les certificacions no es transmeten com a fases dins d'un fitxer.** Segons la norma, una
+> certificació és **un fitxer BC3 sencer i independent**, idèntic en estructura a un pressupost,
+> que es distingeix pel registre `~V`: `INFORMATION TYPE = 3` (*actual cost*) més
+> `CERTIFICATION NUMBER` i `CERTIFICATION DATE`. La convenció de nom és la del pressupost
+> més `#certification NNNN`.
+>
+> El que fa aquesta aplicació —declarar fases amb `~F` i posar el número de fase al primer
+> subcamp de cada línia de `~M`— **no és conforme**, i a més xoca amb dos usos reals:
+> `~F` és el registre de **documents adjunts** (`~F | CODI_CONCEPTE | {TIPUS\FITXER.EXT;}...`)
+> i el primer subcamp de la línia de `~M` és **TYPE**, on «1» vol dir subtotal parcial i «2»
+> subtotal acumulat. Un altre programa llegiria les nostres línies de certificació com a files
+> de subtotal.
+>
+> Funciona per al cicle intern d'aquesta aplicació (exportar i reimportar aquí conserva
+> quantitats i fases) però no per intercanviar amb Presto o Arquímedes. Veure
+> `docs/estat-actual.md` §24.
 
 ## Importació
 

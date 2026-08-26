@@ -2,7 +2,7 @@
 
 Inventari fet llegint el codi (agost 2026).
 
-**Estat: els vint-i-tres defectes de les seccions següents estan corregits** a la branca
+**Estat: els vint-i-tres primers defectes estan corregits; el §24 queda obert** a la branca
 `claude/correccions-defectes-detectats`. Es conserva la descripció de cadascun perquè
 expliquen decisions del codi actual i serveixen de referència si tornen a aparèixer.
 El deute tècnic de la segona meitat del document continua obert.
@@ -347,15 +347,53 @@ buscant les línies —de fet, la heurística existeix en part per llegir la nos
 sortida—, però qualsevol altre programa ho llegia malament. Ara s'escriu
 `~M|codi||TOTAL|linies|`.
 
-També s'eliminen els registres **`~Q`**, que l'exportador inventava. No apareixen ni a la norma
-ni a cap dels fitxers de Presto examinats: el de mostra només conté `~V ~K ~C ~D ~T ~M ~L`.
-Una nota d'un torn anterior d'aquesta sessió els donava per bons; era incorrecta i queda
-rectificada.
+També s'eliminen els registres **`~Q`** que escrivia l'exportador. Contrastat amb
+[l'especificació oficial](https://www.fiebdc.es/web2/datos/uploads/Standard-exchange-format-FIEBDC-3-2020v2_eng-.pdf):
+`~Q` existeix, però és el registre de **plecs de condicions**
+(`~Q | <CODI_CONCEPTE\> | {CODI_SECCIO_PLEC \ CODI_PARAGRAF \ {AMBIT;}\} |`), no de
+quantitats. Escriure-hi `~Q|codi|quantitat|fase` feia que un altre programa intentés llegir-ho
+com a assignació de plecs.
 
 En importar, el MEDICION_TOTAL passa a fer de **xarxa de seguretat**: si les línies llegides no
 en reprodueixen el valor (tolerància 0,02), es descarten i es deixa una sola línia amb el total
 del fitxer. Sobre el fitxer de mostra els 144 registres quadren, de manera que no salta; provat
 a part amb línies il·legibles, amb línies que no sumen el total i sense total declarat.
+
+### 24. Les certificacions en BC3 no són conformes a la norma ⚠️ obert
+
+Contrastat amb l'especificació oficial FIEBDC-3/2020. **Segons la norma, una certificació és un
+fitxer BC3 sencer i independent**, idèntic en estructura a un pressupost, distingit pel registre
+`~V`:
+
+```
+~V | PROPIETAT | VERSIO | PROGRAMA | CAPÇALERA | JOC_CARÀCTERS | COMENTARI
+   | TIPUS_INFORMACIO | NUM_CERTIFICACIO | DATA_CERTIFICACIO | URL_BASE |
+```
+
+amb `TIPUS_INFORMACIO = 3` (*actual cost*). La convenció de nom és la del pressupost més
+`#certification NNNN`, de manera que un programa pot importar el pressupost i totes les seves
+certificacions alhora.
+
+Aquesta aplicació ho fa d'una altra manera —una sola fitxer amb fases declarades a `~F` i el
+número de fase al primer subcamp de cada línia de `~M`— i **xoca amb dos usos reals de la
+norma**:
+
+| Ús nostre | Què diu la norma |
+|---|---|
+| `~F\|num\|data\|nom` com a declaració de fase | `~F` és **document adjunt**: `~F \| CODI_CONCEPTE \| {TIPUS\FITXER.EXT;}...` |
+| Primer subcamp de la línia `~M` = número de fase | És **TYPE**: «1» subtotal parcial, «2» subtotal acumulat, «3» expressió |
+
+Un altre programa llegiria les nostres línies de certificació com a files de subtotal, i les
+declaracions de fase com a adjunts d'un concepte inexistent.
+
+**No és una regressió**: ja era així abans d'aquesta sessió. El cicle intern (exportar i
+reimportar dins d'aquesta aplicació) funciona i està verificat. El que no funciona és
+l'intercanvi real amb Presto o Arquímedes.
+
+La correcció seria exportar cada certificació com un fitxer independent amb el seu `~V`, i en
+importar detectar `TIPUS_INFORMACIO = 3` per convertir el fitxer en una fase del pressupost
+obert. És un canvi de format de sortida —passa d'un fitxer a uns quants— i per això queda
+pendent d'acordar.
 
 ---
 
