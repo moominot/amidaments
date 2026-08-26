@@ -1,5 +1,6 @@
 import { X, BarChart3, Lock, FileDown } from 'lucide-react';
 import { formatCurrency, formatNumber } from '../../utils/calculations';
+import NumberInput from '../NumberInput';
 
 /**
  * Detall de la certificació capítol per capítol.
@@ -188,11 +189,9 @@ const CertificationSummaryModal = ({ summary, cert, previousCert, config, setCon
                             onChange={v => setPct(key, { enabled: v })}
                             label={label}
                         >
-                            <input
-                                type="number"
-                                step="0.01"
+                            <NumberInput
                                 value={config?.[key]?.percentage ?? 0}
-                                onChange={e => setPct(key, { percentage: parseFloat(e.target.value) || 0 })}
+                                onChange={v => setPct(key, { percentage: v })}
                                 className="w-12 border border-slate-300 rounded p-0.5 text-[10px] text-right"
                             />
                             <span className="text-[9px] text-slate-400 font-bold">%</span>

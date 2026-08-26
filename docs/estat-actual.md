@@ -2,7 +2,7 @@
 
 Inventari fet llegint el codi (agost 2026).
 
-**Estat: els onze defectes de la secció següent estan corregits** a la branca
+**Estat: els vint-i-un defectes de les seccions següents estan corregits** a la branca
 `claude/correccions-defectes-detectats`. Es conserva la descripció de cadascun perquè
 expliquen decisions del codi actual i serveixen de referència si tornen a aparèixer.
 El deute tècnic de la segona meitat del document continua obert.
@@ -198,6 +198,113 @@ Corregit amb `safeFileName` (`src/utils/fileName.js`), que translitera els accen
 (`Certificació 2` → `Certificacio 2`) i elimina els caràcters no vàlids. Es perd el diacrític,
 però el nom continua essent llegible i el fitxer conserva l'extensió.
 
+## Usabilitat i ús des del mòbil
+
+Auditoria feta conduint l'aplicació en un mòbil emulat (390 px, tàctil) i contra el build de
+producció. Tots els punts següents estan corregits.
+
+### 12. Sense cobertura, l'aplicació no arrencava ✅
+
+El service worker precachava només `/amidaments/`, `index.html` i `manifest.json`: els bundles
+amb hash, que és on hi ha tota l'aplicació, quedaven fora. Comprovat contra el `dist` real: en
+línia carregava; sense xarxa, **pàgina en blanc**. A peu d'obra, tancar i tornar a obrir l'app
+era perdre-la.
+
+No n'hi havia prou amb cachejar al vol: durant la primera càrrega el worker encara no controla
+la pàgina, de manera que aquelles peticions no passen pel handler de `fetch`. Ara, en
+instal·lar-se, llegeix l'`index.html` i en precacha els `<script>` i `<link>`. Les navegacions
+van a xarxa primer amb l'`index.html` cachejat de reserva; la resta d'assets propis, cache
+primer amb actualització en segon pla. Les peticions externes (Drive, proxy CORS) no es
+cachegen mai.
+
+### 13. La coma decimal es perdia en silenci ✅
+
+Tots els camps eren `type="number"`. En un teclat català el separador decimal és la coma, i el
+navegador la descarta: escrivint `12,5` el camp es quedava amb **`125`**. Deu vegades més
+certificat, sense cap avís.
+
+Corregit amb `components/NumberInput.jsx`: camp de text amb `inputMode="decimal"` (al mòbil
+surt igualment el teclat numèric) i conversió pròpia (`utils/decimal.js`). Mentre s'escriu es
+conserva el text tal qual, perquè `12,` sigui un estat vàlid, i el valor numèric es va
+notificant a mesura que es pot interpretar, de manera que els totals segueixen en directe.
+Substituït als 22 camps d'entrada de dades; només queda com a `number` el selector de nivells
+de jerarquia, que és un enter amb fletxes.
+
+### 14. 45 controls eren invisibles i inabastables al tacte ✅
+
+El patró `opacity-0 group-hover:opacity-100`, en sis llocs. En un dispositiu tàctil no hi ha
+hover: l'opacitat calculada era 0. Des del mòbil no es podia esborrar cap línia d'amidament,
+ni cap partida, ni cap línia de certificació. A més feien 12×12 px.
+
+Ara són `opacity-60 md:opacity-0 md:group-hover:opacity-100` — visibles al mòbil, i a
+l'escriptori es mantenen discrets fins que hi passes el cursor — amb l'àrea de toc ampliada.
+
+### 15. Navegar per l'arbre des del mòbil ✅
+
+Tocar la fila d'un capítol no l'expandia: obria el panell de detall. L'única manera de desplegar
+era encertar el chevron, de 24×31 px, que és el gest més freqüent de tots. Ara la fila sencera
+desplega el capítol; les partides continuen obrint el panell.
+
+Els objectius tàctils han passat de 20-27 px a 40-43 px als controls d'ús constant (pestanyes,
+fases, desfer/refer, detall). Les accions ocasionals de la segona línia de la barra es queden
+entre 26 i 29 px: pujar-les també costaria una altra franja d'alçada en una pantalla on el
+"chrome" ja ocupa gairebé la meitat.
+
+### 16. S'obria per una fase aprovada ✅
+
+`activeCertId` requeia sempre a `certifications[0]`, que normalment és una fase antiga i
+aprovada: obrir l'app per certificar et deixava en una pantalla bloquejada. Ara comença per
+l'última fase oberta.
+
+### 17. Les pestanyes de fase sortien de pantalla ✅
+
+"Certificació 2" ocupava x=308..422 en una pantalla de 390 px, sense cap indici que hi hagués
+més fases. Ara la fase activa es desplaça sola dins del seu contenidor.
+
+> Compte amb `scrollIntoView`: arrossega també els contenidors superiors i desplaçava tota la
+> interfície 13 px cap a l'esquerra. Cal desplaçar el contenidor a mà (`scrollTo`).
+
+### 18. La data de la certificació no es podia posar ✅
+
+S'assignava el dia que es creava la fase i no es mostrava ni s'editava enlloc, però encapçala el
+document i va al registre `~F` del BC3. Una certificació es data a final de període. Ara hi ha
+un camp de data a la barra, i **el PDF fa servir la data de la fase, no la del dia que
+s'imprimeix** — abans una certificació de març impresa al juny sortia amb data de juny.
+
+### 19. Aprovar era irreversible i les fases no es podien gestionar ✅
+
+No es podia esborrar, reanomenar ni desaprovar una fase: un clic per error només se solucionava
+editant el JSON. S'hi afegeixen `reopenCertification`, `renameCertification`,
+`deleteCertification` i `updateCertificationDate`.
+
+Esborrar una fase també la treu de `node.certifications` de tot l'arbre; si no, hi quedarien
+dades orfes que es tornarien a escriure al BC3.
+
+El bloqueig de les fases aprovades **ara es comprova al hook**, no només al component: abans
+cap camí de la interfície hi arribava, però era un forat defensiu.
+
+### 20. No hi havia desfer ✅
+
+Cap acció es podia revertir, i l'ajust de PEM reescriu tots els preus del projecte.
+
+`hooks/useHistory.js` observa `budget` i `priceDatabase` i en guarda les instantànies anteriors.
+No substitueix els `useState` existents: hi ha desenes de crides a `setBudget` repartides per
+l'aplicació i reescriure-les totes seria una font de regressions. Guardar instantànies és barat
+perquè totes les mutacions són immutables — la pila conté referències, no còpies. Els canvis
+seguits es fusionen en una sola entrada perquè escriure una xifra no deixi una entrada per tecla.
+Ctrl+Z / Ctrl+Maj+Z, i botons al capçal per al mòbil.
+
+### 21. «Nou projecte» destruïa la feina ✅
+
+Només hi havia un projecte viu i l'única xarxa de seguretat era haver exportat un JSON abans.
+`utils/projectLibrary.js` en manté una còpia de cada obra amb què s'ha treballat, accessible des
+d'Obrir → Projectes recents.
+
+Cada projecte va sota la seva pròpia clau, amb un índex a part només amb les metadades. Això
+importa: l'autodesat es dispara a cada pausa d'escriptura i, amb tots els projectes en una sola
+entrada, cada desat obligaria a serialitzar-los tots — uns quants MB en un telèfon. Quan la
+quota de `localStorage` s'exhaureix, es descarten els més antics abans de rendir-se.
+
 ---
 
 ## Deute tècnic
@@ -281,7 +388,7 @@ ESLint ≥ 9, i amb un ESLint global més nou instal·lat `npm run lint` falla.
 
 Per ordre de relació valor/esforç:
 
-1. ~~Arreglar els punts 1–11.~~ ✅ Fet.
+1. ~~Arreglar els punts 1–21.~~ ✅ Fet.
 2. ~~Activar el lint sobre `.jsx`.~~ ✅ Fet (queda la migració a flat config).
 3. **Vitest + tests de `calculations.js` i `bc3Parser.js`**, amb el BC3 de mostra com a
    fixture. És ara la prioritat: les correccions 2, 3 i 8 es van validar amb scripts d'un sol

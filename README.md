@@ -25,6 +25,14 @@ opcionalment, a Google Drive.
 - Aprovació i bloqueig de fases.
 - **PDF de certificació** per fase: resum per capítols, liquidació amb G.G. / B.I. / IVA,
   import en lletres, signatures i detall per partides opcional.
+- Gestió de fases: reanomenar, datar, aprovar, reobrir i eliminar.
+
+**Pensada per a l'obra**
+- **Funciona sense cobertura**: un cop carregada, l'aplicació arrenca sense xarxa.
+- Entrada de dades amb **coma decimal**, com escriu un teclat català.
+- Interfície utilitzable des del mòbil: controls visibles al tacte i objectius prou grans.
+- **Desfer i refer** (Ctrl+Z / Ctrl+Maj+Z) sobre tot el projecte.
+- **Projectes recents**: crear-ne un de nou ja no destrueix l'anterior.
 
 **Entrada i sortida**
 - Importació BC3 des de disc, URL, arrossegament, Google Drive o "Obrir amb…" (PWA).
@@ -73,7 +81,7 @@ Les credencials de Drive s'injecten des dels secrets del repositori.
 | [`docs/estat-actual.md`](docs/estat-actual.md) | **Bugs coneguts, deute tècnic i properes passes** |
 
 Si comences a treballar en el projecte, llegeix primer
-[`docs/estat-actual.md`](docs/estat-actual.md): recull els onze defectes ja corregits (útils
+[`docs/estat-actual.md`](docs/estat-actual.md): recull els vint-i-un defectes ja corregits (útils
 com a context) i el deute tècnic que continua obert.
 
 ## Stack

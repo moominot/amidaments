@@ -76,7 +76,11 @@ export const buildCertificationPdf = ({
     date = new Date(),
 }) => {
     const doc = new jsPDF('p', 'mm', 'a4');
-    const dateStr = date.toLocaleDateString('ca-ES');
+    // La data del document és la de la certificació, no la del dia que s'imprimeix:
+    // una certificació de març signada al juny segueix essent de març.
+    const dataCert = cert?.date ? new Date(`${String(cert.date).substring(0, 10)}T12:00:00`) : null;
+    const dataDoc = dataCert && !Number.isNaN(dataCert.getTime()) ? dataCert : date;
+    const dateStr = dataDoc.toLocaleDateString('ca-ES');
     const { totals } = summary;
     const ge = config.ge || { enabled: false, percentage: 0 };
     const ip = config.ip || { enabled: false, percentage: 0 };

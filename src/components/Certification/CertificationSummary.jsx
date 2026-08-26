@@ -111,7 +111,7 @@ const CertificationSummary = ({ totals, certName, onOpenDetail }) => {
 
                 <button
                     onClick={onOpenDetail}
-                    className="flex items-center gap-2 px-3 py-2 rounded-md text-[10px] font-bold uppercase tracking-widest bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 border border-slate-700 transition-colors whitespace-nowrap flex-shrink-0"
+                    className="flex items-center gap-2 px-3 py-3 md:py-2 rounded-md text-[10px] font-bold uppercase tracking-widest bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 border border-slate-700 transition-colors whitespace-nowrap flex-shrink-0"
                     title={certName ? `Detall per capítols de ${certName}` : 'Detall per capítols'}
                 >
                     <BarChart3 size={14} className="text-emerald-400" />

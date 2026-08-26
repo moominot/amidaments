@@ -33,6 +33,8 @@ import {
     Percent,
     Menu,
     Cloud,
+    Undo2,
+    Redo2,
     LogOut,
 } from 'lucide-react';
 import jsPDF from 'jspdf';
@@ -60,6 +62,7 @@ import {
     safePct
 } from './utils/calculations';
 import { useCertification } from './hooks/useCertification';
+import { useHistory } from './hooks/useHistory';
 import { useGoogleDrive } from './hooks/useGoogleDrive';
 import { useDriveConfig } from './context/DriveConfigContext';
 import CertificationBar from './components/Certification/CertificationBar';
@@ -67,6 +70,9 @@ import CertificationSidebar from './components/Certification/CertificationSideba
 import CertificationSummary from './components/Certification/CertificationSummary';
 import CertificationSummaryModal from './components/Certification/CertificationSummaryModal';
 import DriveSettingsModal from './components/DriveSettingsModal';
+import NumberInput from './components/NumberInput';
+import ProjectLibraryModal from './components/ProjectLibraryModal';
+import { listProjects, getProject, saveProject, deleteProject } from './utils/projectLibrary';
 import { processBC3Data } from './utils/bc3Parser';
 import { numberToTextCatalan } from './utils/numberToText';
 import { exportCertificationPDF } from './utils/certificationPdf';
@@ -543,12 +549,10 @@ const PemAdjustmentModal = ({ currentPem, onAdjust, onClose }) => {
                         <div className="space-y-2">
                             <label className="text-[10px] uppercase font-black text-slate-500 tracking-widest text-center block">Variació %</label>
                             <div className="relative">
-                                <input
+                                <NumberInput
                                     className="w-full text-center bg-slate-50 border border-slate-200 p-4 text-xl font-mono focus:border-blue-500 outline-none font-bold"
-                                    type="number"
-                                    step="0.1"
-                                    value={percentage.toFixed(2)}
-                                    onChange={(e) => handlePercentageChange(parseFloat(e.target.value) || 0)}
+                                    value={Number(percentage.toFixed(2))}
+                                    onChange={(v) => handlePercentageChange(v)}
                                 />
                                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 font-bold">%</span>
                             </div>
@@ -557,12 +561,10 @@ const PemAdjustmentModal = ({ currentPem, onAdjust, onClose }) => {
                         <div className="space-y-2">
                             <label className="text-[10px] uppercase font-black text-slate-500 tracking-widest text-center block">PEM Objectiu</label>
                             <div className="relative">
-                                <input
+                                <NumberInput
                                     className="w-full text-center bg-blue-50 border border-blue-200 p-4 text-xl font-mono focus:border-blue-600 outline-none font-bold text-blue-700"
-                                    type="number"
-                                    step="0.01"
-                                    value={targetPem.toFixed(2)}
-                                    onChange={(e) => handleTargetChange(parseFloat(e.target.value) || 0)}
+                                    value={Number(targetPem.toFixed(2))}
+                                    onChange={(v) => handleTargetChange(v)}
                                 />
                                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-blue-300 font-bold">€</span>
                             </div>
@@ -655,10 +657,9 @@ const PrintConfigModal = ({ config, setConfig, onClose }) => {
                                     <span className="text-xs text-slate-600">Despeses Generals (G.G.)</span>
                                 </label>
                                 <div className="flex items-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
-                                    <input
-                                        type="number" step="0.01"
+                                    <NumberInput
                                         value={config.ge.percentage}
-                                        onChange={e => setConfig({ ...config, ge: { ...config.ge, percentage: parseFloat(e.target.value) || 0 } })}
+                                        onChange={v => setConfig({ ...config, ge: { ...config.ge, percentage: v } })}
                                         className="w-16 border border-slate-300 rounded p-1 text-xs text-right"
                                     />
                                     <span className="text-[10px] text-slate-400 font-bold">%</span>
@@ -671,10 +672,9 @@ const PrintConfigModal = ({ config, setConfig, onClose }) => {
                                     <span className="text-xs text-slate-600">Benefici Industrial (B.I.)</span>
                                 </label>
                                 <div className="flex items-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
-                                    <input
-                                        type="number" step="0.01"
+                                    <NumberInput
                                         value={config.ip.percentage}
-                                        onChange={e => setConfig({ ...config, ip: { ...config.ip, percentage: parseFloat(e.target.value) || 0 } })}
+                                        onChange={v => setConfig({ ...config, ip: { ...config.ip, percentage: v } })}
                                         className="w-16 border border-slate-300 rounded p-1 text-xs text-right"
                                     />
                                     <span className="text-[10px] text-slate-400 font-bold">%</span>
@@ -687,10 +687,9 @@ const PrintConfigModal = ({ config, setConfig, onClose }) => {
                                     <span className="text-xs text-slate-600">I.V.A.</span>
                                 </label>
                                 <div className="flex items-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
-                                    <input
-                                        type="number" step="0.01"
+                                    <NumberInput
                                         value={config.iva.percentage}
-                                        onChange={e => setConfig({ ...config, iva: { ...config.iva, percentage: parseFloat(e.target.value) || 0 } })}
+                                        onChange={v => setConfig({ ...config, iva: { ...config.iva, percentage: v } })}
                                         className="w-16 border border-slate-300 rounded p-1 text-xs text-right"
                                     />
                                     <span className="text-[10px] text-slate-400 font-bold">%</span>
@@ -809,12 +808,10 @@ const ItemCreator = ({ onClose, onSave, parentId, parentCode }) => {
                     {mode === 'item' && (
                         <div className="space-y-1">
                             <label className="text-[10px] font-bold uppercase text-slate-400">Preu Unitari Estimat (€)</label>
-                            <input
-                                type="number"
-                                step="0.01"
+                            <NumberInput
                                 className="w-full bg-slate-50 border border-slate-200 p-2 text-xs font-mono focus:border-blue-500 outline-none font-bold text-blue-600"
                                 value={data.price}
-                                onChange={e => setData({ ...data, price: e.target.value })}
+                                onChange={v => setData({ ...data, price: v })}
                             />
                         </div>
                     )}
@@ -859,9 +856,17 @@ export default function App() {
         const timer = setTimeout(() => {
             localStorage.setItem('amidaments_budget', JSON.stringify(budget));
             localStorage.setItem('amidaments_prices', JSON.stringify(priceDatabase));
+
+            // I una còpia a la biblioteca, perquè obrir-ne un altre no destrueixi aquest.
+            if (budget.chapters?.length > 0) {
+                const total = budget.chapters.reduce((acc, ch) => acc + calcChapterTotal(ch, priceDatabase), 0);
+                const res = saveProject({ id: budget.id, budget, priceDatabase, total });
+                if (res.ok) setLibrary(listProjects());
+                else notify('No hi ha prou espai al navegador per desar la còpia de seguretat', 'error');
+            }
         }, 1000);
         return () => clearTimeout(timer);
-    }, [budget, priceDatabase]);
+    }, [budget, priceDatabase]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         const handleBeforeUnload = () => {
@@ -873,9 +878,14 @@ export default function App() {
     }, [budget, priceDatabase]);
 
     useEffect(() => {
-        if (!activeCertId && budget.certifications?.length > 0) {
-            setActiveCertId(budget.certifications[0].id);
-        }
+        if (activeCertId || !(budget.certifications?.length > 0)) return;
+        // Obrir sempre per la primera fase deixava l'usuari en una certificació ja aprovada
+        // i, per tant, bloquejada. Comencem per l'última oberta, que és on es treballa.
+        const obertes = budget.certifications.filter(c => !c.approved);
+        const perDefecte = obertes.length > 0
+            ? obertes[obertes.length - 1]
+            : budget.certifications[budget.certifications.length - 1];
+        setActiveCertId(perDefecte.id);
     }, [budget.certifications, activeCertId]);
     const [activeTab, setActiveTab] = useState('editor');
     const [selectedId, setSelectedId] = useState(null);
@@ -1002,6 +1012,8 @@ export default function App() {
 
     const [showNewCertInput, setShowNewCertInput] = useState(false);
     const [showCertSummary, setShowCertSummary] = useState(false);
+    const [showLibrary, setShowLibrary] = useState(false);
+    const [library, setLibrary] = useState(() => listProjects());
     const [newCertName, setNewCertName] = useState('');
 
     const createCertification = useCallback(() => {
@@ -1010,7 +1022,7 @@ export default function App() {
         const newCert = {
             id: newId,
             name: name,
-            date: new Date().toISOString(),
+            date: new Date().toISOString().split('T')[0],
             method: 'origin' // Default to 'At Origin' (Presto style)
         };
 
@@ -1033,6 +1045,53 @@ export default function App() {
 
 
 
+
+    // Desfer / refer sobre el projecte sencer (arbre + banc de preus).
+    const aplicaInstantania = useCallback((instantania) => {
+        setBudget(instantania.budget);
+        setPriceDatabase(instantania.priceDatabase);
+    }, []);
+    const historial = useHistory({ budget, priceDatabase }, aplicaInstantania);
+
+    useEffect(() => {
+        const onKeyDown = (e) => {
+            if (!(e.ctrlKey || e.metaKey)) return;
+            const k = e.key.toLowerCase();
+            if (k === 'z' && !e.shiftKey) { e.preventDefault(); historial.undo(); }
+            else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); historial.redo(); }
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [historial]);
+
+    const handleOpenFromLibrary = useCallback((id) => {
+        const projecte = getProject(id);
+        if (!projecte) { notify('Aquest projecte ja no hi és', 'error'); return; }
+        setBudget(projecte.budget);
+        setPriceDatabase(projecte.priceDatabase || {});
+        setSelectedId(null);
+        setActiveCertId(null);
+        setShowLibrary(false);
+        historial.clear();
+        notify(`Projecte obert: ${projecte.budget?.name || ''}`);
+    }, [historial]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const handleDeleteFromLibrary = useCallback((id) => {
+        const p = library.find(x => x.id === id);
+        if (p && !confirm(`Treure "${p.name}" de la llista de projectes recents?`)) return;
+        deleteProject(id);
+        setLibrary(listProjects());
+    }, [library]);
+
+    const handleDeleteCertification = useCallback((certId) => {
+        const cert = (budget.certifications || []).find(c => c.id === certId);
+        if (!cert) return;
+        if (!confirm(`Eliminar "${cert.name}"?\n\nEs perdran els amidaments certificats en aquesta fase. Aquesta acció es pot desfer amb Ctrl+Z.`)) return;
+        certActions.deleteCertification(certId);
+        // Si esborrem la fase activa, saltem a una altra perquè la vista no quedi buida.
+        const restants = (budget.certifications || []).filter(c => c.id !== certId);
+        if (activeCertId === certId) setActiveCertId(restants.length ? restants[restants.length - 1].id : null);
+    }, [budget.certifications, activeCertId, certActions]);
 
     const budgetTotal = useMemo(() => {
         return budget.chapters.reduce((acc, ch) => acc + calcChapterTotal(ch, priceDatabase), 0);
@@ -2185,6 +2244,7 @@ export default function App() {
         setBudget({ id: crypto.randomUUID(), name: 'Nou Projecte', chapters: [], certifications: [] });
         setPriceDatabase({});
         setSelectedId(null);
+        historial.clear();
         notify("Nou projecte creat");
     };
 
@@ -2906,11 +2966,10 @@ export default function App() {
                                             </td>
                                             <td className="p-2 text-right w-24">
                                                 <div className="relative">
-                                                    <input
+                                                    <NumberInput
                                                         className="w-full text-right font-mono bg-transparent outline-none border-b border-transparent focus:border-blue-300"
                                                         value={line.yield}
-                                                        type="number"
-                                                        onChange={e => updateBreakdownLine(node.id, line.idx, 'yield', e.target.value)}
+                                                        onChange={v => updateBreakdownLine(node.id, line.idx, 'yield', v)}
                                                     />
                                                     {line.isPercentage && <span className="absolute top-0 right-[-10px] text-[9px]">%</span>}
                                                 </div>
@@ -2919,16 +2978,15 @@ export default function App() {
                                                 {line.isPercentage ? (
                                                     <span className="font-mono text-slate-400 italic text-[10px] cursor-help" title="Base de càlcul (MO + MT)">{formatCurrency(line.finalPrice)}</span>
                                                 ) : (
-                                                    <input
+                                                    <NumberInput
                                                         className="w-full text-right font-mono bg-transparent outline-none border-b border-transparent focus:border-blue-300 text-blue-600 font-bold"
                                                         value={line.finalPrice}
-                                                        type="number"
-                                                        onChange={e => updateBreakdownLine(node.id, line.idx, 'price', e.target.value)}
+                                                        onChange={v => updateBreakdownLine(node.id, line.idx, 'price', v)}
                                                     />
                                                 )}
                                             </td>
                                             <td className="p-2 text-right font-mono font-bold w-32">{formatCurrency(line.total)}</td>
-                                            <td className="p-2 w-8 text-center opacity-0 group-hover:opacity-100">
+                                            <td className="p-2 w-8 text-center opacity-60 md:opacity-0 md:group-hover:opacity-100">
                                                 <button onClick={() => removeBreakdownLine(node.id, line.idx)} className="text-red-400 hover:text-red-600"><Trash2 size={12} /></button>
                                             </td>
                                         </tr>
@@ -3017,25 +3075,26 @@ export default function App() {
                                 handleReorder(draggedNodeId, node.id, dragOverTarget.pos);
                             }
                         }}
-                        className={`cursor-pointer transition-colors group ${selectedId === node.id ? 'bg-blue-50/50' : 'hover:bg-slate-50'} ${!node.unit
+                        className={`cursor-pointer transition-colors group [&>td]:py-2.5 md:[&>td]:py-0 ${selectedId === node.id ? 'bg-blue-50/50' : 'hover:bg-slate-50'} ${!node.unit
                             ? (level === 0 ? 'bg-emerald-100/60' : (level === 1 ? 'bg-emerald-50/60' : (level === 2 ? 'bg-emerald-50/30' : 'bg-slate-50/30')))
                             : 'bg-white'
                             } ${dropClass}`}
                         onClick={() => {
                             setSelectedId(node.id);
+                            // Tocar un capítol el desplega: al mòbil, encertar el chevron de
+                            // 24 px era l'única manera de navegar per l'arbre.
+                            if (!node.unit) {
+                                toggleChapter(node.id);
+                                return;
+                            }
                             if (window.innerWidth < 768) {
                                 setShowMobileSidebar(true);
                             }
                         }}
                     >
-                        <td className="p-1 md:p-2 w-6 md:w-10 text-center" onClick={(e) => {
-                            if (!node.unit) {
-                                e.stopPropagation();
-                                toggleChapter(node.id);
-                            }
-                        }}>
+                        <td className="p-1 md:p-2 w-8 md:w-10 text-center">
                             <div className="flex items-center justify-center gap-1">
-                                <GripVertical size={10} className="hidden md:block text-slate-300 opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing" />
+                                <GripVertical size={10} className="hidden md:block text-slate-300 opacity-60 md:opacity-0 md:group-hover:opacity-100 cursor-grab active:cursor-grabbing" />
                                 {!node.unit && (
                                     <div className="flex items-center justify-center text-slate-400 hover:text-blue-500 transition-colors">
                                         {expandedChapters[node.id] ? <ChevronDown size={12} className="md:w-3.5 md:h-3.5" /> : <ChevronRight size={12} className="md:w-3.5 md:h-3.5" />}
@@ -3176,7 +3235,7 @@ export default function App() {
                                         e.stopPropagation();
                                         deleteNode(node.id);
                                     }}
-                                    className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all ml-2"
+                                    className="opacity-60 md:opacity-0 md:group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-all ml-1 p-2 -m-1 touch-manipulation"
                                     title="Eliminar"
                                 >
                                     <Trash2 size={12} />
@@ -3289,12 +3348,10 @@ export default function App() {
                                                     <td className="hidden md:table-cell p-3 text-right font-mono text-slate-600">{formatNumber(res.quantity, 2)}</td>
                                                     <td className="hidden md:table-cell p-3 text-right font-mono text-slate-600">
                                                         <div className="flex items-center justify-end gap-1">
-                                                            <input
-                                                                type="number"
-                                                                step="any"
+                                                            <NumberInput
                                                                 className="bg-transparent text-right border-b border-transparent hover:border-blue-300 focus:border-blue-600 outline-none w-20 font-bold text-slate-600 focus:text-blue-600 px-1"
                                                                 value={res.price}
-                                                                onChange={(e) => updateGlobalPrice(res.code, e.target.value)}
+                                                                onChange={(v) => updateGlobalPrice(res.code, v)}
                                                                 onClick={(e) => e.stopPropagation()}
                                                             />
                                                             <span className="text-[10px] text-slate-400">€</span>
@@ -3369,12 +3426,10 @@ export default function App() {
                                     <td className="p-2 md:p-3 text-right font-mono font-bold text-blue-800 bg-blue-50/10 group-hover:bg-blue-50/30">
                                         <div className="flex items-center justify-end gap-1 md:gap-2">
                                             <span className="text-[11px] md:text-xs text-slate-300">€</span>
-                                            <input
-                                                type="number"
-                                                step="0.01"
+                                            <NumberInput
                                                 className="bg-transparent text-right border-b border-transparent hover:border-blue-300 focus:border-blue-600 outline-none w-14 md:w-24 font-bold text-blue-700 text-[11px] md:text-sm"
                                                 value={data.price}
-                                                onChange={(e) => updateDbPrice(code, e.target.value)}
+                                                onChange={(v) => updateDbPrice(code, v)}
                                             />
                                         </div>
                                     </td>
@@ -3435,7 +3490,7 @@ export default function App() {
             )}
 
             {/* Header Flat */}
-            <header className="bg-slate-950 text-white p-3 md:p-4 flex justify-between items-center border-b border-slate-800 z-30">
+            <header className="bg-slate-950 text-white px-2 py-2.5 md:p-4 flex justify-between items-center gap-1 border-b border-slate-800 z-30">
                 {/* Left: Logo + Title + Drive Status */}
                 <div className="flex items-center gap-2 md:gap-4">
                     <div className="bg-blue-600 p-1.5 md:p-2">
@@ -3489,6 +3544,26 @@ export default function App() {
 
                 {/* Center/Right: Actions */}
                 <div className="flex items-center gap-2 md:gap-6">
+                    {/* Desfer / refer: també al mòbil, on no hi ha teclat per a Ctrl+Z */}
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={historial.undo}
+                            disabled={!historial.canUndo}
+                            title="Desfer (Ctrl+Z)"
+                            className="p-3 md:p-2 rounded-md text-slate-400 enabled:hover:text-white enabled:hover:bg-slate-800 disabled:opacity-25 transition-colors touch-manipulation"
+                        >
+                            <Undo2 size={18} />
+                        </button>
+                        <button
+                            onClick={historial.redo}
+                            disabled={!historial.canRedo}
+                            title="Refer (Ctrl+Maj+Z)"
+                            className="p-3 md:p-2 rounded-md text-slate-400 enabled:hover:text-white enabled:hover:bg-slate-800 disabled:opacity-25 transition-colors touch-manipulation"
+                        >
+                            <Redo2 size={18} />
+                        </button>
+                    </div>
+
                     {/* Total PEM Display - Always visible */}
                     <button
                         onClick={() => appMode === 'budget' ? setShowPemModal(true) : setShowCertSummary(true)}
@@ -3544,6 +3619,14 @@ export default function App() {
                                     >
                                         <Cloud size={12} className="text-blue-400" />
                                         Des de Google Drive
+                                    </button>
+                                    <button
+                                        onClick={() => { setShowLibrary(true); setShowOpenDropdown(false); }}
+                                        className="w-full text-left px-4 py-2 text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-colors flex items-center gap-2 border-t border-slate-800"
+                                    >
+                                        <FolderOpen size={12} className="text-emerald-400" />
+                                        Projectes recents
+                                        <span className="ml-auto text-slate-500 font-mono">{library.length}</span>
                                     </button>
                                 </div>
                             )}
@@ -3666,6 +3749,14 @@ export default function App() {
                                         <Cloud size={18} className="text-blue-400" />
                                         <span className="font-medium">Google Drive</span>
                                     </button>
+                                    <button
+                                        onClick={() => { setShowLibrary(true); setShowMobileMenu(false); }}
+                                        className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 transition-colors flex items-center gap-3 border-b border-slate-800"
+                                    >
+                                        <FolderOpen size={18} className="text-emerald-400" />
+                                        <span className="font-medium">Projectes recents</span>
+                                        <span className="ml-auto text-xs text-slate-500 font-mono">{library.length}</span>
+                                    </button>
 
                                     <div className="px-4 py-2 text-xs font-bold text-slate-500 border-b border-slate-800 bg-slate-800/50 mt-1">DESAR JSON</div>
                                     <button
@@ -3734,6 +3825,10 @@ export default function App() {
                     setNewCertName={setNewCertName}
                     onCreateCertification={createCertification}
                     onApproveCertification={certActions.approveCertification}
+                    onReopenCertification={certActions.reopenCertification}
+                    onRenameCertification={certActions.renameCertification}
+                    onUpdateCertificationDate={certActions.updateCertificationDate}
+                    onDeleteCertification={handleDeleteCertification}
                     onToggleMethod={certActions.toggleCertificationMethod}
                 />
             )}
@@ -3791,21 +3886,21 @@ export default function App() {
                             <div className="flex bg-white border border-slate-200 p-0.5 md:p-1 flex-1 md:flex-initial">
                                 <button
                                     onClick={() => setActiveTab('editor')}
-                                    className={`flex-1 md:flex-initial px-3 md:px-4 py-1 text-[8px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-widest transition-colors ${activeTab === 'editor' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
+                                    className={`flex-1 md:flex-initial px-3 md:px-4 py-3.5 md:py-1.5 text-[10px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-widest transition-colors ${activeTab === 'editor' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
                                 >
                                     <span className="hidden md:inline">Editor de Partides</span>
                                     <span className="md:hidden">Editor</span>
                                 </button>
                                 <button
                                     onClick={() => setActiveTab('prices')}
-                                    className={`flex-1 md:flex-initial px-3 md:px-4 py-1 text-[8px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-widest transition-colors ${activeTab === 'prices' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
+                                    className={`flex-1 md:flex-initial px-3 md:px-4 py-3.5 md:py-1.5 text-[10px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-widest transition-colors ${activeTab === 'prices' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
                                 >
                                     <span className="hidden md:inline">Base de Preus</span>
                                     <span className="md:hidden">Preus</span>
                                 </button>
                                 <button
                                     onClick={() => setActiveTab('recursos')}
-                                    className={`flex-1 md:flex-initial px-3 md:px-4 py-1 text-[8px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-widest transition-colors ${activeTab === 'recursos' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
+                                    className={`flex-1 md:flex-initial px-3 md:px-4 py-3.5 md:py-1.5 text-[10px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-widest transition-colors ${activeTab === 'recursos' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
                                 >
                                     <span className="hidden md:inline">Llistat de Recursos</span>
                                     <span className="md:hidden">Recursos</span>
@@ -3891,7 +3986,7 @@ export default function App() {
                                 {/* Nova Entrada Button */}
                                 <button
                                     onClick={() => setShowCreator(true)}
-                                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-3 md:px-6 py-2 md:py-3 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-blue-500/25 flex-shrink-0"
+                                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 md:px-6 py-3 md:py-3 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-blue-500/25 flex-shrink-0"
                                     title="Nova Entrada"
                                 >
                                     <Plus size={16} className="md:w-4.5 md:h-4.5" />
@@ -4150,16 +4245,16 @@ export default function App() {
                                                                 {(node.measurements || []).filter(m => !m.isIncrement).map(m => (
                                                                     <tr key={m.id} className="group">
                                                                         <td className="p-1.5"><input type="text" value={m.description} onChange={(e) => updateMeasurement(node.id, m.id, 'description', e.target.value)} className="w-full bg-transparent border-none text-slate-600 outline-none p-0" /></td>
-                                                                        <td className="p-1.5"><input type="number" value={m.units} onChange={(e) => updateMeasurement(node.id, m.id, 'units', e.target.value)} className="w-full text-right bg-transparent border-none font-mono outline-none p-0" /></td>
-                                                                        <td className="p-1.5"><input type="number" value={m.length} onChange={(e) => updateMeasurement(node.id, m.id, 'length', e.target.value)} className="w-full text-right bg-transparent border-none font-mono text-slate-400 outline-none p-0" /></td>
-                                                                        <td className="p-1.5"><input type="number" value={m.width} onChange={(e) => updateMeasurement(node.id, m.id, 'width', e.target.value)} className="w-full text-right bg-transparent border-none font-mono text-slate-400 outline-none p-0" /></td>
-                                                                        <td className="p-1.5"><input type="number" value={m.height} onChange={(e) => updateMeasurement(node.id, m.id, 'height', e.target.value)} className="w-full text-right bg-transparent border-none font-mono text-slate-400 outline-none p-0" /></td>
+                                                                        <td className="p-1.5"><NumberInput value={m.units} onChange={(v) => updateMeasurement(node.id, m.id, 'units', v)} className="w-full text-right bg-transparent border-none font-mono outline-none p-0" /></td>
+                                                                        <td className="p-1.5"><NumberInput value={m.length} onChange={(v) => updateMeasurement(node.id, m.id, 'length', v)} className="w-full text-right bg-transparent border-none font-mono text-slate-400 outline-none p-0" /></td>
+                                                                        <td className="p-1.5"><NumberInput value={m.width} onChange={(v) => updateMeasurement(node.id, m.id, 'width', v)} className="w-full text-right bg-transparent border-none font-mono text-slate-400 outline-none p-0" /></td>
+                                                                        <td className="p-1.5"><NumberInput value={m.height} onChange={(v) => updateMeasurement(node.id, m.id, 'height', v)} className="w-full text-right bg-transparent border-none font-mono text-slate-400 outline-none p-0" /></td>
                                                                         <td className="p-1.5 text-right font-bold text-blue-900">
                                                                             <div className="flex items-center justify-end gap-1">
                                                                                 {formatNumber(calcMeasureTotal(m), 2)}
                                                                                 <button
                                                                                     onClick={() => deleteMeasurementLine(node.id, m.id)}
-                                                                                    className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 p-0.5 ml-1"
+                                                                                    className="opacity-60 md:opacity-0 md:group-hover:opacity-100 text-slate-400 hover:text-red-500 p-2 -m-1 ml-1 touch-manipulation"
                                                                                 >
                                                                                     <X size={10} />
                                                                                 </button>
@@ -4177,14 +4272,14 @@ export default function App() {
                                                                         <tr key={m.id} className="group bg-slate-50">
                                                                             <td className="p-1.5 bg-slate-50"><input type="text" value={m.description} onChange={(e) => updateMeasurement(node.id, m.id, 'description', e.target.value)} className="w-full bg-transparent border-none text-slate-600 outline-none p-0 italic" /></td>
                                                                             <td className="p-1.5 text-right text-slate-500 text-[11px] md:text-[10px]">%</td>
-                                                                            <td className="p-1.5"><input type="number" value={m.units} onChange={(e) => updateMeasurement(node.id, m.id, 'units', e.target.value)} className="w-full text-right bg-transparent border-none font-mono font-bold outline-none p-0" /></td>
+                                                                            <td className="p-1.5"><NumberInput value={m.units} onChange={(v) => updateMeasurement(node.id, m.id, 'units', v)} className="w-full text-right bg-transparent border-none font-mono font-bold outline-none p-0" /></td>
                                                                             <td colSpan={2} className="p-1.5 text-center text-slate-300">-</td>
                                                                             <td className="p-1.5 text-right font-bold text-blue-900 bg-slate-50">
                                                                                 <div className="flex items-center justify-end gap-1">
                                                                                     {formatNumber(partial, 2)}
                                                                                     <button
                                                                                         onClick={() => deleteMeasurementLine(node.id, m.id)}
-                                                                                        className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 p-0.5 ml-1"
+                                                                                        className="opacity-60 md:opacity-0 md:group-hover:opacity-100 text-slate-400 hover:text-red-500 p-2 -m-1 ml-1 touch-manipulation"
                                                                                     >
                                                                                         <X size={10} />
                                                                                     </button>
@@ -4262,6 +4357,16 @@ export default function App() {
                     description={importPending.duplicates[importPending.currentIdx].description}
                     onConfirm={() => handleConfirmDuplicate(true)}
                     onSkip={() => handleConfirmDuplicate(false)}
+                />
+            )}
+
+            {showLibrary && (
+                <ProjectLibraryModal
+                    projects={library}
+                    currentId={budget.id}
+                    onOpen={handleOpenFromLibrary}
+                    onDelete={handleDeleteFromLibrary}
+                    onClose={() => setShowLibrary(false)}
                 />
             )}
 

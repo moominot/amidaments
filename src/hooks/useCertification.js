@@ -6,7 +6,19 @@ import { round2, calcItemTotalQty } from '../utils/calculations';
  */
 export const useCertification = (budget, setBudget, notify) => {
 
+    /**
+     * Una fase aprovada no admet canvis. Fins ara el bloqueig era només visual —
+     * el component amagava els controls— però el hook no el comprovava enlloc.
+     */
+    const bloquejada = useCallback((certId) => {
+        const cert = (budget.certifications || []).find(c => c.id === certId);
+        if (!cert?.approved) return false;
+        notify?.(`"${cert.name}" està aprovada. Reobre-la per poder-hi fer canvis.`, 'error');
+        return true;
+    }, [budget.certifications, notify]);
+
     const updateCertificationQty = useCallback((nodeId, certId, qty) => {
+        if (bloquejada(certId)) return;
         setBudget(prev => {
             const updateNodes = (nodes) => nodes.map(n => {
                 if (n.id === nodeId) {
@@ -26,9 +38,10 @@ export const useCertification = (budget, setBudget, notify) => {
             });
             return { ...prev, chapters: updateNodes(prev.chapters) };
         });
-    }, [setBudget]);
+    }, [setBudget, bloquejada]);
 
     const updateCertificationMeasurement = useCallback((nodeId, certId, lineId, field, value) => {
+        if (bloquejada(certId)) return;
         const isNumeric = ['units', 'length', 'width', 'height'].includes(field);
         const finalValue = isNumeric ? parseFloat(value) || 0 : value;
 
@@ -51,9 +64,10 @@ export const useCertification = (budget, setBudget, notify) => {
             });
             return { ...prev, chapters: updateNodes(prev.chapters) };
         });
-    }, [setBudget]);
+    }, [setBudget, bloquejada]);
 
     const addCertificationLine = useCallback((nodeId, certId) => {
+        if (bloquejada(certId)) return;
         setBudget(prev => {
             const updateNodes = (nodes) => nodes.map(n => {
                 if (n.id === nodeId) {
@@ -78,9 +92,10 @@ export const useCertification = (budget, setBudget, notify) => {
             });
             return { ...prev, chapters: updateNodes(prev.chapters) };
         });
-    }, [setBudget]);
+    }, [setBudget, bloquejada]);
 
     const removeCertificationLine = useCallback((nodeId, certId, lineId) => {
+        if (bloquejada(certId)) return;
         setBudget(prev => {
             const updateNodes = (nodes) => nodes.map(n => {
                 if (n.id === nodeId) {
@@ -98,9 +113,10 @@ export const useCertification = (budget, setBudget, notify) => {
             });
             return { ...prev, chapters: updateNodes(prev.chapters) };
         });
-    }, [setBudget]);
+    }, [setBudget, bloquejada]);
 
     const copyBudgetToCertification = useCallback((nodeId, certId) => {
+        if (bloquejada(certId)) return;
         setBudget(prev => {
             const updateNodes = (nodes) => nodes.map(n => {
                 if (n.id === nodeId) {
@@ -121,7 +137,7 @@ export const useCertification = (budget, setBudget, notify) => {
             return { ...prev, chapters: updateNodes(prev.chapters) };
         });
         notify('Amidament copiat correctament', 'success');
-    }, [setBudget, notify]);
+    }, [setBudget, notify, bloquejada]);
 
     // --- Noves Funcions Presto ---
 
@@ -133,12 +149,70 @@ export const useCertification = (budget, setBudget, notify) => {
 
     const approveCertification = useCallback((certId) => {
         setBudget(prev => {
-            const certifications = (prev.certifications || []).map(c => 
+            const certifications = (prev.certifications || []).map(c =>
                 c.id === certId ? { ...c, approved: true } : c
             );
             return { ...prev, certifications };
         });
         notify('Certificació aprovada i bloquejada', 'success');
+    }, [setBudget, notify]);
+
+    /** Torna a obrir una fase aprovada. Abans, aprovar era irreversible des de la interfície. */
+    const reopenCertification = useCallback((certId) => {
+        setBudget(prev => ({
+            ...prev,
+            certifications: (prev.certifications || []).map(c =>
+                c.id === certId ? { ...c, approved: false } : c
+            )
+        }));
+        notify('Fase reoberta: torna a admetre canvis');
+    }, [setBudget, notify]);
+
+    const renameCertification = useCallback((certId, name) => {
+        const net = (name || '').trim();
+        if (!net) return;
+        setBudget(prev => ({
+            ...prev,
+            certifications: (prev.certifications || []).map(c =>
+                c.id === certId ? { ...c, name: net } : c
+            )
+        }));
+    }, [setBudget]);
+
+    const updateCertificationDate = useCallback((certId, date) => {
+        setBudget(prev => ({
+            ...prev,
+            certifications: (prev.certifications || []).map(c =>
+                c.id === certId ? { ...c, date } : c
+            )
+        }));
+    }, [setBudget]);
+
+    /**
+     * Esborra una fase. Cal treure-la també de tots els nodes de l'arbre: `node.certifications`
+     * és un mapa per certId i, si no, hi quedarien dades orfes que es tornarien a escriure al BC3.
+     */
+    const deleteCertification = useCallback((certId) => {
+        setBudget(prev => {
+            const netejaNodes = (nodes) => nodes.map(n => {
+                const seguent = {
+                    ...n,
+                    subChapters: netejaNodes(n.subChapters || []),
+                    items: netejaNodes(n.items || [])
+                };
+                if (n.certifications && n.certifications[certId] !== undefined) {
+                    const { [certId]: descartat, ...resta } = n.certifications; // eslint-disable-line no-unused-vars
+                    seguent.certifications = resta;
+                }
+                return seguent;
+            });
+            return {
+                ...prev,
+                chapters: netejaNodes(prev.chapters),
+                certifications: (prev.certifications || []).filter(c => c.id !== certId)
+            };
+        });
+        notify('Certificació eliminada');
     }, [setBudget, notify]);
 
     const toggleCertificationMethod = useCallback((certId) => {
@@ -158,6 +232,10 @@ export const useCertification = (budget, setBudget, notify) => {
         copyBudgetToCertification,
         updateCertificationPercentage,
         approveCertification,
+        reopenCertification,
+        renameCertification,
+        updateCertificationDate,
+        deleteCertification,
         toggleCertificationMethod
     };
 };

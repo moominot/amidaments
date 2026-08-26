@@ -50,6 +50,12 @@ del sector: *amidament*, *partida*, *capítol*, *descomposat*, *rendiment*, *cer
   `utils/`, `hooks/` o `components/` — hi ha un pla de refactor a `docs/estat-actual.md`.
 - El path base `/amidaments/` està escrit a mà a `vite.config.js`, `public/manifest.json` i
   `public/sw.js`.
+- **Cap camp numèric no pot ser `type="number"`**: el navegador es menja la coma decimal i
+  «12,5» es converteix en 125 sense avisar. Fes servir `components/NumberInput.jsx`.
+- **Res d'`opacity-0 group-hover:`**: al tacte no hi ha hover i el control queda inabastable.
+  El patró correcte és `opacity-60 md:opacity-0 md:group-hover:opacity-100`.
+- `scrollIntoView` arrossega també els contenidors superiors. Per desplaçar una llista
+  horitzontal, fes `contenidor.scrollTo({ left })` a mà.
 - Qualsevol nom de fitxer que vagi a `doc.save()` o `a.download` ha de passar per
   `safeFileName` (`utils/fileName.js`): Chromium descarta l'atribut sencer si porta accents i
   desa el fitxer com a `download`, sense extensió (§11 de `docs/estat-actual.md`).
@@ -62,7 +68,9 @@ del sector: *amidament*, *partida*, *capítol*, *descomposat*, *rendiment*, *cer
 
 1. `npm run build` passa.
 2. `npm run lint` continua amb 0 errors.
-3. Si has tocat càlculs, exportació o el parser: prova el cicle complet amb
+3. Si has tocat la interfície, prova-la a 390 px d'amplada amb emulació tàctil: la meitat
+   dels defectes d'usabilitat trobats només es veien des del mòbil.
+4. Si has tocat càlculs, exportació o el parser: prova el cicle complet amb
    `REFORMA ESPORLES_MEDICIONES_AJUSTADO.bc3` (importar → veure PEM → exportar → reimportar).
    El PEM de referència d'aquest fitxer és **135.202,54 €** amb 24 capítols i 248 partides.
    El cicle exportar → reimportar ha de conservar les quantitats: aquí s'hi amagava el
