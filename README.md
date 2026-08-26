@@ -36,7 +36,7 @@ npm install
 npm run dev      # servidor de desenvolupament (Vite)
 npm run build    # build de producció a dist/
 npm run preview  # servir el build
-npm run lint     # ⚠️ actualment no analitza els .jsx, veure docs/estat-actual.md
+npm run lint     # ESLint sobre .js i .jsx
 ```
 
 Google Drive és opcional. Per activar-lo, copia `.env.example` a `.env.local` i omple:
@@ -69,8 +69,8 @@ Les credencials de Drive s'injecten des dels secrets del repositori.
 | [`docs/estat-actual.md`](docs/estat-actual.md) | **Bugs coneguts, deute tècnic i properes passes** |
 
 Si comences a treballar en el projecte, llegeix primer
-[`docs/estat-actual.md`](docs/estat-actual.md): hi ha set defectes localitzats i verificables
-que afecten sortides que l'usuari veu.
+[`docs/estat-actual.md`](docs/estat-actual.md): recull els vuit defectes ja corregits (útils
+com a context) i el deute tècnic que continua obert.
 
 ## Stack
 

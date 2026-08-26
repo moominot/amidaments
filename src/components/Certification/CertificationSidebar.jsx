@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Layers, ChevronDown, ChevronRight, Calculator, Plus, X, Percent, Save } from 'lucide-react';
 import {
     formatCurrency,
@@ -111,7 +111,7 @@ const CertificationSidebar = ({
                                     >100%</button>
                                 </div>
                                 <button
-                                    onClick={() => actions.copyBudgetToCertification(node.id, activeCertId, node)}
+                                    onClick={() => actions.copyBudgetToCertification(node.id, activeCertId)}
                                     className="w-full mt-1 bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-bold p-2 transition-colors border border-blue-200 flex items-center justify-center gap-2"
                                 >
                                     <Calculator size={12} /> Copiar Amidament Pressupost

@@ -10,7 +10,7 @@ importació/exportació BC3. Documentació completa a `docs/` — comença per
 npm install
 npm run dev
 npm run build     # ha de passar sempre abans de donar una feina per acabada
-npm run lint      # ⚠️ no analitza .jsx; per a App.jsx usa: npx eslint src/App.jsx
+npm run lint      # cobreix .js i .jsx; l'arbre ha de quedar amb 0 errors
 ```
 
 No hi ha tests. Si n'afegeixes, Vitest és l'opció natural amb Vite.
@@ -44,8 +44,8 @@ del sector: *amidament*, *partida*, *capítol*, *descomposat*, *rendiment*, *cer
 - **`budget.certifications` és un array de fases. `node.certifications` és un objecte indexat
   per `certId`.** Mateix nom, estructures diferents. Ja ha causat dos bugs (veure
   `docs/estat-actual.md` §2 i §3).
-- La taula de conversió a Windows-1252 està **duplicada** a `App.jsx` i a
-  `utils/googleDrive.js`. Si n'hi afegeixes caràcters, fes-ho als dos llocs.
+- La conversió a Windows-1252 (`toWindows1252Bytes`, a `utils/googleDrive.js`) la
+  comparteixen l'exportació BC3 a disc i la de Drive. Toca-la en un sol lloc.
 - `App.jsx` fa 4.380 línies. Abans d'afegir-hi res de nou, mira si toca extreure-ho a
   `utils/`, `hooks/` o `components/` — hi ha un pla de refactor a `docs/estat-actual.md`.
 - El path base `/amidaments/` està escrit a mà a `vite.config.js`, `public/manifest.json` i
@@ -54,6 +54,9 @@ del sector: *amidament*, *partida*, *capítol*, *descomposat*, *rendiment*, *cer
 ## Abans de donar per acabada una feina
 
 1. `npm run build` passa.
-2. `npx eslint src/App.jsx` no introdueix errors nous.
+2. `npm run lint` continua amb 0 errors.
 3. Si has tocat càlculs, exportació o el parser: prova el cicle complet amb
    `REFORMA ESPORLES_MEDICIONES_AJUSTADO.bc3` (importar → veure PEM → exportar → reimportar).
+   El PEM de referència d'aquest fitxer és **135.202,54 €** amb 24 capítols i 248 partides.
+   El cicle exportar → reimportar ha de conservar les quantitats: aquí s'hi amagava el
+   defecte §8 de `docs/estat-actual.md`.

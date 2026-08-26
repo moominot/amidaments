@@ -1,14 +1,17 @@
 # Estat actual: bugs, deute tècnic i properes passes
 
-Inventari fet llegint el codi (agost 2026). Els punts 1–7 són **defectes concrets i
-localitzats**, verificables llegint les línies indicades. Cap no s'ha corregit encara:
-aquest document és el punt de partida per fer-ho.
+Inventari fet llegint el codi (agost 2026).
+
+**Estat: els vuit defectes de la secció següent estan corregits** a la branca
+`claude/correccions-defectes-detectats`. Es conserva la descripció de cadascun perquè
+expliquen decisions del codi actual i serveixen de referència si tornen a aparèixer.
+El deute tècnic de la segona meitat del document continua obert.
 
 ---
 
-## Defectes
+## Defectes corregits
 
-### 1. `flattenBudget` rep els arguments desplaçats al PDF d'amidaments
+### 1. `flattenBudget` rep els arguments desplaçats al PDF d'amidaments ✅
 
 `App.jsx:1100`:
 
@@ -31,7 +34,7 @@ Probablement són restes d'una signatura antiga que passava les funcions de càl
 paràmetres — el mateix patró queda a les props `calcItemTotalAmount` i `calcChapterTotal`
 que es passen a `<PrintView>` (`App.jsx:3499`) i que el component no declara ni usa.
 
-### 2. Les fases d'un BC3 importat no arriben mai a `budget.certifications`
+### 2. Les fases d'un BC3 importat no arriben mai a `budget.certifications` ✅
 
 `bc3Parser.js:323` retorna la clau **`phases`**. `finalizeImport` (`App.jsx:2408`) llegeix
 **`result.certifications`**, que no existeix, i per tant sempre desa `certifications: []`.
@@ -47,7 +50,7 @@ llista**, així que:
 Correcció mínima: `certifications: result.phases || []`. Convé decidir també què passa en
 mode *merge*, on ara mateix les fases importades s'ignoren del tot.
 
-### 3. `~Q` per fase a l'exportació BC3 no s'emet mai
+### 3. `~Q` per fase a l'exportació BC3 no s'emet mai ✅
 
 `App.jsx:2070`:
 
@@ -68,7 +71,7 @@ acumulat del `~Q` veuran les certificacions a zero.
 Correcció: `generateBC3` hauria de conservar el node (o el seu mapa `certifications`) a
 `measurementsByCode` per poder-lo passar aquí.
 
-### 4. `PrintView` es renderitza dues vegades
+### 4. `PrintView` es renderitza dues vegades ✅
 
 `App.jsx:3497` i `App.jsx:4354`. Les dues instàncies estan sota `{showPrint && …}`, així que
 en obrir la previsualització es munten **dos overlays a pantalla completa superposats**.
@@ -77,14 +80,14 @@ La primera no rep `handleExportXLSX`, de manera que si és la que queda a sobre,
 
 Correcció: esborrar el bloc de la línia 3497 i deixar el complet del final.
 
-### 5. `toggleWaste` crida un setter inexistent
+### 5. `toggleWaste` crida un setter inexistent ✅
 
 `App.jsx:2873`: `const toggleWaste = (id) => setShowWaste(...)`. No hi ha cap
 `useState` per a `showWaste`, i ESLint ho marca com a `no-undef`. La funció no es crida
 enlloc, de manera que no peta en execució; és codi mort d'una funcionalitat de "minves"
 (*mermas*) que no es va acabar. Esborrar-la, o implementar la funcionalitat.
 
-### 6. Import/preus incoherents entre pantalla i sortides
+### 6. Import/preus incoherents entre pantalla i sortides ✅
 
 `calcChapterTotal(chapter, priceDatabase)` i `calcItemTotalAmount(item, priceDatabase)`
 cauen a `node.price` si no reben el segon paràmetre. Els llocs on **no** es passa:
@@ -102,13 +105,40 @@ preu al banc de preus, el **Total PEM** del capçal i la suma de les files de la
 no quadrar. Correcció: passar `priceDatabase` sempre; a mig termini, fer-lo obligatori
 (o injectar-lo per context) perquè no es pugui oblidar.
 
-### 7. `handleNewProject` crea un projecte sense `certifications`
+### 7. `handleNewProject` crea un projecte sense `certifications` ✅
 
 `App.jsx:2250`: `setBudget({ id, name: 'Nou Projecte', chapters: [] })` — sense la clau
 `certifications`. La resta del codi fa servir `budget.certifications || []` en molts llocs,
 però `createCertification` (`App.jsx:1056`) llegeix `budget.certifications.length`
 directament → **`TypeError` en crear la primera certificació d'un projecte nou**.
 Correcció: afegir `certifications: []`.
+
+### 8. El BC3 exportat no es podia tornar a importar ✅
+
+Trobat en verificar les correccions anteriors, no llegint el codi. El writer escrivia les
+línies de `~M` en blocs de set camps amb aquest ordre:
+
+```
+FASE \ TIPO(=2) \ DESC \ U \ L \ A \ H
+```
+
+però `processBC3Data`, quan detecta `step === 7`, llegeix `desc` a l'índex 1 i les quantitats
+a partir del 2, és a dir:
+
+```
+FASE \ DESC \ U \ L \ A \ H \ (separador)
+```
+
+El `2` intercalat desplaçava tots els camps una posició. **Un fitxer exportat i tornat a
+importar donava amidaments diferents**: en un cas de prova de 3×2 + 4×1 = 10 m², la
+reimportació donava 13 i inventava una tercera línia.
+
+Comprovat amb els dos formats sobre el mateix joc de dades abans i després del canvi.
+Ara el writer emet blocs de `FASE \ DESC \ U \ L \ A \ H \` i el cicle
+exportar → reimportar conserva quantitats, fases i descripcions.
+
+Aquest és el defecte que la comprovació de `CLAUDE.md` ("importar → veure PEM → exportar →
+reimportar") havia de detectar, i el motiu pel qual val la pena automatitzar-la.
 
 ---
 
@@ -145,19 +175,21 @@ Casos que val la pena fixar abans de tocar res:
   PEM total, nombre de línies d'amidament d'una partida coneguda);
 - **round-trip**: `processBC3Data(generateBC3(projecte))` ≈ `projecte`.
 
-### `npm run lint` no analitza els `.jsx`
+### Lint ✅ (resolt) i migració pendent a flat config
 
-`eslint .` amb ESLint 8 només agafa `.js` per defecte. Per això `App.jsx` (30 errors i
-5 avisos) no apareix a la sortida del script. Arreglar amb `eslint . --ext .js,.jsx`, o
-migrant a *flat config* (`eslint.config.js`), que és el format que espera ESLint ≥ 9.
+`eslint .` amb ESLint 8 només agafa `.js` per defecte, de manera que cap `.jsx` no s'analitzava
+i els 30 errors d'`App.jsx` quedaven amagats. El script ara és `eslint . --ext .js,.jsx` i
+l'arbre està **net: 0 errors**, amb un únic avís preexistent de `react-refresh` a
+`DriveConfigContext.jsx`.
 
-Errors reals que amaga: `no-undef` de `setShowWaste`, variables sense usar
-(`utf8Array`, `renderTreeNodes`, `toggleJustification`), escapades innecessàries a la regexp
-de sanejat de noms de full Excel, i un `catch {}` buit a `handleDrop`.
+En el procés es va eliminar codi mort (`renderTreeNodes`, `toggleWaste`, `toggleJustification`,
+`showJustification`, `lastSaved`, `utf8Array`, `generateBC3Ref` i els paràmetres
+`getBc3Content`/`budgetRef` de `useGoogleDrive`), es van embolcallar els `case` de
+`bc3Parser.js` amb claus i es va desactivar `react/no-unescaped-entities`, que en una UI en
+català només genera soroll.
 
-Els 21 errors que sí que es veuen són gairebé tots `no-case-declarations` a `bc3Parser.js`
-(cal embolcallar cada `case` amb claus) i variables mortes a `googleDrive.js` i
-`useGoogleDrive.js`.
+**Continua pendent** migrar a *flat config* (`eslint.config.js`): és el format que exigeix
+ESLint ≥ 9, i amb un ESLint global més nou instal·lat `npm run lint` falla.
 
 ### Altres
 
@@ -189,12 +221,16 @@ Els 21 errors que sí que es veuen són gairebé tots `no-case-declarations` a `
 
 Per ordre de relació valor/esforç:
 
-1. **Arreglar els punts 1–7.** Són petits, aïllats i afecten sortides que l'usuari veu.
-2. **Activar el lint sobre `.jsx`** i netejar el que surti.
-3. **Vitest + tests de `calculations.js` i `bc3Parser.js`**, amb el BC3 de mostra com a fixture.
+1. ~~Arreglar els punts 1–8.~~ ✅ Fet.
+2. ~~Activar el lint sobre `.jsx`.~~ ✅ Fet (queda la migració a flat config).
+3. **Vitest + tests de `calculations.js` i `bc3Parser.js`**, amb el BC3 de mostra com a
+   fixture. És ara la prioritat: les correccions 2, 3 i 8 es van validar amb scripts d'un sol
+   ús que no han quedat al repositori, i el cicle exportar → reimportar hauria de ser una
+   prova automàtica, no un ritual manual.
 4. **Extreure els exportadors i el writer BC3** d'`App.jsx` (passes 2 i 3 del refactor).
 5. **Bloqueig real de fases aprovades** al hook `useCertification`.
 6. **Informe de certificació** (PDF per fase amb Anterior / Actual / Origen): és la peça que
    falta perquè el mode certificació sigui autònom — ara mateix es pot certificar però no
    se'n pot treure un document.
 7. **Code-splitting** de jsPDF / SheetJS.
+8. **`git rm -r --cached node_modules dist`** en un commit dedicat.

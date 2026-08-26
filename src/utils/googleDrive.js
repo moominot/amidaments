@@ -6,8 +6,6 @@
 
 // ─── Càrrega dinàmica d'APIs ────────────────────────────────────────────────
 
-let _gapiReady = false;
-let _gsiReady = false;
 let _gapiInitialized = false;
 
 const _loadScript = (src) =>
@@ -25,8 +23,8 @@ const _loadScript = (src) =>
 
 export const loadGoogleApis = async () => {
     await Promise.all([
-        _loadScript('https://apis.google.com/js/api.js').then(() => { _gapiReady = true; }),
-        _loadScript('https://accounts.google.com/gsi/client').then(() => { _gsiReady = true; }),
+        _loadScript('https://apis.google.com/js/api.js'),
+        _loadScript('https://accounts.google.com/gsi/client'),
     ]);
 };
 

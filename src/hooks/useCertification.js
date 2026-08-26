@@ -100,7 +100,7 @@ export const useCertification = (budget, setBudget, notify) => {
         });
     }, [setBudget]);
 
-    const copyBudgetToCertification = useCallback((nodeId, certId, node) => {
+    const copyBudgetToCertification = useCallback((nodeId, certId) => {
         setBudget(prev => {
             const updateNodes = (nodes) => nodes.map(n => {
                 if (n.id === nodeId) {

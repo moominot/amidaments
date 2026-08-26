@@ -94,10 +94,11 @@ Detalls a tenir en compte:
 - **Percentatges**: els conceptes amb unitat `%` s'escriuen amb el preu dividit per 100 i el
   rendiment dividit per 100, perquè la norma els expressa en tant per u.
 - **Números**: el punt decimal es converteix a coma (`fNum`).
-- **Codificació**: `handleExportBC3` (`App.jsx:2099`) converteix a Windows-1252 amb una taula
-  manual limitada als accents catalans i castellans, `€`, `ç`, `ñ`, `°`. Qualsevol altre
-  caràcter fora d'ASCII es converteix en `?`. La mateixa taula està **duplicada** a
-  `src/utils/googleDrive.js` (`toWindows1252Bytes`) per a l'exportació a Drive.
+- **Codificació**: `handleExportBC3` converteix a Windows-1252 amb `toWindows1252Bytes`
+  (`src/utils/googleDrive.js`), una taula manual limitada als accents catalans i castellans,
+  `€`, `ç`, `ñ`, `°`. Qualsevol altre caràcter fora d'ASCII es converteix en `?`. La funció
+  la comparteixen l'exportació a disc i la de Drive: si hi afegeixes caràcters, n'hi ha prou
+  amb tocar-la en un lloc.
 
 ## Vies d'entrada d'un BC3
 

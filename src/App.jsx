@@ -16,15 +16,12 @@ import {
     Info,
     Database,
     MousePointer2,
-    Link as LinkIcon,
     AlertCircle,
-    ExternalLink,
     FileCode,
     Box,
     Tag,
     List,
     AlignLeft,
-    Edit3,
     Printer,
     FileDown,
     X,
@@ -66,6 +63,7 @@ import CertificationBar from './components/Certification/CertificationBar';
 import CertificationSidebar from './components/Certification/CertificationSidebar';
 import DriveSettingsModal from './components/DriveSettingsModal';
 import { processBC3Data } from './utils/bc3Parser';
+import { toWindows1252Bytes } from './utils/googleDrive';
 
 const formatPrice = (val) => formatNumber(val, 2);
 
@@ -174,7 +172,7 @@ const flattenBudget = (nodes, level = 0, parentRef = '', counterObj = { val: 0 }
 };
 
 // --- Component de Vista d'Impressió ---
-const PrintView = ({ budget, priceDatabase, budgetTotal, config, setConfig, onOpenConfig, onClose, onExportPDF, onExportSummaryPDF, handleExportXLSX }) => {
+const PrintView = ({ budget, priceDatabase, budgetTotal, config, onOpenConfig, onClose, onExportPDF, onExportSummaryPDF, handleExportXLSX }) => {
     const [date] = useState(new Date().toLocaleDateString('ca-ES'));
     const [viewMode, setViewMode] = useState('amidaments'); // 'amidaments' | 'resum'
 
@@ -432,7 +430,7 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, setConfig, onOp
                                 </thead>
                                 <tbody>
                                     {budget.chapters.map((ch, index) => {
-                                        const total = calcChapterTotal(ch);
+                                        const total = calcChapterTotal(ch, priceDatabase);
                                         const percentage = (total / budgetTotal) * 100;
                                         return (
                                             <tr key={ch.id} className="border-b border-gray-100 text-[10px]">
@@ -637,7 +635,7 @@ const PemAdjustmentModal = ({ currentPem, onAdjust, onClose }) => {
 };
 
 // --- Modal de Configuració d'Exportació de Resum ---
-const PrintConfigModal = ({ config, setConfig, onClose, viewMode }) => {
+const PrintConfigModal = ({ config, setConfig, onClose }) => {
     return (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-md">
             <div className="bg-white rounded-none shadow-2xl w-[500px] border border-slate-300 animate-in zoom-in-95 duration-200">
@@ -895,14 +893,11 @@ export default function App() {
     const [appMode, setAppMode] = useState('budget'); // 'budget' | 'certification'
     const [activeCertId, setActiveCertId] = useState(null);
 
-    const [lastSaved, setLastSaved] = useState(null);
-
     // Auto-save effect
     useEffect(() => {
         const timer = setTimeout(() => {
             localStorage.setItem('amidaments_budget', JSON.stringify(budget));
             localStorage.setItem('amidaments_prices', JSON.stringify(priceDatabase));
-            setLastSaved(new Date());
         }, 1000);
         return () => clearTimeout(timer);
     }, [budget, priceDatabase]);
@@ -923,7 +918,6 @@ export default function App() {
     }, [budget.certifications, activeCertId]);
     const [activeTab, setActiveTab] = useState('editor');
     const [selectedId, setSelectedId] = useState(null);
-    const [showJustification, setShowJustification] = useState({});
     const [expandedChapters, setExpandedChapters] = useState({});
     const [isDragging, setIsDragging] = useState(false);
     const [showCreator, setShowCreator] = useState(false);
@@ -980,11 +974,8 @@ export default function App() {
     const [showDriveSettings, setShowDriveSettings] = useState(false);
     const [showOpenDropdown, setShowOpenDropdown] = useState(false);
 
-    // Referència a generateBC3 (definit més avall) per passar-la al hook
-    const generateBC3Ref = useRef(null);
-
     // Callback quan Drive carrega un BC3 (ArrayBuffer) → reutilitza el flux existent
-    const handleBC3FromDrive = useCallback((arrayBuffer, fileName) => {
+    const handleBC3FromDrive = useCallback((arrayBuffer) => {
         const decoder = new TextDecoder('windows-1252');
         const text = decoder.decode(arrayBuffer);
         const result = processBC3Data(text);
@@ -1005,8 +996,6 @@ export default function App() {
         },
         onBC3Loaded: handleBC3FromDrive,
         notify,
-        getBc3Content: () => generateBC3Ref.current?.(),
-        budgetRef: budget,
     });
 
     // Helper: connecta Drive, obrint settings si cal
@@ -1097,7 +1086,7 @@ export default function App() {
         const date = new Date().toLocaleDateString('ca-ES');
 
         const generateTableForNodes = (nodes, isFirst, currentCounter) => {
-            const rows = flattenBudget(nodes, 0, '', currentCounter, config, calcChapterTotal, calcItemTotalAmount, priceDatabase);
+            const rows = flattenBudget(nodes, 0, '', currentCounter, config, priceDatabase);
 
             autoTable(doc, {
                 head: [[
@@ -1130,7 +1119,7 @@ export default function App() {
                     8: { cellWidth: 18, halign: 'right' },
                     9: { cellWidth: 26, halign: 'right' }
                 },
-                didDrawPage: (data) => {
+                didDrawPage: () => {
                     const pageNum = doc.internal.getNumberOfPages();
                     if (pageNum === 1) {
                         doc.setFontSize(16);
@@ -1226,7 +1215,7 @@ export default function App() {
         doc.text('LA DIRECCIÓ FACULTATIVA', 155, finalY, { align: 'center' });
 
         doc.save(`Amidaments_${budget.name}.pdf`);
-    }, [budget, priceDatabase, calcItemTotalAmount, calcChapterTotal, budgetTotal]);
+    }, [budget, priceDatabase, budgetTotal]);
 
     const handleExportSummaryPDF = useCallback((config) => {
         const doc = new jsPDF('p', 'mm', 'a4');
@@ -1240,7 +1229,7 @@ export default function App() {
         const PVValue = PECValue + VAT;
 
         const rows = budget.chapters.map((ch, index) => {
-            const total = calcChapterTotal(ch);
+            const total = calcChapterTotal(ch, priceDatabase);
             const percentage = (total / PEMValue) * 100;
             return [
                 config.useCorrelativeCodes ? (index + 1).toString() : ch.code,
@@ -1263,7 +1252,7 @@ export default function App() {
                 2: { cellWidth: 30, halign: 'right' },
                 3: { cellWidth: 20, halign: 'right' }
             },
-            didDrawPage: (data) => {
+            didDrawPage: () => {
                 const pageNum = doc.internal.getNumberOfPages();
                 if (pageNum === 1) {
                     doc.setFontSize(16);
@@ -1329,7 +1318,7 @@ export default function App() {
         doc.text(`, a ${date}`, 120, finalY);
 
         doc.save(`${budget.name}_resum.pdf`);
-    }, [budget, calcChapterTotal, budgetTotal]);
+    }, [budget, priceDatabase, budgetTotal]);
 
     const handleExportXLSX = useCallback(() => {
         const wb = XLSX.utils.book_new();
@@ -1342,7 +1331,7 @@ export default function App() {
             const pushNodes = (ns) => {
                 ns.forEach(node => {
                     const isChapter = !node.unit;
-                    const totalAmount = isChapter ? calcChapterTotal(node) : calcItemTotalAmount(node);
+                    const totalAmount = isChapter ? calcChapterTotal(node, priceDatabase) : calcItemTotalAmount(node, priceDatabase);
 
                     if (isChapter) {
                         data.push([node.code, node.description.toUpperCase(), '', '', '', '', '', '', '', totalAmount]);
@@ -1394,7 +1383,7 @@ export default function App() {
             // 1. Create Summary Sheet
             const summaryData = [['CODI', 'DESCRIPCIÓ', 'IMPORT']];
             budget.chapters.forEach(ch => {
-                summaryData.push([ch.code, ch.description.toUpperCase(), calcChapterTotal(ch)]);
+                summaryData.push([ch.code, ch.description.toUpperCase(), calcChapterTotal(ch, priceDatabase)]);
             });
             const wsResum = XLSX.utils.aoa_to_sheet(summaryData);
             wsResum['!cols'] = [{ wch: 15 }, { wch: 60 }, { wch: 15 }];
@@ -1404,7 +1393,7 @@ export default function App() {
             budget.chapters.forEach((ch, idx) => {
                 const ws = createWorksheetData([ch]);
                 // Sheet name derived from code or Index to be safe
-                const name = (ch.code || `Cap ${idx + 1}`).substring(0, 31).replace(/[\[\]\*\?\/\\]/g, '');
+                const name = (ch.code || `Cap ${idx + 1}`).substring(0, 31).replace(/[[\]*?/\\]/g, '');
                 XLSX.utils.book_append_sheet(wb, ws, name);
             });
         } else {
@@ -1413,7 +1402,7 @@ export default function App() {
         }
 
         XLSX.writeFile(wb, `${budget.name}.xlsx`);
-    }, [budget, calcChapterTotal, calcItemTotalAmount, priceDatabase, printConfig.chaptersOnNewPage]);
+    }, [budget, priceDatabase, printConfig.chaptersOnNewPage, printConfig.showLongDesc]);
 
     // --- Search Filtering ---
     const filteredChapters = useMemo(() => {
@@ -1694,7 +1683,7 @@ export default function App() {
     };
 
     // --- MODIFICATION: Global Price Management ---
-    const updateGlobalPrice = (code, newPrice, type = 'price') => {
+    const updateGlobalPrice = (code, newPrice) => {
         const price = parseFloat(newPrice) || 0;
 
         // 1. Update Price Database
@@ -1878,10 +1867,16 @@ export default function App() {
                     updatedNode.items = mergeTreeBranches(existingNode.items || [], newNode.items);
                 }
 
-                // Only merge measurements for CHAPTERS. 
+                // Only merge measurements for CHAPTERS.
                 // For ITEMS, if they matched, it means the user chose to keep existing.
                 if (!newNode.unit && newNode.measurements && newNode.measurements.length > 0) {
                     updatedNode.measurements = [...(existingNode.measurements || []), ...newNode.measurements.map(m => ({ ...m, id: crypto.randomUUID() }))];
+                }
+
+                // Les certificacions van indexades per certId; les fases importades porten
+                // ids nous, així que no xoquen amb les existents i es poden fusionar.
+                if (newNode.certifications && Object.keys(newNode.certifications).length > 0) {
+                    updatedNode.certifications = { ...(existingNode.certifications || {}), ...newNode.certifications };
                 }
 
                 merged[existingIdx] = updatedNode;
@@ -1899,6 +1894,7 @@ export default function App() {
         const concepts = new Map(); // normCode -> { data, isDecomposed }
         const measurementsByCode = new Map(); // normCode -> Array of { phase, ...measurementObject }
         const relationships = new Map(); // normCode -> Array of { childNormCode, factor, yield }
+        const certificationsByCode = new Map(); // normCode -> { certId: certData }
 
         const getExportCode = (normCode) => {
             const concept = concepts.get(normCode);
@@ -1974,6 +1970,10 @@ export default function App() {
 
             // Measurements for each certification phase
             if (node.certifications) {
+                // Conservem el mapa { certId: certData } per poder calcular després els ~Q
+                // acumulats per fase: calcItemCertifiedQty espera un NODE, no la llista de fases.
+                certificationsByCode.set(norm, { ...(certificationsByCode.get(norm) || {}), ...node.certifications });
+
                 Object.entries(node.certifications).forEach(([certId, certData]) => {
                     const phaseNum = phaseMap.get(certId);
                     if (phaseNum !== undefined && certData.measurements?.length > 0) {
@@ -2064,10 +2064,10 @@ export default function App() {
             // Generate ~Q for each certification phase (Accumulated)
             (budget.certifications || []).forEach((cert, i) => {
                 const phaseNum = i + 1;
-                // Importante: BC3 ~Q con FASE suele esperar el acumulado. 
-                // Nuestra lógica en calculations.js ya calcula acumulados según el método.
-                // Para el BC3, lo más seguro es enviar el acumulado a esa fase.
-                const accumulatedQty = calcItemCertifiedQty({ code: norm, certifications: budget.certifications }, cert.id, budget.certifications);
+                // El ~Q amb FASE espera l'acumulat a origen. calcItemCertifiedQty ja el
+                // calcula segons el mètode de la fase ('origin' o 'partial').
+                const certNode = { code: norm, certifications: certificationsByCode.get(norm) || {} };
+                const accumulatedQty = calcItemCertifiedQty(certNode, cert.id, budget.certifications);
                 if (accumulatedQty > 0) {
                     lines.push(`~Q|${exportCode}|${fNum(accumulatedQty)}|${phaseNum}`);
                 }
@@ -2076,8 +2076,10 @@ export default function App() {
             // Generate ~M with all phases
             if (measurements.length > 0) {
                 const mLines = measurements.map(m => {
-                    // Format: FASE \ TIPO (2=measurement) \ DESC \ U \ L \ A \ H
-                    return `${m.phase}\\2\\${m.description || ''}\\${fNum(m.units)}\\${fNum(m.length)}\\${fNum(m.width)}\\${fNum(m.height)}`;
+                    // Blocs de 7 camps: FASE \ DESC \ U \ L \ A \ H \ (separador buit).
+                    // És el que espera processBC3Data quan detecta step=7, de manera que
+                    // un fitxer exportat es pot tornar a importar sense perdre amidaments.
+                    return `${m.phase}\\${m.description || ''}\\${fNum(m.units)}\\${fNum(m.length)}\\${fNum(m.width)}\\${fNum(m.height)}\\`;
                 }).join('\\');
                 lines.push(`~M|${exportCode}|${mLines}`);
             }
@@ -2086,12 +2088,6 @@ export default function App() {
         return lines.join('\n');
     }, [budget, priceDatabase]);
 
-    // Actualitza la referència cada vegada que generateBC3 canvia
-    // (el hook de Drive la usa per exportar BC3)
-    useEffect(() => {
-        generateBC3Ref.current = generateBC3;
-    }, [generateBC3]);
-
     const handleExportBC3ToDrive = useCallback(() => {
         requireDrive(() => drive.exportBC3ToDrive(generateBC3(), budget.name));
     }, [drive, requireDrive, generateBC3, budget.name]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -2099,64 +2095,9 @@ export default function App() {
     const handleExportBC3 = () => {
         const content = generateBC3();
 
-        // Use TextEncoder to first get UTF-8 (default) then we need a way to get Windows-1252.
-        // In a browser environment without external libraries, we can use a small trick for Windows-1252
-        // if we only care about common Catalan/Spanish characters.
-        // However, the standard way is to use a library or just use UTF-8 and hope the receiver handles it.
-        // BUT the user specifically asked for correct encoding.
-        // Let's use an approach that works for a wide range of characters in Windows-1252.
-
-        const encoder = new TextEncoder();
-        const utf8Array = encoder.encode(content);
-
-        // For true Windows-1252, we'd need a mapping. 
-        // A common alternative in modern web is to just use UTF-8 but label it correctly.
-        // However, if they want "pure" BC3 for old software, Windows-1252 is key.
-
-        // Let's implement a basic Windows-1252 encoder for the Catalan/Spanish subset
-        const toWindows1252 = (str) => {
-            const buf = new Uint8Array(str.length);
-            for (let i = 0; i < str.length; i++) {
-                const charCode = str.charCodeAt(i);
-                if (charCode < 128) {
-                    buf[i] = charCode;
-                } else {
-                    // Mapping for common characters in Catalan/Spanish
-                    const map = {
-                        0x00E0: 0xE0, // à
-                        0x00E1: 0xE1, // á
-                        0x00E8: 0xE8, // è
-                        0x00E9: 0xE9, // é
-                        0x00ED: 0xED, // í
-                        0x00F2: 0xF2, // ò
-                        0x00F3: 0xF3, // ó
-                        0x00FA: 0xFA, // ú
-                        0x00EF: 0xEF, // ï
-                        0x00FC: 0xFC, // ü
-                        0x00E7: 0xE7, // ç
-                        0x00F1: 0xF1, // ñ
-                        0x00C0: 0xC0, // À
-                        0x00C1: 0xC1, // Á
-                        0x00C8: 0xC8, // È
-                        0x00C9: 0xC9, // É
-                        0x00CD: 0xCD, // Í
-                        0x00D2: 0xD2, // Ò
-                        0x00D3: 0xD3, // Ó
-                        0x00DA: 0xDA, // Ú
-                        0x00CF: 0xCF, // Ï
-                        0x00DC: 0xDC, // Ü
-                        0x00C7: 0xC7, // Ç
-                        0x00D1: 0xD1, // Ñ
-                        0x20AC: 0x80, // €
-                        0x00B0: 0xB0, // °
-                    };
-                    buf[i] = map[charCode] || 63; // 63 is '?'
-                }
-            }
-            return buf;
-        };
-
-        const win1252Array = toWindows1252(content);
+        // El BC3 s'escriu en Windows-1252 (ANSI): és el que esperen Presto i Arquímedes.
+        // La conversió viu a utils/googleDrive.js perquè l'exportació a Drive la necessita igual.
+        const win1252Array = toWindows1252Bytes(content);
         const blob = new Blob([win1252Array], { type: 'text/plain;charset=windows-1252' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -2247,7 +2188,7 @@ export default function App() {
                 return;
             }
         }
-        setBudget({ id: crypto.randomUUID(), name: 'Nou Projecte', chapters: [] });
+        setBudget({ id: crypto.randomUUID(), name: 'Nou Projecte', chapters: [], certifications: [] });
         setPriceDatabase({});
         setSelectedId(null);
         notify("Nou projecte creat");
@@ -2399,20 +2340,24 @@ export default function App() {
     const finalizeImport = (result, options = {}) => {
         const { replace = false } = options;
 
+        // El parser retorna les fases del BC3 sota la clau `phases`.
+        const importedPhases = result.phases || [];
+
         if (replace) {
             setPriceDatabase(result.prices || {});
             setBudget({
                 id: crypto.randomUUID(),
                 name: result.name || 'Projecte Importat',
                 chapters: result.chapters,
-                certifications: result.certifications || []
+                certifications: importedPhases
             });
             notify("Projecte obert correctament");
         } else {
             setPriceDatabase(prev => ({ ...prev, ...result.prices }));
             setBudget(prev => ({
                 ...prev,
-                chapters: mergeTreeBranches(prev.chapters, result.chapters)
+                chapters: mergeTreeBranches(prev.chapters, result.chapters),
+                certifications: [...(prev.certifications || []), ...importedPhases]
             }));
             notify("Dades importades correctament");
         }
@@ -2440,7 +2385,7 @@ export default function App() {
             console.error("Error important dades:", err);
             notify(`Error: ${err.message}`, "error");
         }
-    }, [processBC3Data, startImportProcess]);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     // --- PWA File Handling API ---
     useEffect(() => {
@@ -2480,7 +2425,7 @@ export default function App() {
                 }
             });
         }
-    }, [processBC3Data, startImportProcess]);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleDrop = async (e) => {
         if (draggedNodeId) return; // Ignorar drop intern
@@ -2533,7 +2478,9 @@ export default function App() {
                     (val.toLowerCase().includes('.bc3') || val.toLowerCase().includes('generadordepreus'))) {
                     candidates.push(val);
                 }
-            } catch (e) { }
+            } catch {
+                // Tipus de dades no llegible del dataTransfer: l'ignorem.
+            }
         }
         if (extractedUrl) candidates.unshift(extractedUrl);
 
@@ -2869,8 +2816,6 @@ export default function App() {
     };
 
     const toggleChapter = (id) => setExpandedChapters(prev => ({ ...prev, [id]: !prev[id] }));
-    const toggleJustification = (id) => setShowJustification(prev => ({ ...prev, [id]: !prev[id] }));
-    const toggleWaste = (id) => setShowWaste(prev => ({ ...prev, [id]: !prev[id] }));
 
     // --- Render Helper ---
     const renderJustificationTable = (node) => {
@@ -3018,34 +2963,8 @@ export default function App() {
     };
 
     // --- Renderitzadors ---
-    const renderTreeNodes = (nodes, level = 0) => {
-        return nodes.map(node => (
-            <div key={node.id}>
-                <div
-                    className={`flex items-center gap-2 p-1.5 cursor-pointer border-l-2 ${selectedId === node.id ? 'bg-blue-600 text-white border-blue-800' : 'hover:bg-slate-100 text-slate-700 border-transparent'}`}
-                    style={{ paddingLeft: `${level * 12 + 8}px` }}
-                    onClick={() => { setSelectedId(node.id); if (!node.unit) toggleChapter(node.id); }}
-                >
-                    {(!node.unit && (node.subChapters?.length > 0 || node.items?.length > 0)) ? (
-                        expandedChapters[node.id] ? <ChevronDown size={14} /> : <ChevronRight size={14} />
-                    ) : (
-                        node.unit ? <FileText size={14} className={selectedId === node.id ? 'text-blue-100' : 'text-slate-400'} /> : <Box size={14} />
-                    )}
-                    <span className={`font-mono text-[9px] px-1 ${selectedId === node.id ? 'bg-blue-500 text-white' : 'bg-slate-200 text-slate-600'}`}>{node.code}</span>
-                    <span className="truncate text-xs font-semibold">{node.description}</span>
-                </div>
-                {expandedChapters[node.id] && (
-                    <div>
-                        {renderTreeNodes(node.subChapters || [], level + 1)}
-                        {renderTreeNodes(node.items || [], level + 1)}
-                    </div>
-                )}
-            </div>
-        ));
-    };
-
     const renderTableRows = (nodes, level = 0) => {
-        return nodes.map((node, index) => {
+        return nodes.map((node) => {
             const isTarget = dragOverTarget?.id === node.id;
             let dropClass = 'border-b border-slate-100';
 
@@ -3154,7 +3073,7 @@ export default function App() {
                                                 </div>
                                                 <div className="flex items-center gap-1">
                                                     <span className="text-[8px] uppercase font-bold text-slate-300">Pr</span>
-                                                    <span className="font-mono">{formatPrice(getItemUnitPrice(node))}</span>
+                                                    <span className="font-mono">{formatPrice(getItemUnitPrice(node, priceDatabase))}</span>
                                                 </div>
                                             </>
                                         )}
@@ -3199,7 +3118,7 @@ export default function App() {
                                 <td className="hidden md:table-cell p-2 text-center text-slate-400 italic w-14 text-[10px]">{node.unit || ''}</td>
                                 <td className="hidden md:table-cell p-2 text-right font-mono w-20 text-[11px] text-slate-500">{node.unit ? formatNumber(calcItemTotalQty(node), 2) : ''}</td>
                                 <td className="hidden md:table-cell p-2 text-right font-mono w-28 text-[11px] text-slate-600">
-                                    {node.unit ? formatPrice(getItemUnitPrice(node)) : ''}
+                                    {node.unit ? formatPrice(getItemUnitPrice(node, priceDatabase)) : ''}
                                 </td>
                             </>
                         ) : (() => {
@@ -3236,7 +3155,7 @@ export default function App() {
                         <td className="p-1 md:p-2 text-right font-mono font-bold text-slate-700 w-20 md:w-32 text-[11px] md:text-[11px]">
                             <div className="flex items-center justify-end gap-2">
                                 {appMode === 'budget'
-                                    ? (node.unit ? formatCurrency(calcItemTotalAmount(node)) : formatCurrency(calcChapterTotal(node)))
+                                    ? (node.unit ? formatCurrency(calcItemTotalAmount(node, priceDatabase)) : formatCurrency(calcChapterTotal(node, priceDatabase)))
                                     : (node.unit ? formatCurrency(calcItemCertifiedAmount(node, activeCertId, priceDatabase, budget.certifications)) : formatCurrency(calcChapterCertifiedTotal(node, activeCertId, priceDatabase, budget.certifications)))
                                 }
                                 <button
@@ -3489,23 +3408,6 @@ export default function App() {
                         // Find code by ID - basic search for standard hierarchy
                         [...budget.chapters, ...budget.chapters.flatMap(c => [...(c.subChapters || []), ...(c.items || [])])].find(n => n.id === selectedId)?.code
                     ) : null}
-                />
-            )}
-
-            {/* 3. PRINT PREVIEW */}
-            {showPrint && (
-                <PrintView
-                    budget={budget}
-                    priceDatabase={priceDatabase}
-                    calcItemTotalAmount={calcItemTotalAmount}
-                    calcChapterTotal={calcChapterTotal}
-                    budgetTotal={budgetTotal}
-                    config={printConfig}
-                    setConfig={setPrintConfig}
-                    onOpenConfig={() => setShowPrintConfigModal(true)}
-                    onClose={() => setShowPrint(false)}
-                    onExportPDF={handleExportPDF}
-                    onExportSummaryPDF={handleExportSummaryPDF}
                 />
             )}
 
@@ -4089,7 +3991,7 @@ export default function App() {
                                             <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest">{node.unit ? 'Detall de Partida' : 'Detall de Capítol'}</p>
                                             <div className="flex items-center gap-1">
                                                 <span className="text-[10px] font-black bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
-                                                    {node.unit ? formatCurrency(calcItemTotalAmount(node)) : formatCurrency(calcChapterTotal(node))}
+                                                    {node.unit ? formatCurrency(calcItemTotalAmount(node, priceDatabase)) : formatCurrency(calcChapterTotal(node, priceDatabase))}
                                                 </span>
                                                 {node.unit && <span className="text-[10px] font-black bg-green-100 text-green-700 px-1.5 py-0.5 rounded">{node.unit}</span>}
                                             </div>
@@ -4354,8 +4256,6 @@ export default function App() {
                 <PrintView
                     budget={budget}
                     priceDatabase={priceDatabase}
-                    calcItemTotalAmount={calcItemTotalAmount}
-                    calcChapterTotal={calcChapterTotal}
                     budgetTotal={budgetTotal}
                     config={printConfig}
                     setConfig={setPrintConfig}

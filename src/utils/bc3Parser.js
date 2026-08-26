@@ -20,7 +20,7 @@ export const processBC3Data = (text) => {
         const fields = content.split('|');
 
         switch (type) {
-            case 'C':
+            case 'C': {
                 const codeRaw = fields[0].split('\\')[0].trim();
                 const normCode = normalizeCode(codeRaw);
                 const unit = fields[1]?.trim();
@@ -35,12 +35,14 @@ export const processBC3Data = (text) => {
                     price: prices[0]
                 };
                 break;
-            case 'T':
+            }
+            case 'T': {
                 const tCodeRaw = fields[0].trim();
                 const tCode = normalizeCode(tCodeRaw);
                 if (tCode) longTexts[tCode] = fields[1]?.trim();
                 break;
-            case 'F':
+            }
+            case 'F': {
                 const fCode = fields[0]?.trim();
                 const fDate = fields[1]?.trim();
                 const fTitle = fields[2]?.trim();
@@ -55,7 +57,8 @@ export const processBC3Data = (text) => {
                     });
                 }
                 break;
-            case 'D':
+            }
+            case 'D': {
                 const pCode = normalizeCode(fields[0]);
                 const rawChildren = fields[1]?.trim() || fields[2]?.trim();
                 if (pCode && rawChildren) {
@@ -74,7 +77,8 @@ export const processBC3Data = (text) => {
                     relations[pCode] = children;
                 }
                 break;
-            case 'M':
+            }
+            case 'M': {
                 const mPathParts = fields[0]?.split('\\') || [];
                 const targetCode = normalizeCode(mPathParts[mPathParts.length - 1]);
 
@@ -180,6 +184,7 @@ export const processBC3Data = (text) => {
                     }
                 }
                 break;
+            }
         }
     });
 

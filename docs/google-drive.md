@@ -65,11 +65,9 @@ neteja el paràmetre amb `history.replaceState` i carrega el fitxer.
 
 ## Punts a tenir presents en tocar aquest codi
 
-- `getBc3Content` i `budgetRef` es passen al hook però **no s'usen** (l'exportació BC3 es fa
-  des d'`App` amb `generateBC3Ref`). Són paràmetres morts.
-- La taula Windows-1252 està duplicada: `googleDrive.js:toWindows1252Bytes` i
-  `App.jsx:toWindows1252` (dins de `handleExportBC3`). Qualsevol caràcter que s'hi afegeixi
-  s'ha d'afegir als dos llocs.
+- `toWindows1252Bytes` és la conversió compartida per l'exportació BC3 a disc i a Drive.
+  Viu en aquest fitxer per raons històriques; si algun dia s'extreu un `utils/encoding.js`,
+  és el candidat obvi.
 - Hi ha `console.log` de depuració amb emojis repartits pel hook i pel wrapper, inclòs
   l'**email de l'usuari** (`useGoogleDrive.js:73`). Convé treure'ls abans de considerar-ho
   producció.
