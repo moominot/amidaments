@@ -128,19 +128,29 @@ per sobre de `node.price`** quan existeix.
 {
   id: "1738972800000",     // Date.now() si es crea a la UI; crypto.randomUUID() si ve d'un ~F del BC3
   name: "Certificació 1",
-  date: "2026-02-08" | ISO string,
-  approved: false,         // true = bloquejada, la UI no permet editar-la
-  method: "origin" | "partial"
+  date: "2026-02-08",      // YYYY-MM-DD; encapçala el PDF i va al ~F del BC3
+  approved: false,         // true = bloquejada (comprovat al hook, no només a la UI)
+  method: "origin" | "partial"   // només preferència d'entrada
 }
 ```
 
-- **`origin`** (per defecte, estil Presto): la quantitat introduïda a cada fase és **l'acumulat
-  a origen**. La quantitat del període es dedueix restant la fase anterior.
-- **`partial`**: la quantitat introduïda és **la del període**. L'acumulat a origen es calcula
-  sumant totes les fases fins a l'actual (`calcItemCertifiedQty`).
+El projecte porta `schemaVersion` per saber quines migracions cal aplicar
+(`utils/migrateBudget.js`). S'hi passa qualsevol projecte que arribi de fora: `localStorage`,
+JSON de disc, Drive, biblioteca i importació BC3.
 
-Aquest flag es commuta des de `CertificationBar` i **canvia la interpretació de les dades ja
-introduïdes**, no les converteix. Canviar el mètode a mitja obra altera els imports.
+El valor desat a `node.certifications[certId]` és **sempre l'acumulat a origen**. El `method`
+només decideix **per quin camp s'introdueix** la xifra al panell, no què val:
+
+- **`origin`**: es destaca el camp «A origen».
+- **`partial`**: es destaca el camp «Del període»; en escriure-hi, es desa `anterior + període`.
+
+Tots dos camps són editables sempre, de manera que es pot passar d'un valor a l'altre sense
+cap risc, i **commutar el mètode no altera cap import**.
+
+> Fins a `schemaVersion: 2` no era així: el valor desat significava una cosa o una altra
+> segons el `method`, i commutar-lo reinterpretava les dades — 30 i 40 valien 700 € en parcial
+> i 400 € en origen, sense esborrar res i sense avisar. `utils/migrateBudget.js` converteix els
+> projectes antics una sola vegada, conservant els totals.
 
 ## Fitxer de projecte `.json`
 

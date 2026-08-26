@@ -2,7 +2,7 @@
 
 Inventari fet llegint el codi (agost 2026).
 
-**Estat: els vint-i-un defectes de les seccions següents estan corregits** a la branca
+**Estat: els vint-i-dos defectes de les seccions següents estan corregits** a la branca
 `claude/correccions-defectes-detectats`. Es conserva la descripció de cadascun perquè
 expliquen decisions del codi actual i serveixen de referència si tornen a aparèixer.
 El deute tècnic de la segona meitat del document continua obert.
@@ -305,6 +305,42 @@ importa: l'autodesat es dispara a cada pausa d'escriptura i, amb tots els projec
 entrada, cada desat obligaria a serialitzar-los tots — uns quants MB en un telèfon. Quan la
 quota de `localStorage` s'exhaureix, es descarten els més antics abans de rendir-se.
 
+### 22. Commutar entre PARCIAL i A ORIGEN movia els imports ✅
+
+El valor desat a `node.certifications[certId]` era **ambigu**: significava l'acumulat o el del
+període segons el `method` de la fase. Commutar el mètode no esborrava res, però reinterpretava
+les mateixes dades i l'import certificat canviava sol. Reproduït amb dues fases de 30 i 40 sobre
+una partida de 100 m² a 10 €/m²:
+
+| Mètode | Anterior | Període | Origen |
+|---|---|---|---|
+| `partial` | 300 € | 400 € | **700 €** |
+| `origin` | 300 € | 100 € | **400 €** |
+
+Des del punt de vista de qui certifica és indistingible de perdre amidaments.
+
+**Ara el valor desat sempre és l'acumulat a origen**, i el `method` només tria quin camp es
+destaca al panell. Els dos camps —«Del període» i «A origen»— són editables sempre: s'escriu
+en el que convingui i l'altre es recalcula. Commutar el mètode ja no altera cap xifra,
+comprovat al navegador amb tres commutacions seguides sobre el projecte de mostra.
+
+`calcItemCertifiedQty` deixa de dependre de la llista de fases, de manera que desapareix un dels
+paràmetres opcionals que fallaven en silenci (§9).
+
+**Migració.** `utils/migrateBudget.js` converteix una sola vegada els projectes amb fases en
+`partial`, de manera que els totals no es mouen, i marca `schemaVersion: 2`. S'aplica a tot
+projecte que arribi de fora: `localStorage`, JSON de disc, Drive, biblioteca i BC3. Quan una
+fase té detall d'amidament s'hi afegeix una línia «Certificat anterior (acumulat)» al davant,
+que conserva alhora el total i les línies introduïdes. La conversió arrossega uns cèntims de
+diferència en projectes grans (5 cèntims sobre 173.600 € en la prova), perquè `round2` s'aplica
+partida a partida com a la resta de l'aplicació.
+
+> **Limitació coneguda, no introduïda aquí:** en importar un BC3, les línies `~M` amb fase es
+> llegeixen com l'acumulat d'aquella fase. Si el fitxer d'origen les escriu com a mesurament
+> del període, la lectura serà incorrecta. El registre `~Q|codi|qty|fase`, que sí que és
+> inequívocament l'acumulat, encara s'ignora en importar; fer-lo servir seria la manera de
+> desambiguar-ho.
+
 ---
 
 ## Deute tècnic
@@ -388,7 +424,7 @@ ESLint ≥ 9, i amb un ESLint global més nou instal·lat `npm run lint` falla.
 
 Per ordre de relació valor/esforç:
 
-1. ~~Arreglar els punts 1–21.~~ ✅ Fet.
+1. ~~Arreglar els punts 1–22.~~ ✅ Fet.
 2. ~~Activar el lint sobre `.jsx`.~~ ✅ Fet (queda la migració a flat config).
 3. **Vitest + tests de `calculations.js` i `bc3Parser.js`**, amb el BC3 de mostra com a
    fixture. És ara la prioritat: les correccions 2, 3 i 8 es van validar amb scripts d'un sol

@@ -44,6 +44,10 @@ del sector: *amidament*, *partida*, *capítol*, *descomposat*, *rendiment*, *cer
 - **`budget.certifications` és un array de fases. `node.certifications` és un objecte indexat
   per `certId`.** Mateix nom, estructures diferents. Ja ha causat dos bugs (veure
   `docs/estat-actual.md` §2 i §3).
+- **El que es desa a `node.certifications[certId]` sempre és l'acumulat a origen.** El `method`
+  de la fase només tria per quin camp s'introdueix; no canvia què val. No hi tornis a penjar
+  significat: era l'origen del §22.
+- Qualsevol projecte que entri de fora ha de passar per `migrateBudget` (`utils/migrateBudget.js`).
 - La conversió a Windows-1252 (`toWindows1252Bytes`, a `utils/googleDrive.js`) la
   comparteixen l'exportació BC3 a disc i la de Drive. Toca-la en un sol lloc.
 - `App.jsx` fa 4.380 línies. Abans d'afegir-hi res de nou, mira si toca extreure-ho a

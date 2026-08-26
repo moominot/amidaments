@@ -77,58 +77,47 @@ export const getItemUnitPrice = (item, priceDatabase = {}) => {
 };
 
 /**
- * Càlcula la quantitat certificada a ORIGEN (acumulada) per a un ítem fins a una certificació donada.
- * Si el mètode de la certificació és 'partial', suma totes les parcials fins a certId.
- * Si és 'origin', assumeix que certId ja conté el total acumulat.
+ * Quantitat certificada a ORIGEN (acumulada) d'una partida en una fase.
+ *
+ * El valor desat a `node.certifications[certId]` **sempre és l'acumulat a origen**, i això
+ * és deliberat: abans el seu significat depenia del `method` de la fase, de manera que
+ * commutar entre PARCIAL i A ORIGEN reinterpretava les mateixes dades i l'import certificat
+ * canviava sol —30 i 40 valien 70 € en parcial i 40 € en origen— sense esborrar res i sense
+ * avisar. Amb un únic significat, el mètode ja només decideix per quin camp s'introdueix la
+ * xifra (veure `CertificationSidebar`), no què val.
+ *
+ * El paràmetre `certifications` es manté per compatibilitat amb les crides existents; ja no
+ * intervé en el càlcul.
  */
-export const calcItemCertifiedQty = (item, certId, certifications = []) => {
+export const calcItemCertifiedQty = (item, certId) => {
     if (!item.certifications || !certId) return 0;
-    
-    // Trobar l'índex de la certificació actual
-    const currentCertIdx = certifications.length > 0 ? certifications.findIndex(c => c.id === certId) : -1;
-    const currentCert = currentCertIdx !== -1 ? certifications[currentCertIdx] : null;
-    const method = currentCert?.method || 'origin';
+    const certData = item.certifications[certId];
+    if (!certData) return 0;
 
-    const getCertQty = (id) => {
-        const certData = item.certifications[id];
-        if (!certData) return 0;
-        if (certData.measurements && certData.measurements.length > 0) {
-            let subtotal = 0;
-            certData.measurements.forEach(m => {
-                if (!m.isIncrement) subtotal += round2((m.units || 0) * (m.length || 1) * (m.width || 1) * (m.height || 1));
-            });
-            const incrementTotal = certData.measurements
-                .filter(m => m.isIncrement)
-                .reduce((acc, m) => acc + (subtotal * ((parseFloat(m.units) || 0) / 100)), 0);
-            return round2(subtotal + incrementTotal);
-        }
-        return parseFloat(certData.quantity) || 0;
-    };
-
-    if (method === 'partial') {
-        // Sumar totes les parcials fins a l'índex actual
-        let total = 0;
-        for (let i = 0; i <= currentCertIdx; i++) {
-            total = round2(total + getCertQty(certifications[i].id));
-        }
-        return total;
+    if (certData.measurements && certData.measurements.length > 0) {
+        let subtotal = 0;
+        certData.measurements.forEach(m => {
+            if (!m.isIncrement) subtotal += round2((m.units || 0) * (m.length || 1) * (m.width || 1) * (m.height || 1));
+        });
+        const incrementTotal = certData.measurements
+            .filter(m => m.isIncrement)
+            .reduce((acc, m) => acc + (subtotal * ((parseFloat(m.units) || 0) / 100)), 0);
+        return round2(subtotal + incrementTotal);
     }
-
-    // Per defecte ('origin'), retornem directament el valor de la certificació actual
-    return getCertQty(certId);
+    return parseFloat(certData.quantity) || 0;
 };
 
-export const calcItemCertifiedAmount = (item, certId, priceDatabase = {}, certifications = []) => {
-    const qty = calcItemCertifiedQty(item, certId, certifications);
+export const calcItemCertifiedAmount = (item, certId, priceDatabase = {}) => {
+    const qty = calcItemCertifiedQty(item, certId);
     const unitPrice = getItemUnitPrice(item, priceDatabase);
     const total = qty * unitPrice;
     const isSimplePercent = item.unit === '%' && (!item.breakdown || item.breakdown.length === 0);
     return round2(isSimplePercent ? total / 100 : total);
 };
 
-export const calcChapterCertifiedTotal = (chapter, certId, priceDatabase = {}, certifications = []) => {
-    const itemsTotal = (chapter.items || []).reduce((acc, item) => acc + calcItemCertifiedAmount(item, certId, priceDatabase, certifications), 0);
-    const subChaptersTotal = (chapter.subChapters || []).reduce((acc, sub) => acc + calcChapterCertifiedTotal(sub, certId, priceDatabase, certifications), 0);
+export const calcChapterCertifiedTotal = (chapter, certId, priceDatabase = {}) => {
+    const itemsTotal = (chapter.items || []).reduce((acc, item) => acc + calcItemCertifiedAmount(item, certId, priceDatabase), 0);
+    const subChaptersTotal = (chapter.subChapters || []).reduce((acc, sub) => acc + calcChapterCertifiedTotal(sub, certId, priceDatabase), 0);
     return round2(itemsTotal + subChaptersTotal);
 };
 
@@ -173,8 +162,8 @@ export const buildCertificationSummary = (chapters = [], certId, priceDatabase =
 
     const rows = chapters.map(chapter => {
         const budget = round2(calcChapterTotal(chapter, priceDatabase));
-        const origin = certId ? calcChapterCertifiedTotal(chapter, certId, priceDatabase, certifications) : 0;
-        const previous = prevCertId ? calcChapterCertifiedTotal(chapter, prevCertId, priceDatabase, certifications) : 0;
+        const origin = certId ? calcChapterCertifiedTotal(chapter, certId, priceDatabase) : 0;
+        const previous = prevCertId ? calcChapterCertifiedTotal(chapter, prevCertId, priceDatabase) : 0;
         const period = round2(origin - previous);
 
         return {
@@ -223,8 +212,8 @@ export const buildCertificationDetail = (chapters = [], certId, priceDatabase = 
 
             if (isChapter) {
                 const budget = round2(calcChapterTotal(node, priceDatabase));
-                const origin = certId ? calcChapterCertifiedTotal(node, certId, priceDatabase, certifications) : 0;
-                const previous = prevCertId ? calcChapterCertifiedTotal(node, prevCertId, priceDatabase, certifications) : 0;
+                const origin = certId ? calcChapterCertifiedTotal(node, certId, priceDatabase) : 0;
+                const previous = prevCertId ? calcChapterCertifiedTotal(node, prevCertId, priceDatabase) : 0;
                 rows.push({
                     isChapter: true,
                     level,
@@ -241,10 +230,10 @@ export const buildCertificationDetail = (chapters = [], certId, priceDatabase = 
             }
 
             const budgetQty = calcItemTotalQty(node);
-            const originQty = certId ? calcItemCertifiedQty(node, certId, certifications) : 0;
-            const previousQty = prevCertId ? calcItemCertifiedQty(node, prevCertId, certifications) : 0;
-            const originAmount = certId ? calcItemCertifiedAmount(node, certId, priceDatabase, certifications) : 0;
-            const previousAmount = prevCertId ? calcItemCertifiedAmount(node, prevCertId, priceDatabase, certifications) : 0;
+            const originQty = certId ? calcItemCertifiedQty(node, certId) : 0;
+            const previousQty = prevCertId ? calcItemCertifiedQty(node, prevCertId) : 0;
+            const originAmount = certId ? calcItemCertifiedAmount(node, certId, priceDatabase) : 0;
+            const previousAmount = prevCertId ? calcItemCertifiedAmount(node, prevCertId, priceDatabase) : 0;
 
             rows.push({
                 isChapter: false,

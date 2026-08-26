@@ -152,7 +152,9 @@ const CertificationBar = ({
                         onClick={() => onToggleMethod(activeCertId)}
                         disabled={isApproved}
                         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[10px] font-bold uppercase bg-slate-800 text-slate-400 hover:text-white border border-slate-700 whitespace-nowrap flex-shrink-0 disabled:opacity-50 touch-manipulation"
-                        title={method === 'origin' ? 'Entrada a ORIGEN (acumulat)' : 'Entrada PARCIAL (període)'}
+                        title={method === 'origin'
+                            ? "Entrada a ORIGEN: es destaca l'acumulat. Canviar-ho no altera cap import."
+                            : 'Entrada PARCIAL: es destaca el període. Canviar-ho no altera cap import.'}
                     >
                         <span className="hidden sm:inline">Mesurament:</span>
                         <span className={method === 'origin' ? 'text-blue-400' : 'text-amber-400'}>

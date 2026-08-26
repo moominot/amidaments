@@ -73,6 +73,7 @@ import DriveSettingsModal from './components/DriveSettingsModal';
 import NumberInput from './components/NumberInput';
 import ProjectLibraryModal from './components/ProjectLibraryModal';
 import { listProjects, getProject, saveProject, deleteProject } from './utils/projectLibrary';
+import { migrateBudget } from './utils/migrateBudget';
 import { processBC3Data } from './utils/bc3Parser';
 import { numberToTextCatalan } from './utils/numberToText';
 import { exportCertificationPDF } from './utils/certificationPdf';
@@ -831,7 +832,7 @@ export default function App() {
         try {
             const data = saved ? JSON.parse(saved) : { id: '1', name: 'Projecte BC3', chapters: [] };
             if (!data.certifications) data.certifications = [];
-            return data;
+            return migrateBudget(data).budget;
         } catch (e) {
             console.error("Error parsing saved budget", e);
             return { id: '1', name: 'Projecte BC3', chapters: [], certifications: [] };
@@ -963,7 +964,7 @@ export default function App() {
         apiKey: driveConfig.apiKey,
         appId: driveConfig.appId,
         onProjectLoaded: ({ budget: b, priceDatabase: pd }) => {
-            setBudget(b);
+            adoptaProjecte(b);
             setPriceDatabase(pd);
         },
         onBC3Loaded: handleBC3FromDrive,
@@ -1064,10 +1065,24 @@ export default function App() {
         return () => window.removeEventListener('keydown', onKeyDown);
     }, [historial]);
 
+    /**
+     * Punt d'entrada únic per a qualsevol projecte que arribi de fora (disc, Drive,
+     * biblioteca). Hi aplica les migracions d'esquema pendents i avisa si ha convertit
+     * dades, perquè el canvi no passi desapercebut.
+     */
+    const adoptaProjecte = useCallback((entrant) => {
+        const { budget: migrat, migrat: haCanviat } = migrateBudget(entrant);
+        setBudget(migrat);
+        if (haCanviat) {
+            notify('Certificacions convertides al format nou: els imports es conserven igual');
+        }
+        return migrat;
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
     const handleOpenFromLibrary = useCallback((id) => {
         const projecte = getProject(id);
         if (!projecte) { notify('Aquest projecte ja no hi és', 'error'); return; }
-        setBudget(projecte.budget);
+        adoptaProjecte(projecte.budget);
         setPriceDatabase(projecte.priceDatabase || {});
         setSelectedId(null);
         setActiveCertId(null);
@@ -2132,10 +2147,10 @@ export default function App() {
             // Generate ~Q for each certification phase (Accumulated)
             (budget.certifications || []).forEach((cert, i) => {
                 const phaseNum = i + 1;
-                // El ~Q amb FASE espera l'acumulat a origen. calcItemCertifiedQty ja el
-                // calcula segons el mètode de la fase ('origin' o 'partial').
+                // El ~Q amb FASE espera l'acumulat a origen, que és exactament el que
+                // es desa a node.certifications[certId].
                 const certNode = { code: norm, certifications: certificationsByCode.get(norm) || {} };
-                const accumulatedQty = calcItemCertifiedQty(certNode, cert.id, budget.certifications);
+                const accumulatedQty = calcItemCertifiedQty(certNode, cert.id);
                 if (accumulatedQty > 0) {
                     lines.push(`~Q|${exportCode}|${fNum(accumulatedQty)}|${phaseNum}`);
                 }
@@ -2218,7 +2233,7 @@ export default function App() {
                 try {
                     const projectData = JSON.parse(event.target.result);
                     if (projectData.budget && projectData.priceDatabase) {
-                        setBudget(projectData.budget);
+                        adoptaProjecte(projectData.budget);
                         setPriceDatabase(projectData.priceDatabase);
                         notify("Projecte carregat correctament");
                     } else {
@@ -2414,12 +2429,12 @@ export default function App() {
 
         if (replace) {
             setPriceDatabase(result.prices || {});
-            setBudget({
+            setBudget(migrateBudget({
                 id: crypto.randomUUID(),
                 name: result.name || 'Projecte Importat',
                 chapters: result.chapters,
                 certifications: importedPhases
-            });
+            }).budget);
             notify("Projecte obert correctament");
         } else {
             setPriceDatabase(prev => ({ ...prev, ...result.prices }));
@@ -2470,7 +2485,7 @@ export default function App() {
                             try {
                                 const projectData = JSON.parse(text);
                                 if (projectData.budget && projectData.projectMetadata) {
-                                    setBudget(projectData.budget);
+                                    adoptaProjecte(projectData.budget);
                                     if (projectData.priceDatabase) setPriceDatabase(projectData.priceDatabase);
                                     notify("Projecte carregat correctament");
                                 }
@@ -3149,9 +3164,9 @@ export default function App() {
                                 ) : (
                                     <div className="md:hidden flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-[10px] text-slate-500">
                                         {node.unit && (() => {
-                                            const originQty = calcItemCertifiedQty(node, activeCertId, budget.certifications);
+                                            const originQty = calcItemCertifiedQty(node, activeCertId);
                                             const prevCertId = getPreviousCertId(budget.certifications, activeCertId);
-                                            const prevQty = prevCertId ? calcItemCertifiedQty(node, prevCertId, budget.certifications) : 0;
+                                            const prevQty = prevCertId ? calcItemCertifiedQty(node, prevCertId) : 0;
                                             const actQty = round2(originQty - prevQty);
                                             return (
                                                 <>
@@ -3200,9 +3215,9 @@ export default function App() {
 
                             if (isChapter) {
                                 const chBudget = calcChapterTotal(node, priceDatabase);
-                                const chOrigin = calcChapterCertifiedTotal(node, activeCertId, priceDatabase, budget.certifications);
+                                const chOrigin = calcChapterCertifiedTotal(node, activeCertId, priceDatabase);
                                 const chPrev = prevCertId
-                                    ? calcChapterCertifiedTotal(node, prevCertId, priceDatabase, budget.certifications)
+                                    ? calcChapterCertifiedTotal(node, prevCertId, priceDatabase)
                                     : 0;
                                 prevQty = chPrev;
                                 actQty = round2(chOrigin - chPrev);
@@ -3210,8 +3225,8 @@ export default function App() {
                                 actPct = safePct(actQty, chBudget);
                                 originPct = safePct(chOrigin, chBudget);
                             } else {
-                                originQty = calcItemCertifiedQty(node, activeCertId, budget.certifications);
-                                prevQty = prevCertId ? calcItemCertifiedQty(node, prevCertId, budget.certifications) : 0;
+                                originQty = calcItemCertifiedQty(node, activeCertId);
+                                prevQty = prevCertId ? calcItemCertifiedQty(node, prevCertId) : 0;
                                 actQty = round2(originQty - prevQty);
                                 totalQty = calcItemTotalQty(node);
                                 antPct = safePct(prevQty, totalQty);
@@ -3243,7 +3258,7 @@ export default function App() {
                             <div className="flex items-center justify-end gap-2">
                                 {appMode === 'budget'
                                     ? (node.unit ? formatCurrency(calcItemTotalAmount(node, priceDatabase)) : formatCurrency(calcChapterTotal(node, priceDatabase)))
-                                    : (node.unit ? formatCurrency(calcItemCertifiedAmount(node, activeCertId, priceDatabase, budget.certifications)) : formatCurrency(calcChapterCertifiedTotal(node, activeCertId, priceDatabase, budget.certifications)))
+                                    : (node.unit ? formatCurrency(calcItemCertifiedAmount(node, activeCertId, priceDatabase)) : formatCurrency(calcChapterCertifiedTotal(node, activeCertId, priceDatabase)))
                                 }
                                 <button
                                     onClick={(e) => {

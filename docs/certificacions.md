@@ -13,16 +13,22 @@ En mode certificació la taula principal canvia de columnes i el capçal mostra
 Una **certificació** (o *fase*) és una foto de l'obra en una data. Cada partida hi té una
 quantitat executada. Dues maneres d'introduir-la, per fase:
 
-| `method` | Què s'introdueix | Com es calcula l'acumulat |
+El valor desat és **sempre l'acumulat a origen**. El mètode només tria quin dels dos camps
+del panell es destaca:
+
+| `method` | Camp destacat | Què es desa en escriure-hi |
 |---|---|---|
-| `origin` (per defecte) | L'**acumulat a origen** | és el valor introduït |
-| `partial` | La quantitat **del període** | suma de totes les fases anteriors + l'actual |
+| `origin` (per defecte) | «A origen» | el valor tal qual |
+| `partial` | «Del període» | `anterior + el que has escrit` |
+
+Tots dos camps són editables en qualsevol moment: escrius en el que et vagi bé i l'altre es
+recalcula. Com que el que es desa no canvia, **commutar el mètode no altera cap import**.
 
 La UI sempre mostra les tres xifres: **Anterior**, **Actual** (període) i **Origen** (acumulat),
 amb el percentatge sobre la quantitat pressupostada.
 
-> Commutar el mètode d'una fase **reinterpreta** les dades ja introduïdes, no les converteix.
-> Fer-ho a mitja obra canvia els imports certificats.
+> Abans de `schemaVersion: 2` el mètode canviava el significat del que hi havia desat i, en
+> commutar-lo, l'import certificat es movia sol. Ara ja no: veure `docs/estat-actual.md` §22.
 
 ## Recorregut per la UI
 
