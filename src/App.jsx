@@ -1977,7 +1977,6 @@ export default function App() {
         const concepts = new Map(); // normCode -> { data, isDecomposed }
         const measurementsByCode = new Map(); // normCode -> Array of { phase, ...measurementObject }
         const relationships = new Map(); // normCode -> Array of { childNormCode, factor, yield }
-        const certificationsByCode = new Map(); // normCode -> { certId: certData }
 
         const getExportCode = (normCode) => {
             const concept = concepts.get(normCode);
@@ -2053,10 +2052,6 @@ export default function App() {
 
             // Measurements for each certification phase
             if (node.certifications) {
-                // Conservem el mapa { certId: certData } per poder calcular després els ~Q
-                // acumulats per fase: calcItemCertifiedQty espera un NODE, no la llista de fases.
-                certificationsByCode.set(norm, { ...(certificationsByCode.get(norm) || {}), ...node.certifications });
-
                 Object.entries(node.certifications).forEach(([certId, certData]) => {
                     const phaseNum = phaseMap.get(certId);
                     if (phaseNum !== undefined && certData.measurements?.length > 0) {
@@ -2133,39 +2128,29 @@ export default function App() {
             }
         });
 
-        // Quantity (~Q) and Measurement (~M) records
+        // Registres d'amidament (~M)
         measurementsByCode.forEach((measurements, norm) => {
+            if (measurements.length === 0) return;
             const exportCode = getExportCode(norm);
 
-            // Generate ~Q for budget (Phase 0)
-            const budgetMeasurements = measurements.filter(m => m.phase === 0);
-            if (budgetMeasurements.length > 0) {
-                const totalQty = budgetMeasurements.reduce((acc, m) => acc + (m.units || 0) * (m.length || 1) * (m.width || 1) * (m.height || 1), 0);
-                lines.push(`~Q|${exportCode}|${fNum(totalQty)}|0`);
-            }
+            // El total del pressupost (fase 0) va al camp MEDICION_TOTAL, que és el valor
+            // autoritzat del registre: qui el llegeixi no ha de deduir-lo sumant línies.
+            const totalPressupost = measurements
+                .filter(m => m.phase === 0)
+                .reduce((acc, m) => acc + (m.units || 0) * (m.length || 1) * (m.width || 1) * (m.height || 1), 0);
 
-            // Generate ~Q for each certification phase (Accumulated)
-            (budget.certifications || []).forEach((cert, i) => {
-                const phaseNum = i + 1;
-                // El ~Q amb FASE espera l'acumulat a origen, que és exactament el que
-                // es desa a node.certifications[certId].
-                const certNode = { code: norm, certifications: certificationsByCode.get(norm) || {} };
-                const accumulatedQty = calcItemCertifiedQty(certNode, cert.id);
-                if (accumulatedQty > 0) {
-                    lines.push(`~Q|${exportCode}|${fNum(accumulatedQty)}|${phaseNum}`);
-                }
-            });
+            const mLines = measurements.map(m => {
+                // Blocs de 7 camps: FASE \ DESC \ U \ L \ A \ H \ (separador buit).
+                // És el que espera processBC3Data quan detecta step=7, de manera que
+                // un fitxer exportat es pot tornar a importar sense perdre amidaments.
+                return `${m.phase}\\${m.description || ''}\\${fNum(m.units)}\\${fNum(m.length)}\\${fNum(m.width)}\\${fNum(m.height)}\\`;
+            }).join('\\');
 
-            // Generate ~M with all phases
-            if (measurements.length > 0) {
-                const mLines = measurements.map(m => {
-                    // Blocs de 7 camps: FASE \ DESC \ U \ L \ A \ H \ (separador buit).
-                    // És el que espera processBC3Data quan detecta step=7, de manera que
-                    // un fitxer exportat es pot tornar a importar sense perdre amidaments.
-                    return `${m.phase}\\${m.description || ''}\\${fNum(m.units)}\\${fNum(m.length)}\\${fNum(m.width)}\\${fNum(m.height)}\\`;
-                }).join('\\');
-                lines.push(`~M|${exportCode}|${mLines}`);
-            }
+            // Forma del registre: ~M | PARE\FILL | POSICIO | MEDICIO_TOTAL | LINIES | ETIQUETA
+            // Abans s'escrivia `~M|codi|linies`, amb les línies al camp de la POSICIO i sense
+            // total: el nostre parser ho tolerava perquè escaneja els camps 1..4, però
+            // qualsevol altre programa ho llegia malament.
+            lines.push(`~M|${exportCode}||${fNum(round2(totalPressupost))}|${mLines}|`);
         });
 
         return lines.join('\n');

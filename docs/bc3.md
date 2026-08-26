@@ -15,8 +15,13 @@ subllistes es separen per `\`.
 | `~T` | Text descriptiu llarg | ✔ | ✔ |
 | `~M` | Línies d'amidament | ✔ (amb heurística) | ✔ |
 | `~F` | Fases / certificacions | ✔ (a `phases`) | ✔ |
-| `~Q` | Quantitat total per fase | ignorat en importar | ✔ (fase 0; per fase, veure avís) |
+| `~Q` | — | — | ja no s'escriu (veure avís) |
 | `~L`, `~P`, `~W`, `~A`, `~G`, `~E`, `~O` | plecs, paramètrics, entitats… | no suportats | no s'escriuen |
+
+> **El `~Q` no existeix a la norma.** L'exportador n'escrivia (`~Q|codi|quantitat|fase`) com si
+> fos el registre de quantitats per fase, però no apareix ni al FIEBDC ni a cap dels fitxers de
+> Presto que hem examinat: el fitxer de mostra només conté `~V ~K ~C ~D ~T ~M ~L`. S'ha eliminat.
+> El total autoritzat viu al camp **MEDICION_TOTAL** del `~M`.
 
 ## Importació
 
@@ -46,11 +51,29 @@ subllistes es separen per `\`.
 5. Si una partida no té descomposat però sí preu, se li fabrica una línia
    `pa<codi>` amb rendiment 1 (partida alçada).
 
+### Estructura del registre `~M`
+
+```
+~M | PARE\FILL | POSICIO | MEDICIO_TOTAL | {TIPUS\COMENTARI\U\L\A\H\}... | ETIQUETA
+```
+
+El camp 2, **MEDICION_TOTAL**, és el total que declara el fitxer, i és el valor autoritzat:
+qui el llegeix no l'hauria de deduir sumant línies.
+
 ### Heurística de les línies `~M`
 
 És la part més fràgil del parser i la que més esforç hi té posat. El problema: `~M` pot
 venir amb blocs de 5, 6 o 7 camps segons el programa que l'ha generat, i el camp de fase
 pot existir o no.
+
+**Xarxa de seguretat:** després de llegir les línies, se'n compara la suma amb el
+MEDICION_TOTAL declarat. Si no quadren (tolerància de 0,02), es descarten les línies llegides
+i es deixa una sola línia «Amidament total (segons BC3)» amb el valor del fitxer, de manera que
+la quantitat importada sempre reprodueix el PEM del document d'origen. Només s'aplica als
+registres sense fases: amb fases, el MEDICION_TOTAL no diu a quina correspon.
+
+Sobre el fitxer de mostra els 144 registres quadren, o sigui que la heurística hi funciona i
+la xarxa no arriba a saltar.
 
 `bc3Parser.js:80-160`:
 
@@ -94,6 +117,9 @@ Detalls a tenir en compte:
 - **Percentatges**: els conceptes amb unitat `%` s'escriuen amb el preu dividit per 100 i el
   rendiment dividit per 100, perquè la norma els expressa en tant per u.
 - **Números**: el punt decimal es converteix a coma (`fNum`).
+- **Forma del `~M`**: `~M|codi||TOTAL|linies|`. Abans s'escrivia `~M|codi|linies`, amb les
+  línies al camp de la POSICIO i sense total. El nostre parser ho tolerava perquè escaneja els
+  camps 1..4 buscant-les, però qualsevol altre programa ho llegia malament.
 - **Codificació**: `handleExportBC3` converteix a Windows-1252 amb `toWindows1252Bytes`
   (`src/utils/googleDrive.js`), una taula manual limitada als accents catalans i castellans,
   `€`, `ç`, `ñ`, `°`. Qualsevol altre caràcter fora d'ASCII es converteix en `?`. La funció

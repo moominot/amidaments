@@ -82,6 +82,12 @@ export const processBC3Data = (text) => {
                 const mPathParts = fields[0]?.split('\\') || [];
                 const targetCode = normalizeCode(mPathParts[mPathParts.length - 1]);
 
+                // MEDICION_TOTAL: el total que declara el fitxer. La detecció de línies de
+                // sota és heurística (blocs de 5, 6 o 7 camps segons qui hagi generat el
+                // fitxer), així que aquest valor serveix de xarxa de seguretat: si el que
+                // n'hem tret no hi quadra, val més fiar-se del que diu el fitxer.
+                const totalDeclarat = parseFloat((fields[2] || '').replace(',', '.'));
+
                 let mLinesRaw = null;
                 let maxWeight = -1;
 
@@ -180,6 +186,34 @@ export const processBC3Data = (text) => {
                                 length: 1, width: 1, height: 1
                             });
                             break;
+                        }
+                    }
+                }
+
+                // Contrast amb el total declarat. Només per als registres sense fases: amb
+                // fases el MEDICION_TOTAL no diu a quina correspon i no es pot repartir.
+                if (Number.isFinite(totalDeclarat)) {
+                    const propies = measurements.filter(m => m.target === targetCode);
+                    const teFases = propies.some(m => m.phase !== 0);
+                    if (!teFases) {
+                        const suma = propies.reduce(
+                            (acc, m) => acc + (m.units || 0) * (m.length || 1) * (m.width || 1) * (m.height || 1), 0);
+                        if (Math.abs(suma - totalDeclarat) > 0.02) {
+                            // Les línies llegides no reprodueixen el total del fitxer: les
+                            // descartem i deixem el total declarat, que és el que quadra amb
+                            // el PEM del document d'origen.
+                            for (let i = measurements.length - 1; i >= 0; i--) {
+                                if (measurements[i].target === targetCode) measurements.splice(i, 1);
+                            }
+                            if (totalDeclarat !== 0) {
+                                measurements.push({
+                                    target: targetCode,
+                                    phase: 0,
+                                    description: 'Amidament total (segons BC3)',
+                                    units: totalDeclarat,
+                                    length: 1, width: 1, height: 1
+                                });
+                            }
                         }
                     }
                 }

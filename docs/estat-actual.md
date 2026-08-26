@@ -2,7 +2,7 @@
 
 Inventari fet llegint el codi (agost 2026).
 
-**Estat: els vint-i-dos defectes de les seccions següents estan corregits** a la branca
+**Estat: els vint-i-tres defectes de les seccions següents estan corregits** a la branca
 `claude/correccions-defectes-detectats`. Es conserva la descripció de cadascun perquè
 expliquen decisions del codi actual i serveixen de referència si tornen a aparèixer.
 El deute tècnic de la segona meitat del document continua obert.
@@ -337,9 +337,25 @@ partida a partida com a la resta de l'aplicació.
 
 > **Limitació coneguda, no introduïda aquí:** en importar un BC3, les línies `~M` amb fase es
 > llegeixen com l'acumulat d'aquella fase. Si el fitxer d'origen les escriu com a mesurament
-> del període, la lectura serà incorrecta. El registre `~Q|codi|qty|fase`, que sí que és
-> inequívocament l'acumulat, encara s'ignora en importar; fer-lo servir seria la manera de
-> desambiguar-ho.
+> del període, la lectura serà incorrecta. Veure §23.
+
+### 23. L'exportació `~M` no tenia la forma de la norma ✅
+
+L'exportador escrivia `~M|codi|linies`: les línies queien al camp de la **POSICIO** i el
+**MEDICION_TOTAL** no s'escrivia. El nostre parser ho tolerava perquè escaneja els camps 1..4
+buscant les línies —de fet, la heurística existeix en part per llegir la nostra pròpia
+sortida—, però qualsevol altre programa ho llegia malament. Ara s'escriu
+`~M|codi||TOTAL|linies|`.
+
+També s'eliminen els registres **`~Q`**, que l'exportador inventava. No apareixen ni a la norma
+ni a cap dels fitxers de Presto examinats: el de mostra només conté `~V ~K ~C ~D ~T ~M ~L`.
+Una nota d'un torn anterior d'aquesta sessió els donava per bons; era incorrecta i queda
+rectificada.
+
+En importar, el MEDICION_TOTAL passa a fer de **xarxa de seguretat**: si les línies llegides no
+en reprodueixen el valor (tolerància 0,02), es descarten i es deixa una sola línia amb el total
+del fitxer. Sobre el fitxer de mostra els 144 registres quadren, de manera que no salta; provat
+a part amb línies il·legibles, amb línies que no sumen el total i sense total declarat.
 
 ---
 
@@ -424,7 +440,7 @@ ESLint ≥ 9, i amb un ESLint global més nou instal·lat `npm run lint` falla.
 
 Per ordre de relació valor/esforç:
 
-1. ~~Arreglar els punts 1–22.~~ ✅ Fet.
+1. ~~Arreglar els punts 1–23.~~ ✅ Fet.
 2. ~~Activar el lint sobre `.jsx`.~~ ✅ Fet (queda la migració a flat config).
 3. **Vitest + tests de `calculations.js` i `bc3Parser.js`**, amb el BC3 de mostra com a
    fixture. És ara la prioritat: les correccions 2, 3 i 8 es van validar amb scripts d'un sol
