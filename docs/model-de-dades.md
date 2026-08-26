@@ -90,6 +90,21 @@ El seu parcial és `factor × quantitat(partida amb aquest codi)`. El cas típic
 on solera, formació de pendents, impermeabilització, aïllant i paviment comparteixen superfície:
 s'entra un cop i les altres hi apunten. El `factor` cobreix les proporcions (dues capes = 2).
 
+Amb `refLineId` el vincle apunta a **una línia concreta** en comptes del total:
+
+```js
+{ id: "uuid", description: "Igual que SOLERA · terrassa A",
+  refCode: "SOLERA", refLineId: "tA", factor: 1 }
+```
+
+Serveix quan la partida d'origen amida dues terrasses i la de destí només en necessita una:
+canviar la terrassa B deixa la de destí intacta. Si s'apunta a una línia de percentatge, el
+valor és la seva aportació (el tant per cent del subtotal de les línies normals).
+
+De la línia d'origen només se'n desa l'**id**. La descripció que es veu (`refDescription`) la
+calcula `resolveMeasurementRefs` a cada resolució, de manera que reanomenar la línia d'origen
+es reflecteix tot sol; si s'esborra, la línia queda a 0 i es marca com a «línia esborrada».
+
 `node.measurements` desa el **vincle**, no el valor. La resolució la fa
 `utils/measurementRefs.js` abans de calcular res, i és el que fa que la resta de
 `calculations.js` no s'hagi d'assabentar de l'existència dels vincles. Veure

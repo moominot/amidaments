@@ -12,6 +12,10 @@ import { normalizeCode, round2 } from './calculations';
  * d'unitats i dimensions. El factor cobreix els casos de proporció: dues capes
  * d'impermeabilització són factor 2, mitja superfície és 0,5.
  *
+ * Amb `refLineId` el vincle apunta a **una línia concreta** d'aquella partida en comptes del
+ * seu total. Serveix quan la partida d'origen amida dues terrasses i la de destí només en
+ * necessita una.
+ *
  * ─── Com s'integra amb la resta del càlcul ───
  *
  * En comptes de fer que totes les funcions de `calculations.js` sàpiguen resoldre vincles
@@ -26,12 +30,19 @@ import { normalizeCode, round2 } from './calculations';
 
 export const isRefLine = (linia) => !!(linia && linia.refCode);
 
-/** Etiqueta llegible d'una línia vinculada, per a la interfície i els llistats. */
+/**
+ * Etiqueta llegible d'una línia vinculada.
+ *
+ * `refDescription` l'omple `resolveMeasurementRefs` a partir de la línia d'origen real, de
+ * manera que si aquella es reanomena l'etiqueta segueix. No es desa al model: seria una còpia
+ * que es podria quedar antiga.
+ */
 export const refLabel = (linia) => {
     if (!isRefLine(linia)) return '';
     const f = Number(linia.factor);
     const factor = Number.isFinite(f) && f !== 1 ? ` × ${String(f).replace('.', ',')}` : '';
-    return `= ${linia.refCode}${factor}`;
+    const linea = linia.refLineId ? ` · ${linia.refDescription || 'línia esborrada'}` : '';
+    return `= ${linia.refCode}${linea}${factor}`;
 };
 
 const parcialDe = (m) => round2((m.units || 0) * (m.length || 1) * (m.width || 1) * (m.height || 1));
@@ -49,16 +60,18 @@ const quantitatDeLinies = (linies) => {
 /**
  * Resol les línies vinculades de tot l'arbre.
  *
- * @returns {{chapters: Array, cycles: Set<string>, missing: Set<string>, refsPerCode: Map<string, number>}}
+ * @returns {{chapters: Array, cycles: Set<string>, missing: Set<string>, missingLines: Set<string>, refsPerCode: Map<string, number>}}
  *   · `chapters`  arbre amb les línies vinculades convertides en línies normals
  *   · `cycles`    codis implicats en una referència circular (es compten com a 0)
  *   · `missing`   codis referenciats que no existeixen
+ *   · `missingLines` referències a línies que ja s'han esborrat (`codi/idLinia`)
  *   · `refsPerCode` quantes línies apunten a cada codi, per poder avisar en esborrar
  */
 export const resolveMeasurementRefs = (chapters = []) => {
     const perCodi = new Map();      // normCode -> node original
     const cycles = new Set();
     const missing = new Set();
+    const missingLines = new Set();
     const refsPerCode = new Map();
 
     const indexa = (nodes) => nodes.forEach(n => {
@@ -81,36 +94,70 @@ export const resolveMeasurementRefs = (chapters = []) => {
     });
     comptaRefs(chapters);
 
-    const memo = new Map();
+    // Es memoritzen les LÍNIES resoltes de cada partida, no només el seu total: així una
+    // línia vinculada pot apuntar tant a la partida sencera com a una línia concreta seva.
+    const memoLinies = new Map();
     const visitant = new Set();
 
-    const quantitatDe = (normCode) => {
-        if (memo.has(normCode)) return memo.get(normCode);
+    const liniesDe = (normCode) => {
+        if (memoLinies.has(normCode)) return memoLinies.get(normCode);
 
         if (visitant.has(normCode)) {
             // Referència circular: es talla aquí i es compta com a 0 en comptes de penjar-se.
             cycles.add(normCode);
-            return 0;
+            return [];
         }
 
         const node = perCodi.get(normCode);
-        if (!node) { missing.add(normCode); return 0; }
+        if (!node) { missing.add(normCode); return []; }
 
         visitant.add(normCode);
-        const valor = quantitatDeLinies(liniesResoltes(node));
+        const linies = liniesResoltes(node);
         visitant.delete(normCode);
 
-        memo.set(normCode, valor);
-        return valor;
+        memoLinies.set(normCode, linies);
+        return linies;
+    };
+
+    const quantitatDe = (normCode) => quantitatDeLinies(liniesDe(normCode));
+
+    /** Aportació d'una línia concreta al total de la seva partida. */
+    const valorDeLinia = (linies, lineId) => {
+        const linia = linies.find(m => m.id === lineId);
+        if (!linia) return null;
+        if (!linia.isIncrement) return parcialDe(linia);
+        // Una línia de percentatge no té parcial propi: aporta un tant per cent del
+        // subtotal de les línies normals.
+        const subtotal = linies.reduce((acc, m) => acc + (m.isIncrement ? 0 : parcialDe(m)), 0);
+        return round2(subtotal * ((parseFloat(linia.units) || 0) / 100));
     };
 
     const liniesResoltes = (node) => (node.measurements || []).map(m => {
         if (!isRefLine(m)) return m;
         const codi = normalizeCode(m.refCode);
         const factor = Number.isFinite(Number(m.factor)) ? Number(m.factor) : 1;
+
+        let base;
+        let refDescription = null;
+        if (m.refLineId) {
+            const origen = liniesDe(codi);
+            const valor = valorDeLinia(origen, m.refLineId);
+            if (valor === null) {
+                // La línia d'origen ja no hi és: no és el mateix que un codi inexistent.
+                missingLines.add(`${codi}/${m.refLineId}`);
+                base = 0;
+            } else {
+                base = valor;
+                refDescription = origen.find(x => x.id === m.refLineId)?.description || '';
+            }
+        } else {
+            base = quantitatDe(codi);
+        }
+
         return {
             ...m,
-            units: round2(quantitatDe(codi) * factor),
+            refDescription,
+            units: round2(base * factor),
             length: 1, width: 1, height: 1,
         };
     });
@@ -139,5 +186,5 @@ export const resolveMeasurementRefs = (chapters = []) => {
 
     const resolts = resol(chapters);
 
-    return { chapters: resolts, cycles, missing, refsPerCode };
+    return { chapters: resolts, cycles, missing, missingLines, refsPerCode };
 };

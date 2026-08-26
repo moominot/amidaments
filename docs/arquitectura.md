@@ -86,8 +86,15 @@ calculada, de manera que tot el codi existent hi funciona sense canvis. Es fa se
 taula, al panell de detall, als totals, al resum de certificació, al PDF, a l'Excel i al BC3.
 Les mutacions continuen anant contra `budget.chapters`, per `node.id`.
 
-La resolució detecta referències circulars (es compten com a 0), codis inexistents, i compta
-quantes línies apunten a cada codi per poder avisar abans d'esborrar la partida d'origen. Els
+El vincle pot apuntar al **total** d'una partida (`refCode`) o a **una línia concreta** seva
+(`refCode` + `refLineId`). Per això es memoritzen les línies resoltes de cada partida i no
+només el seu total.
+
+La resolució detecta referències circulars (es compten com a 0), codis inexistents, línies
+d'origen esborrades, i compta quantes línies apunten a cada codi per poder avisar abans
+d'esborrar la partida d'origen. La detecció de cicles va per codi, no per línia: és
+conservadora, de manera que pot marcar com a circular un encreuament entre línies diferents de
+dues partides que en realitat no ho seria. Els
 nodes sense vincles es retornen per referència, de manera que l'arbre resolt gairebé no ocupa
 memòria i els `useMemo` que en depenen segueixen essent útils.
 

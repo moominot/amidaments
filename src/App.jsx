@@ -2693,15 +2693,24 @@ export default function App() {
         return null;
     };
 
-    const addLinkedLine = (itemId, refCode) => {
+    const addLinkedLine = (itemId, refCode, refLineId = null) => {
+        // De la línia d'origen només se'n desa l'id: la descripció es resol a cada càlcul,
+        // de manera que reanomenar-la a l'origen es reflecteix aquí.
+        const origen = refLineId
+            ? findNodeById(resolvedChapters, itemId) && buscaLinia(refCode, refLineId)
+            : null;
+
         const updateInTree = (nodes) => nodes.map(node => {
             if (node.id === itemId) {
                 return {
                     ...node,
                     measurements: [...(node.measurements || []), {
                         id: crypto.randomUUID(),
-                        description: `Igual que ${refCode}`,
+                        description: refLineId
+                            ? `Igual que ${refCode} · ${origen?.description || 'una línia'}`
+                            : `Igual que ${refCode}`,
                         refCode,
+                        ...(refLineId ? { refLineId } : {}),
                         factor: 1,
                     }]
                 };
@@ -2713,7 +2722,22 @@ export default function App() {
             };
         });
         setBudget(prev => ({ ...prev, chapters: updateInTree(prev.chapters) }));
-        notify(`Amidament vinculat a ${refCode}`);
+        notify(refLineId ? `Amidament vinculat a una línia de ${refCode}` : `Amidament vinculat a ${refCode}`);
+    };
+
+    /** Troba una línia d'amidament dins de la partida amb aquest codi. */
+    const buscaLinia = (code, lineId) => {
+        const norm = normalizeCode(code);
+        let trobada = null;
+        const walk = (nodes) => nodes.forEach(n => {
+            if (n.unit && normalizeCode(n.code) === norm) {
+                const m = (n.measurements || []).find(x => x.id === lineId);
+                if (m && !trobada) trobada = m;
+            }
+            walk([...(n.subChapters || []), ...(n.items || [])]);
+        });
+        walk(resolvedChapters);
+        return trobada;
     };
 
     const addIncrementLine = (itemId) => {
@@ -4477,7 +4501,7 @@ export default function App() {
                 <LinkItemModal
                     chapters={resolvedChapters}
                     excludeCode={findNodeById(budget.chapters, linkTarget)?.code}
-                    onPick={(code) => { addLinkedLine(linkTarget, code); setLinkTarget(null); }}
+                    onPick={(code, lineId) => { addLinkedLine(linkTarget, code, lineId); setLinkTarget(null); }}
                     onClose={() => setLinkTarget(null)}
                 />
             )}
