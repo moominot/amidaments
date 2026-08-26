@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { X, Cloud, Key, Hash, AlertCircle, CheckCircle } from 'lucide-react';
 
 /**

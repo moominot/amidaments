@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import NumberInput from '../NumberInput';
 import { Layers, ChevronDown, ChevronRight, Calculator, Plus, X, Percent, Save } from 'lucide-react';
 import {
     formatCurrency,
@@ -22,7 +23,7 @@ const CertificationSidebar = ({
     onToggle,
     actions
 }) => {
-    const [localPercentage, setLocalPercentage] = useState('');
+    const [localPercentage, setLocalPercentage] = useState(0);
 
     const activeCert = certifications.find(c => c.id === activeCertId);
     const isApproved = activeCert?.approved;
@@ -43,7 +44,7 @@ const CertificationSidebar = ({
     useEffect(() => {
         if (node && activeCertId) {
             const currentPerc = (originQty / totalQty) * 100;
-            setLocalPercentage(currentPerc.toFixed(2));
+            setLocalPercentage(Number(currentPerc.toFixed(2)));
         }
     }, [node, activeCertId, originQty, totalQty]);
 
@@ -99,19 +100,19 @@ const CertificationSidebar = ({
                                 <div className="flex gap-2">
                                     <button
                                         onClick={() => actions.updateCertificationPercentage(node.id, activeCertId, 25, node)}
-                                        className="flex-1 bg-slate-100 hover:bg-emerald-100 text-[10px] font-bold p-2 transition-colors border border-slate-200"
+                                        className="flex-1 bg-slate-100 hover:bg-emerald-100 text-xs md:text-[10px] font-bold py-3 md:p-2 transition-colors border border-slate-200 touch-manipulation"
                                     >25%</button>
                                     <button
                                         onClick={() => actions.updateCertificationPercentage(node.id, activeCertId, 50, node)}
-                                        className="flex-1 bg-slate-100 hover:bg-emerald-100 text-[10px] font-bold p-2 transition-colors border border-slate-200"
+                                        className="flex-1 bg-slate-100 hover:bg-emerald-100 text-xs md:text-[10px] font-bold py-3 md:p-2 transition-colors border border-slate-200 touch-manipulation"
                                     >50%</button>
                                     <button
                                         onClick={() => actions.updateCertificationPercentage(node.id, activeCertId, 100, node)}
-                                        className="flex-1 bg-emerald-600 text-white text-[10px] font-bold p-2 transition-colors shadow-lg shadow-emerald-900/40"
+                                        className="flex-1 bg-emerald-600 text-white text-xs md:text-[10px] font-bold py-3 md:p-2 transition-colors shadow-lg shadow-emerald-900/40 touch-manipulation"
                                     >100%</button>
                                 </div>
                                 <button
-                                    onClick={() => actions.copyBudgetToCertification(node.id, activeCertId, node)}
+                                    onClick={() => actions.copyBudgetToCertification(node.id, activeCertId)}
                                     className="w-full mt-1 bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-bold p-2 transition-colors border border-blue-200 flex items-center justify-center gap-2"
                                 >
                                     <Calculator size={12} /> Copiar Amidament Pressupost
@@ -123,14 +124,11 @@ const CertificationSidebar = ({
                                 <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">Certificar per Percentatge (%)</label>
                                 <div className="flex items-center gap-3">
                                     <div className="relative flex-1">
-                                        <input
-                                            type="number"
-                                            step="0.01"
+                                        <NumberInput
                                             className="w-full bg-blue-50 border border-blue-200 p-3 text-lg font-mono font-bold text-blue-700 focus:border-blue-500 outline-none pr-8"
                                             value={localPercentage}
-                                            onChange={(e) => setLocalPercentage(e.target.value)}
-                                            onBlur={() => actions.updateCertificationPercentage(node.id, activeCertId, localPercentage, node)}
-                                            onKeyDown={(e) => e.key === 'Enter' && actions.updateCertificationPercentage(node.id, activeCertId, localPercentage, node)}
+                                            onChange={(v) => setLocalPercentage(v)}
+                                            onCommit={(v) => actions.updateCertificationPercentage(node.id, activeCertId, v, node)}
                                         />
                                         <Percent size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-300" />
                                     </div>
@@ -149,11 +147,10 @@ const CertificationSidebar = ({
                                     Quantitat Certificada {isOriginMethod ? "(a Origen)" : "(Parcial Period)"}
                                 </label>
                                 <div className="flex items-center gap-3">
-                                    <input
-                                        type="number"
+                                    <NumberInput
                                         className={`flex-1 ${isOriginMethod ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-amber-50 border-amber-200 text-amber-700'} p-3 text-lg font-mono font-bold focus:ring-1 outline-none`}
                                         value={isOriginMethod ? originQty : actQty}
-                                        onChange={(e) => actions.updateCertificationQty(node.id, activeCertId, e.target.value)}
+                                        onChange={(v) => actions.updateCertificationQty(node.id, activeCertId, v)}
                                     />
                                     <span className="text-sm font-bold text-slate-400 uppercase">{node.unit}</span>
                                 </div>
@@ -187,14 +184,14 @@ const CertificationSidebar = ({
                                             {(node.certifications?.[activeCertId]?.measurements || []).map(m => (
                                                 <tr key={m.id} className="group">
                                                     <td className="p-1.5"><input type="text" value={m.description} onChange={(e) => actions.updateCertificationMeasurement(node.id, activeCertId, m.id, 'description', e.target.value)} className="w-full bg-transparent border-none text-slate-600 outline-none p-0" /></td>
-                                                    <td className="p-1.5"><input type="number" value={m.units} onChange={(e) => actions.updateCertificationMeasurement(node.id, activeCertId, m.id, 'units', e.target.value)} className="w-full text-right bg-transparent border-none font-mono outline-none p-0" /></td>
-                                                    <td className="p-1.5"><input type="number" value={m.length} onChange={(e) => actions.updateCertificationMeasurement(node.id, activeCertId, m.id, 'length', e.target.value)} className="w-full text-right bg-transparent border-none font-mono text-slate-400 outline-none p-0" /></td>
-                                                    <td className="p-1.5"><input type="number" value={m.width} onChange={(e) => actions.updateCertificationMeasurement(node.id, activeCertId, m.id, 'width', e.target.value)} className="w-full text-right bg-transparent border-none font-mono text-slate-400 outline-none p-0" /></td>
-                                                    <td className="p-1.5"><input type="number" value={m.height} onChange={(e) => actions.updateCertificationMeasurement(node.id, activeCertId, m.id, 'height', e.target.value)} className="w-full text-right bg-transparent border-none font-mono text-slate-400 outline-none p-0" /></td>
+                                                    <td className="p-1.5"><NumberInput value={m.units} onChange={(v) => actions.updateCertificationMeasurement(node.id, activeCertId, m.id, 'units', v)} className="w-full text-right bg-transparent border-none font-mono outline-none p-0" /></td>
+                                                    <td className="p-1.5"><NumberInput value={m.length} onChange={(v) => actions.updateCertificationMeasurement(node.id, activeCertId, m.id, 'length', v)} className="w-full text-right bg-transparent border-none font-mono text-slate-400 outline-none p-0" /></td>
+                                                    <td className="p-1.5"><NumberInput value={m.width} onChange={(v) => actions.updateCertificationMeasurement(node.id, activeCertId, m.id, 'width', v)} className="w-full text-right bg-transparent border-none font-mono text-slate-400 outline-none p-0" /></td>
+                                                    <td className="p-1.5"><NumberInput value={m.height} onChange={(v) => actions.updateCertificationMeasurement(node.id, activeCertId, m.id, 'height', v)} className="w-full text-right bg-transparent border-none font-mono text-slate-400 outline-none p-0" /></td>
                                                     <td className="p-1.5 text-right font-mono font-bold text-emerald-600">
                                                         <div className="flex items-center justify-end gap-1">
                                                             {formatNumber((m.units || 0) * (m.length || 1) * (m.width || 1) * (m.height || 1), 2)}
-                                                            <button onClick={() => actions.removeCertificationLine(node.id, activeCertId, m.id)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-colors"><X size={10} /></button>
+                                                            <button onClick={() => actions.removeCertificationLine(node.id, activeCertId, m.id)} className="opacity-60 md:opacity-0 md:group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-colors p-2 -m-1 touch-manipulation"><X size={10} /></button>
                                                         </div>
                                                     </td>
                                                 </tr>

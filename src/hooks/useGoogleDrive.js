@@ -22,8 +22,6 @@ import {
  * @param {function} params.onProjectLoaded({ budget, priceDatabase }) — callback per JSON
  * @param {function} params.onBC3Loaded(arrayBuffer) — callback per BC3
  * @param {function} params.notify(msg, type)
- * @param {function} params.getBc3Content() — funció que retorna el contingut BC3 com a string
- * @param {object}  params.budgetRef — referència al budget actual (per a nom de fitxer per defecte)
  */
 export const useGoogleDrive = ({
     clientId,
@@ -32,8 +30,6 @@ export const useGoogleDrive = ({
     onProjectLoaded,
     onBC3Loaded,
     notify,
-    getBc3Content,
-    budgetRef,
 }) => {
     const [isReady, setIsReady] = useState(false);       // APIs carregades + gapi init
     const [isSignedIn, setIsSignedIn] = useState(false);

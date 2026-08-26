@@ -17,5 +17,8 @@ module.exports = {
       { allowConstantExport: true },
     ],
     'react/prop-types': 'off',
+    // La UI és en català i va plena d'apòstrofs ("d'Amidament", "l'Origen").
+    // Escapar-los tots faria el JSX il·legible sense cap benefici real.
+    'react/no-unescaped-entities': 'off',
   },
 }

@@ -16,15 +16,12 @@ import {
     Info,
     Database,
     MousePointer2,
-    Link as LinkIcon,
     AlertCircle,
-    ExternalLink,
     FileCode,
     Box,
     Tag,
     List,
     AlignLeft,
-    Edit3,
     Printer,
     FileDown,
     X,
@@ -36,6 +33,8 @@ import {
     Percent,
     Menu,
     Cloud,
+    Undo2,
+    Redo2,
     LogOut,
 } from 'lucide-react';
 import jsPDF from 'jspdf';
@@ -57,64 +56,30 @@ import {
     calcChapterCertifiedTotal,
     calcItemTotalAmount,
     calcChapterTotal,
-    getPreviousCertId
+    getPreviousCertId,
+    buildCertificationSummary,
+    buildCertificationDetail,
+    safePct
 } from './utils/calculations';
 import { useCertification } from './hooks/useCertification';
+import { useHistory } from './hooks/useHistory';
 import { useGoogleDrive } from './hooks/useGoogleDrive';
 import { useDriveConfig } from './context/DriveConfigContext';
 import CertificationBar from './components/Certification/CertificationBar';
 import CertificationSidebar from './components/Certification/CertificationSidebar';
+import CertificationSummary from './components/Certification/CertificationSummary';
+import CertificationSummaryModal from './components/Certification/CertificationSummaryModal';
 import DriveSettingsModal from './components/DriveSettingsModal';
+import NumberInput from './components/NumberInput';
+import ProjectLibraryModal from './components/ProjectLibraryModal';
+import { listProjects, getProject, saveProject, deleteProject } from './utils/projectLibrary';
 import { processBC3Data } from './utils/bc3Parser';
+import { numberToTextCatalan } from './utils/numberToText';
+import { exportCertificationPDF } from './utils/certificationPdf';
+import { safeFileName } from './utils/fileName';
+import { toWindows1252Bytes } from './utils/googleDrive';
 
 const formatPrice = (val) => formatNumber(val, 2);
-
-const numberToTextCatalan = (n) => {
-    const units = ['', 'UN', 'DOS', 'TRES', 'QUATRE', 'CINC', 'SIS', 'SET', 'VUIT', 'NOU'];
-    const tens = ['', 'DEU', 'VINT', 'TRENTA', 'QUARANTA', 'CINQUANTA', 'SEIXANTA', 'SETANTA', 'VUITANTA', 'NORANTA'];
-    const unique = {
-        11: 'ONZE', 12: 'DOTZE', 13: 'TRETZE', 14: 'CATORZE', 15: 'QUINZE',
-        16: 'SETZE', 17: 'DISSET', 18: 'DIVUIT', 19: 'DINOU'
-    };
-    const n2t = (num) => {
-        if (num === 0) return '';
-        if (num < 10) return units[num];
-        if (num < 20 && unique[num]) return unique[num];
-        if (num < 100) {
-            const t = Math.floor(num / 10);
-            const u = num % 10;
-            if (u === 0) return tens[t];
-            if (t === 2) return `VINT-I-${units[u]}`;
-            return `${tens[t]}-${units[u]}`;
-        }
-        if (num < 1000) {
-            const h = Math.floor(num / 100);
-            const r = num % 100;
-            const prefix = h === 1 ? 'CENT' : `${units[h]}-CENTS`;
-            if (r === 0) return prefix;
-            return `${prefix} ${n2t(r)}`;
-        }
-        return '';
-    };
-    const integerPart = Math.floor(n);
-    const decimalPart = Math.round((n - integerPart) * 100);
-    let result = '';
-    const millions = Math.floor(integerPart / 1000000);
-    const thousands = Math.floor((integerPart % 1000000) / 1000);
-    const units_part = integerPart % 1000;
-    if (millions > 0) result += millions === 1 ? 'UN MILIÓ' : `${n2t(millions)} MILIONS`;
-    if (thousands > 0) {
-        if (result) result += ' ';
-        result += thousands === 1 ? 'MIL' : `${n2t(thousands)} MIL`;
-    }
-    if (units_part > 0 || (millions === 0 && thousands === 0)) {
-        if (result) result += ' ';
-        result += units_part === 0 && (millions > 0 || thousands > 0) ? '' : (integerPart === 0 ? 'ZERO' : n2t(units_part));
-    }
-    result += integerPart === 1 ? ' EURO' : ' EUROS';
-    if (decimalPart > 0) result += ` AMB ${n2t(decimalPart)} ${decimalPart === 1 ? 'CÈNTIM' : 'CÈNTIMS'}`;
-    return result.trim();
-};
 
 const flattenBudget = (nodes, level = 0, parentRef = '', counterObj = { val: 0 }, config, priceDatabase) => {
     let rows = [];
@@ -174,7 +139,7 @@ const flattenBudget = (nodes, level = 0, parentRef = '', counterObj = { val: 0 }
 };
 
 // --- Component de Vista d'Impressió ---
-const PrintView = ({ budget, priceDatabase, budgetTotal, config, setConfig, onOpenConfig, onClose, onExportPDF, onExportSummaryPDF, handleExportXLSX }) => {
+const PrintView = ({ budget, priceDatabase, budgetTotal, config, onOpenConfig, onClose, onExportPDF, onExportSummaryPDF, handleExportXLSX }) => {
     const [date] = useState(new Date().toLocaleDateString('ca-ES'));
     const [viewMode, setViewMode] = useState('amidaments'); // 'amidaments' | 'resum'
 
@@ -432,7 +397,7 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, setConfig, onOp
                                 </thead>
                                 <tbody>
                                     {budget.chapters.map((ch, index) => {
-                                        const total = calcChapterTotal(ch);
+                                        const total = calcChapterTotal(ch, priceDatabase);
                                         const percentage = (total / budgetTotal) * 100;
                                         return (
                                             <tr key={ch.id} className="border-b border-gray-100 text-[10px]">
@@ -584,12 +549,10 @@ const PemAdjustmentModal = ({ currentPem, onAdjust, onClose }) => {
                         <div className="space-y-2">
                             <label className="text-[10px] uppercase font-black text-slate-500 tracking-widest text-center block">Variació %</label>
                             <div className="relative">
-                                <input
+                                <NumberInput
                                     className="w-full text-center bg-slate-50 border border-slate-200 p-4 text-xl font-mono focus:border-blue-500 outline-none font-bold"
-                                    type="number"
-                                    step="0.1"
-                                    value={percentage.toFixed(2)}
-                                    onChange={(e) => handlePercentageChange(parseFloat(e.target.value) || 0)}
+                                    value={Number(percentage.toFixed(2))}
+                                    onChange={(v) => handlePercentageChange(v)}
                                 />
                                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 font-bold">%</span>
                             </div>
@@ -598,12 +561,10 @@ const PemAdjustmentModal = ({ currentPem, onAdjust, onClose }) => {
                         <div className="space-y-2">
                             <label className="text-[10px] uppercase font-black text-slate-500 tracking-widest text-center block">PEM Objectiu</label>
                             <div className="relative">
-                                <input
+                                <NumberInput
                                     className="w-full text-center bg-blue-50 border border-blue-200 p-4 text-xl font-mono focus:border-blue-600 outline-none font-bold text-blue-700"
-                                    type="number"
-                                    step="0.01"
-                                    value={targetPem.toFixed(2)}
-                                    onChange={(e) => handleTargetChange(parseFloat(e.target.value) || 0)}
+                                    value={Number(targetPem.toFixed(2))}
+                                    onChange={(v) => handleTargetChange(v)}
                                 />
                                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-blue-300 font-bold">€</span>
                             </div>
@@ -637,7 +598,7 @@ const PemAdjustmentModal = ({ currentPem, onAdjust, onClose }) => {
 };
 
 // --- Modal de Configuració d'Exportació de Resum ---
-const PrintConfigModal = ({ config, setConfig, onClose, viewMode }) => {
+const PrintConfigModal = ({ config, setConfig, onClose }) => {
     return (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-md">
             <div className="bg-white rounded-none shadow-2xl w-[500px] border border-slate-300 animate-in zoom-in-95 duration-200">
@@ -696,10 +657,9 @@ const PrintConfigModal = ({ config, setConfig, onClose, viewMode }) => {
                                     <span className="text-xs text-slate-600">Despeses Generals (G.G.)</span>
                                 </label>
                                 <div className="flex items-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
-                                    <input
-                                        type="number" step="0.01"
+                                    <NumberInput
                                         value={config.ge.percentage}
-                                        onChange={e => setConfig({ ...config, ge: { ...config.ge, percentage: parseFloat(e.target.value) || 0 } })}
+                                        onChange={v => setConfig({ ...config, ge: { ...config.ge, percentage: v } })}
                                         className="w-16 border border-slate-300 rounded p-1 text-xs text-right"
                                     />
                                     <span className="text-[10px] text-slate-400 font-bold">%</span>
@@ -712,10 +672,9 @@ const PrintConfigModal = ({ config, setConfig, onClose, viewMode }) => {
                                     <span className="text-xs text-slate-600">Benefici Industrial (B.I.)</span>
                                 </label>
                                 <div className="flex items-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
-                                    <input
-                                        type="number" step="0.01"
+                                    <NumberInput
                                         value={config.ip.percentage}
-                                        onChange={e => setConfig({ ...config, ip: { ...config.ip, percentage: parseFloat(e.target.value) || 0 } })}
+                                        onChange={v => setConfig({ ...config, ip: { ...config.ip, percentage: v } })}
                                         className="w-16 border border-slate-300 rounded p-1 text-xs text-right"
                                     />
                                     <span className="text-[10px] text-slate-400 font-bold">%</span>
@@ -728,10 +687,9 @@ const PrintConfigModal = ({ config, setConfig, onClose, viewMode }) => {
                                     <span className="text-xs text-slate-600">I.V.A.</span>
                                 </label>
                                 <div className="flex items-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
-                                    <input
-                                        type="number" step="0.01"
+                                    <NumberInput
                                         value={config.iva.percentage}
-                                        onChange={e => setConfig({ ...config, iva: { ...config.iva, percentage: parseFloat(e.target.value) || 0 } })}
+                                        onChange={v => setConfig({ ...config, iva: { ...config.iva, percentage: v } })}
                                         className="w-16 border border-slate-300 rounded p-1 text-xs text-right"
                                     />
                                     <span className="text-[10px] text-slate-400 font-bold">%</span>
@@ -850,12 +808,10 @@ const ItemCreator = ({ onClose, onSave, parentId, parentCode }) => {
                     {mode === 'item' && (
                         <div className="space-y-1">
                             <label className="text-[10px] font-bold uppercase text-slate-400">Preu Unitari Estimat (€)</label>
-                            <input
-                                type="number"
-                                step="0.01"
+                            <NumberInput
                                 className="w-full bg-slate-50 border border-slate-200 p-2 text-xs font-mono focus:border-blue-500 outline-none font-bold text-blue-600"
                                 value={data.price}
-                                onChange={e => setData({ ...data, price: e.target.value })}
+                                onChange={v => setData({ ...data, price: v })}
                             />
                         </div>
                     )}
@@ -895,17 +851,22 @@ export default function App() {
     const [appMode, setAppMode] = useState('budget'); // 'budget' | 'certification'
     const [activeCertId, setActiveCertId] = useState(null);
 
-    const [lastSaved, setLastSaved] = useState(null);
-
     // Auto-save effect
     useEffect(() => {
         const timer = setTimeout(() => {
             localStorage.setItem('amidaments_budget', JSON.stringify(budget));
             localStorage.setItem('amidaments_prices', JSON.stringify(priceDatabase));
-            setLastSaved(new Date());
+
+            // I una còpia a la biblioteca, perquè obrir-ne un altre no destrueixi aquest.
+            if (budget.chapters?.length > 0) {
+                const total = budget.chapters.reduce((acc, ch) => acc + calcChapterTotal(ch, priceDatabase), 0);
+                const res = saveProject({ id: budget.id, budget, priceDatabase, total });
+                if (res.ok) setLibrary(listProjects());
+                else notify('No hi ha prou espai al navegador per desar la còpia de seguretat', 'error');
+            }
         }, 1000);
         return () => clearTimeout(timer);
-    }, [budget, priceDatabase]);
+    }, [budget, priceDatabase]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         const handleBeforeUnload = () => {
@@ -917,13 +878,17 @@ export default function App() {
     }, [budget, priceDatabase]);
 
     useEffect(() => {
-        if (!activeCertId && budget.certifications?.length > 0) {
-            setActiveCertId(budget.certifications[0].id);
-        }
+        if (activeCertId || !(budget.certifications?.length > 0)) return;
+        // Obrir sempre per la primera fase deixava l'usuari en una certificació ja aprovada
+        // i, per tant, bloquejada. Comencem per l'última oberta, que és on es treballa.
+        const obertes = budget.certifications.filter(c => !c.approved);
+        const perDefecte = obertes.length > 0
+            ? obertes[obertes.length - 1]
+            : budget.certifications[budget.certifications.length - 1];
+        setActiveCertId(perDefecte.id);
     }, [budget.certifications, activeCertId]);
     const [activeTab, setActiveTab] = useState('editor');
     const [selectedId, setSelectedId] = useState(null);
-    const [showJustification, setShowJustification] = useState({});
     const [expandedChapters, setExpandedChapters] = useState({});
     const [isDragging, setIsDragging] = useState(false);
     const [showCreator, setShowCreator] = useState(false);
@@ -935,6 +900,7 @@ export default function App() {
         showMeasurements: true,
         useCorrelativeCodes: true,
         chaptersOnNewPage: true,
+        certItemDetail: true,
         ge: { enabled: false, percentage: 13 },
         ip: { enabled: false, percentage: 6 },
         iva: { enabled: false, percentage: 21 }
@@ -980,11 +946,8 @@ export default function App() {
     const [showDriveSettings, setShowDriveSettings] = useState(false);
     const [showOpenDropdown, setShowOpenDropdown] = useState(false);
 
-    // Referència a generateBC3 (definit més avall) per passar-la al hook
-    const generateBC3Ref = useRef(null);
-
     // Callback quan Drive carrega un BC3 (ArrayBuffer) → reutilitza el flux existent
-    const handleBC3FromDrive = useCallback((arrayBuffer, fileName) => {
+    const handleBC3FromDrive = useCallback((arrayBuffer) => {
         const decoder = new TextDecoder('windows-1252');
         const text = decoder.decode(arrayBuffer);
         const result = processBC3Data(text);
@@ -1005,8 +968,6 @@ export default function App() {
         },
         onBC3Loaded: handleBC3FromDrive,
         notify,
-        getBc3Content: () => generateBC3Ref.current?.(),
-        budgetRef: budget,
     });
 
     // Helper: connecta Drive, obrint settings si cal
@@ -1050,6 +1011,9 @@ export default function App() {
     };
 
     const [showNewCertInput, setShowNewCertInput] = useState(false);
+    const [showCertSummary, setShowCertSummary] = useState(false);
+    const [showLibrary, setShowLibrary] = useState(false);
+    const [library, setLibrary] = useState(() => listProjects());
     const [newCertName, setNewCertName] = useState('');
 
     const createCertification = useCallback(() => {
@@ -1058,7 +1022,7 @@ export default function App() {
         const newCert = {
             id: newId,
             name: name,
-            date: new Date().toISOString(),
+            date: new Date().toISOString().split('T')[0],
             method: 'origin' // Default to 'At Origin' (Presto style)
         };
 
@@ -1082,14 +1046,92 @@ export default function App() {
 
 
 
+    // Desfer / refer sobre el projecte sencer (arbre + banc de preus).
+    const aplicaInstantania = useCallback((instantania) => {
+        setBudget(instantania.budget);
+        setPriceDatabase(instantania.priceDatabase);
+    }, []);
+    const historial = useHistory({ budget, priceDatabase }, aplicaInstantania);
+
+    useEffect(() => {
+        const onKeyDown = (e) => {
+            if (!(e.ctrlKey || e.metaKey)) return;
+            const k = e.key.toLowerCase();
+            if (k === 'z' && !e.shiftKey) { e.preventDefault(); historial.undo(); }
+            else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); historial.redo(); }
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [historial]);
+
+    const handleOpenFromLibrary = useCallback((id) => {
+        const projecte = getProject(id);
+        if (!projecte) { notify('Aquest projecte ja no hi és', 'error'); return; }
+        setBudget(projecte.budget);
+        setPriceDatabase(projecte.priceDatabase || {});
+        setSelectedId(null);
+        setActiveCertId(null);
+        setShowLibrary(false);
+        historial.clear();
+        notify(`Projecte obert: ${projecte.budget?.name || ''}`);
+    }, [historial]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const handleDeleteFromLibrary = useCallback((id) => {
+        const p = library.find(x => x.id === id);
+        if (p && !confirm(`Treure "${p.name}" de la llista de projectes recents?`)) return;
+        deleteProject(id);
+        setLibrary(listProjects());
+    }, [library]);
+
+    const handleDeleteCertification = useCallback((certId) => {
+        const cert = (budget.certifications || []).find(c => c.id === certId);
+        if (!cert) return;
+        if (!confirm(`Eliminar "${cert.name}"?\n\nEs perdran els amidaments certificats en aquesta fase. Aquesta acció es pot desfer amb Ctrl+Z.`)) return;
+        certActions.deleteCertification(certId);
+        // Si esborrem la fase activa, saltem a una altra perquè la vista no quedi buida.
+        const restants = (budget.certifications || []).filter(c => c.id !== certId);
+        if (activeCertId === certId) setActiveCertId(restants.length ? restants[restants.length - 1].id : null);
+    }, [budget.certifications, activeCertId, certActions]);
+
     const budgetTotal = useMemo(() => {
         return budget.chapters.reduce((acc, ch) => acc + calcChapterTotal(ch, priceDatabase), 0);
     }, [budget.chapters, priceDatabase]);
 
-    const certifiedTotal = useMemo(() => {
-        if (appMode !== 'certification' || !activeCertId) return 0;
-        return budget.chapters.reduce((acc, ch) => acc + calcChapterCertifiedTotal(ch, activeCertId, priceDatabase), 0);
-    }, [budget.chapters, appMode, activeCertId, priceDatabase]);
+    // Resum de la certificació activa. Es recalcula a cada canvi de l'arbre, de manera
+    // que el percentatge certificat s'actualitza mentre s'edita.
+    const certificationSummary = useMemo(
+        () => buildCertificationSummary(budget.chapters, activeCertId, priceDatabase, budget.certifications || []),
+        [budget.chapters, budget.certifications, activeCertId, priceDatabase]
+    );
+
+    // Sense passar budget.certifications, una fase amb mètode 'partial' no acumulava
+    // i el total del capçal no coincidia amb el de les partides.
+    const certifiedTotal = activeCertId ? certificationSummary.totals.origin : 0;
+
+    const activeCert = (budget.certifications || []).find(c => c.id === activeCertId) || null;
+    const previousCert = certificationSummary.prevCertId
+        ? (budget.certifications || []).find(c => c.id === certificationSummary.prevCertId) || null
+        : null;
+
+    const handleExportCertificationPDF = useCallback(() => {
+        if (!activeCertId) {
+            notify('Selecciona una certificació abans d\'exportar', 'error');
+            return;
+        }
+        const certs = budget.certifications || [];
+        const cert = certs.find(c => c.id === activeCertId);
+        exportCertificationPDF({
+            budget,
+            summary: certificationSummary,
+            detail: printConfig.certItemDetail
+                ? buildCertificationDetail(budget.chapters, activeCertId, priceDatabase, certs)
+                : [],
+            cert,
+            certIndex: certs.findIndex(c => c.id === activeCertId) + 1,
+            config: { ...printConfig, showItemDetail: printConfig.certItemDetail },
+        });
+        notify(`Certificació "${cert?.name}" exportada en PDF`);
+    }, [budget, priceDatabase, activeCertId, certificationSummary, printConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleExportPDF = useCallback((config) => {
         const doc = new jsPDF('p', 'mm', 'a4');
@@ -1097,7 +1139,7 @@ export default function App() {
         const date = new Date().toLocaleDateString('ca-ES');
 
         const generateTableForNodes = (nodes, isFirst, currentCounter) => {
-            const rows = flattenBudget(nodes, 0, '', currentCounter, config, calcChapterTotal, calcItemTotalAmount, priceDatabase);
+            const rows = flattenBudget(nodes, 0, '', currentCounter, config, priceDatabase);
 
             autoTable(doc, {
                 head: [[
@@ -1130,7 +1172,7 @@ export default function App() {
                     8: { cellWidth: 18, halign: 'right' },
                     9: { cellWidth: 26, halign: 'right' }
                 },
-                didDrawPage: (data) => {
+                didDrawPage: () => {
                     const pageNum = doc.internal.getNumberOfPages();
                     if (pageNum === 1) {
                         doc.setFontSize(16);
@@ -1225,8 +1267,8 @@ export default function App() {
         doc.text('LA PROPIETAT', 55, finalY, { align: 'center' });
         doc.text('LA DIRECCIÓ FACULTATIVA', 155, finalY, { align: 'center' });
 
-        doc.save(`Amidaments_${budget.name}.pdf`);
-    }, [budget, priceDatabase, calcItemTotalAmount, calcChapterTotal, budgetTotal]);
+        doc.save(`Amidaments_${safeFileName(budget.name, 'projecte')}.pdf`);
+    }, [budget, priceDatabase, budgetTotal]);
 
     const handleExportSummaryPDF = useCallback((config) => {
         const doc = new jsPDF('p', 'mm', 'a4');
@@ -1240,7 +1282,7 @@ export default function App() {
         const PVValue = PECValue + VAT;
 
         const rows = budget.chapters.map((ch, index) => {
-            const total = calcChapterTotal(ch);
+            const total = calcChapterTotal(ch, priceDatabase);
             const percentage = (total / PEMValue) * 100;
             return [
                 config.useCorrelativeCodes ? (index + 1).toString() : ch.code,
@@ -1263,7 +1305,7 @@ export default function App() {
                 2: { cellWidth: 30, halign: 'right' },
                 3: { cellWidth: 20, halign: 'right' }
             },
-            didDrawPage: (data) => {
+            didDrawPage: () => {
                 const pageNum = doc.internal.getNumberOfPages();
                 if (pageNum === 1) {
                     doc.setFontSize(16);
@@ -1328,8 +1370,8 @@ export default function App() {
         finalY += 15;
         doc.text(`, a ${date}`, 120, finalY);
 
-        doc.save(`${budget.name}_resum.pdf`);
-    }, [budget, calcChapterTotal, budgetTotal]);
+        doc.save(`${safeFileName(budget.name, 'projecte')}_resum.pdf`);
+    }, [budget, priceDatabase, budgetTotal]);
 
     const handleExportXLSX = useCallback(() => {
         const wb = XLSX.utils.book_new();
@@ -1342,7 +1384,7 @@ export default function App() {
             const pushNodes = (ns) => {
                 ns.forEach(node => {
                     const isChapter = !node.unit;
-                    const totalAmount = isChapter ? calcChapterTotal(node) : calcItemTotalAmount(node);
+                    const totalAmount = isChapter ? calcChapterTotal(node, priceDatabase) : calcItemTotalAmount(node, priceDatabase);
 
                     if (isChapter) {
                         data.push([node.code, node.description.toUpperCase(), '', '', '', '', '', '', '', totalAmount]);
@@ -1394,7 +1436,7 @@ export default function App() {
             // 1. Create Summary Sheet
             const summaryData = [['CODI', 'DESCRIPCIÓ', 'IMPORT']];
             budget.chapters.forEach(ch => {
-                summaryData.push([ch.code, ch.description.toUpperCase(), calcChapterTotal(ch)]);
+                summaryData.push([ch.code, ch.description.toUpperCase(), calcChapterTotal(ch, priceDatabase)]);
             });
             const wsResum = XLSX.utils.aoa_to_sheet(summaryData);
             wsResum['!cols'] = [{ wch: 15 }, { wch: 60 }, { wch: 15 }];
@@ -1404,7 +1446,7 @@ export default function App() {
             budget.chapters.forEach((ch, idx) => {
                 const ws = createWorksheetData([ch]);
                 // Sheet name derived from code or Index to be safe
-                const name = (ch.code || `Cap ${idx + 1}`).substring(0, 31).replace(/[\[\]\*\?\/\\]/g, '');
+                const name = (ch.code || `Cap ${idx + 1}`).substring(0, 31).replace(/[[\]*?/\\]/g, '');
                 XLSX.utils.book_append_sheet(wb, ws, name);
             });
         } else {
@@ -1412,8 +1454,8 @@ export default function App() {
             XLSX.utils.book_append_sheet(wb, ws, "Pressupost");
         }
 
-        XLSX.writeFile(wb, `${budget.name}.xlsx`);
-    }, [budget, calcChapterTotal, calcItemTotalAmount, priceDatabase, printConfig.chaptersOnNewPage]);
+        XLSX.writeFile(wb, `${safeFileName(budget.name, 'projecte')}.xlsx`);
+    }, [budget, priceDatabase, printConfig.chaptersOnNewPage, printConfig.showLongDesc]);
 
     // --- Search Filtering ---
     const filteredChapters = useMemo(() => {
@@ -1694,7 +1736,7 @@ export default function App() {
     };
 
     // --- MODIFICATION: Global Price Management ---
-    const updateGlobalPrice = (code, newPrice, type = 'price') => {
+    const updateGlobalPrice = (code, newPrice) => {
         const price = parseFloat(newPrice) || 0;
 
         // 1. Update Price Database
@@ -1878,10 +1920,16 @@ export default function App() {
                     updatedNode.items = mergeTreeBranches(existingNode.items || [], newNode.items);
                 }
 
-                // Only merge measurements for CHAPTERS. 
+                // Only merge measurements for CHAPTERS.
                 // For ITEMS, if they matched, it means the user chose to keep existing.
                 if (!newNode.unit && newNode.measurements && newNode.measurements.length > 0) {
                     updatedNode.measurements = [...(existingNode.measurements || []), ...newNode.measurements.map(m => ({ ...m, id: crypto.randomUUID() }))];
+                }
+
+                // Les certificacions van indexades per certId; les fases importades porten
+                // ids nous, així que no xoquen amb les existents i es poden fusionar.
+                if (newNode.certifications && Object.keys(newNode.certifications).length > 0) {
+                    updatedNode.certifications = { ...(existingNode.certifications || {}), ...newNode.certifications };
                 }
 
                 merged[existingIdx] = updatedNode;
@@ -1899,6 +1947,7 @@ export default function App() {
         const concepts = new Map(); // normCode -> { data, isDecomposed }
         const measurementsByCode = new Map(); // normCode -> Array of { phase, ...measurementObject }
         const relationships = new Map(); // normCode -> Array of { childNormCode, factor, yield }
+        const certificationsByCode = new Map(); // normCode -> { certId: certData }
 
         const getExportCode = (normCode) => {
             const concept = concepts.get(normCode);
@@ -1974,6 +2023,10 @@ export default function App() {
 
             // Measurements for each certification phase
             if (node.certifications) {
+                // Conservem el mapa { certId: certData } per poder calcular després els ~Q
+                // acumulats per fase: calcItemCertifiedQty espera un NODE, no la llista de fases.
+                certificationsByCode.set(norm, { ...(certificationsByCode.get(norm) || {}), ...node.certifications });
+
                 Object.entries(node.certifications).forEach(([certId, certData]) => {
                     const phaseNum = phaseMap.get(certId);
                     if (phaseNum !== undefined && certData.measurements?.length > 0) {
@@ -2064,10 +2117,10 @@ export default function App() {
             // Generate ~Q for each certification phase (Accumulated)
             (budget.certifications || []).forEach((cert, i) => {
                 const phaseNum = i + 1;
-                // Importante: BC3 ~Q con FASE suele esperar el acumulado. 
-                // Nuestra lógica en calculations.js ya calcula acumulados según el método.
-                // Para el BC3, lo más seguro es enviar el acumulado a esa fase.
-                const accumulatedQty = calcItemCertifiedQty({ code: norm, certifications: budget.certifications }, cert.id, budget.certifications);
+                // El ~Q amb FASE espera l'acumulat a origen. calcItemCertifiedQty ja el
+                // calcula segons el mètode de la fase ('origin' o 'partial').
+                const certNode = { code: norm, certifications: certificationsByCode.get(norm) || {} };
+                const accumulatedQty = calcItemCertifiedQty(certNode, cert.id, budget.certifications);
                 if (accumulatedQty > 0) {
                     lines.push(`~Q|${exportCode}|${fNum(accumulatedQty)}|${phaseNum}`);
                 }
@@ -2076,8 +2129,10 @@ export default function App() {
             // Generate ~M with all phases
             if (measurements.length > 0) {
                 const mLines = measurements.map(m => {
-                    // Format: FASE \ TIPO (2=measurement) \ DESC \ U \ L \ A \ H
-                    return `${m.phase}\\2\\${m.description || ''}\\${fNum(m.units)}\\${fNum(m.length)}\\${fNum(m.width)}\\${fNum(m.height)}`;
+                    // Blocs de 7 camps: FASE \ DESC \ U \ L \ A \ H \ (separador buit).
+                    // És el que espera processBC3Data quan detecta step=7, de manera que
+                    // un fitxer exportat es pot tornar a importar sense perdre amidaments.
+                    return `${m.phase}\\${m.description || ''}\\${fNum(m.units)}\\${fNum(m.length)}\\${fNum(m.width)}\\${fNum(m.height)}\\`;
                 }).join('\\');
                 lines.push(`~M|${exportCode}|${mLines}`);
             }
@@ -2086,12 +2141,6 @@ export default function App() {
         return lines.join('\n');
     }, [budget, priceDatabase]);
 
-    // Actualitza la referència cada vegada que generateBC3 canvia
-    // (el hook de Drive la usa per exportar BC3)
-    useEffect(() => {
-        generateBC3Ref.current = generateBC3;
-    }, [generateBC3]);
-
     const handleExportBC3ToDrive = useCallback(() => {
         requireDrive(() => drive.exportBC3ToDrive(generateBC3(), budget.name));
     }, [drive, requireDrive, generateBC3, budget.name]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -2099,69 +2148,14 @@ export default function App() {
     const handleExportBC3 = () => {
         const content = generateBC3();
 
-        // Use TextEncoder to first get UTF-8 (default) then we need a way to get Windows-1252.
-        // In a browser environment without external libraries, we can use a small trick for Windows-1252
-        // if we only care about common Catalan/Spanish characters.
-        // However, the standard way is to use a library or just use UTF-8 and hope the receiver handles it.
-        // BUT the user specifically asked for correct encoding.
-        // Let's use an approach that works for a wide range of characters in Windows-1252.
-
-        const encoder = new TextEncoder();
-        const utf8Array = encoder.encode(content);
-
-        // For true Windows-1252, we'd need a mapping. 
-        // A common alternative in modern web is to just use UTF-8 but label it correctly.
-        // However, if they want "pure" BC3 for old software, Windows-1252 is key.
-
-        // Let's implement a basic Windows-1252 encoder for the Catalan/Spanish subset
-        const toWindows1252 = (str) => {
-            const buf = new Uint8Array(str.length);
-            for (let i = 0; i < str.length; i++) {
-                const charCode = str.charCodeAt(i);
-                if (charCode < 128) {
-                    buf[i] = charCode;
-                } else {
-                    // Mapping for common characters in Catalan/Spanish
-                    const map = {
-                        0x00E0: 0xE0, // à
-                        0x00E1: 0xE1, // á
-                        0x00E8: 0xE8, // è
-                        0x00E9: 0xE9, // é
-                        0x00ED: 0xED, // í
-                        0x00F2: 0xF2, // ò
-                        0x00F3: 0xF3, // ó
-                        0x00FA: 0xFA, // ú
-                        0x00EF: 0xEF, // ï
-                        0x00FC: 0xFC, // ü
-                        0x00E7: 0xE7, // ç
-                        0x00F1: 0xF1, // ñ
-                        0x00C0: 0xC0, // À
-                        0x00C1: 0xC1, // Á
-                        0x00C8: 0xC8, // È
-                        0x00C9: 0xC9, // É
-                        0x00CD: 0xCD, // Í
-                        0x00D2: 0xD2, // Ò
-                        0x00D3: 0xD3, // Ó
-                        0x00DA: 0xDA, // Ú
-                        0x00CF: 0xCF, // Ï
-                        0x00DC: 0xDC, // Ü
-                        0x00C7: 0xC7, // Ç
-                        0x00D1: 0xD1, // Ñ
-                        0x20AC: 0x80, // €
-                        0x00B0: 0xB0, // °
-                    };
-                    buf[i] = map[charCode] || 63; // 63 is '?'
-                }
-            }
-            return buf;
-        };
-
-        const win1252Array = toWindows1252(content);
+        // El BC3 s'escriu en Windows-1252 (ANSI): és el que esperen Presto i Arquímedes.
+        // La conversió viu a utils/googleDrive.js perquè l'exportació a Drive la necessita igual.
+        const win1252Array = toWindows1252Bytes(content);
         const blob = new Blob([win1252Array], { type: 'text/plain;charset=windows-1252' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${budget.name || 'projecte'}.bc3`;
+        a.download = `${safeFileName(budget.name, 'projecte')}.bc3`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -2184,7 +2178,7 @@ export default function App() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${budget.name || 'projecte'}.json`;
+        a.download = `${safeFileName(budget.name, 'projecte')}.json`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -2247,9 +2241,10 @@ export default function App() {
                 return;
             }
         }
-        setBudget({ id: crypto.randomUUID(), name: 'Nou Projecte', chapters: [] });
+        setBudget({ id: crypto.randomUUID(), name: 'Nou Projecte', chapters: [], certifications: [] });
         setPriceDatabase({});
         setSelectedId(null);
+        historial.clear();
         notify("Nou projecte creat");
     };
 
@@ -2399,20 +2394,24 @@ export default function App() {
     const finalizeImport = (result, options = {}) => {
         const { replace = false } = options;
 
+        // El parser retorna les fases del BC3 sota la clau `phases`.
+        const importedPhases = result.phases || [];
+
         if (replace) {
             setPriceDatabase(result.prices || {});
             setBudget({
                 id: crypto.randomUUID(),
                 name: result.name || 'Projecte Importat',
                 chapters: result.chapters,
-                certifications: result.certifications || []
+                certifications: importedPhases
             });
             notify("Projecte obert correctament");
         } else {
             setPriceDatabase(prev => ({ ...prev, ...result.prices }));
             setBudget(prev => ({
                 ...prev,
-                chapters: mergeTreeBranches(prev.chapters, result.chapters)
+                chapters: mergeTreeBranches(prev.chapters, result.chapters),
+                certifications: [...(prev.certifications || []), ...importedPhases]
             }));
             notify("Dades importades correctament");
         }
@@ -2440,7 +2439,7 @@ export default function App() {
             console.error("Error important dades:", err);
             notify(`Error: ${err.message}`, "error");
         }
-    }, [processBC3Data, startImportProcess]);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     // --- PWA File Handling API ---
     useEffect(() => {
@@ -2480,7 +2479,7 @@ export default function App() {
                 }
             });
         }
-    }, [processBC3Data, startImportProcess]);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleDrop = async (e) => {
         if (draggedNodeId) return; // Ignorar drop intern
@@ -2533,7 +2532,9 @@ export default function App() {
                     (val.toLowerCase().includes('.bc3') || val.toLowerCase().includes('generadordepreus'))) {
                     candidates.push(val);
                 }
-            } catch (e) { }
+            } catch {
+                // Tipus de dades no llegible del dataTransfer: l'ignorem.
+            }
         }
         if (extractedUrl) candidates.unshift(extractedUrl);
 
@@ -2869,8 +2870,6 @@ export default function App() {
     };
 
     const toggleChapter = (id) => setExpandedChapters(prev => ({ ...prev, [id]: !prev[id] }));
-    const toggleJustification = (id) => setShowJustification(prev => ({ ...prev, [id]: !prev[id] }));
-    const toggleWaste = (id) => setShowWaste(prev => ({ ...prev, [id]: !prev[id] }));
 
     // --- Render Helper ---
     const renderJustificationTable = (node) => {
@@ -2967,11 +2966,10 @@ export default function App() {
                                             </td>
                                             <td className="p-2 text-right w-24">
                                                 <div className="relative">
-                                                    <input
+                                                    <NumberInput
                                                         className="w-full text-right font-mono bg-transparent outline-none border-b border-transparent focus:border-blue-300"
                                                         value={line.yield}
-                                                        type="number"
-                                                        onChange={e => updateBreakdownLine(node.id, line.idx, 'yield', e.target.value)}
+                                                        onChange={v => updateBreakdownLine(node.id, line.idx, 'yield', v)}
                                                     />
                                                     {line.isPercentage && <span className="absolute top-0 right-[-10px] text-[9px]">%</span>}
                                                 </div>
@@ -2980,16 +2978,15 @@ export default function App() {
                                                 {line.isPercentage ? (
                                                     <span className="font-mono text-slate-400 italic text-[10px] cursor-help" title="Base de càlcul (MO + MT)">{formatCurrency(line.finalPrice)}</span>
                                                 ) : (
-                                                    <input
+                                                    <NumberInput
                                                         className="w-full text-right font-mono bg-transparent outline-none border-b border-transparent focus:border-blue-300 text-blue-600 font-bold"
                                                         value={line.finalPrice}
-                                                        type="number"
-                                                        onChange={e => updateBreakdownLine(node.id, line.idx, 'price', e.target.value)}
+                                                        onChange={v => updateBreakdownLine(node.id, line.idx, 'price', v)}
                                                     />
                                                 )}
                                             </td>
                                             <td className="p-2 text-right font-mono font-bold w-32">{formatCurrency(line.total)}</td>
-                                            <td className="p-2 w-8 text-center opacity-0 group-hover:opacity-100">
+                                            <td className="p-2 w-8 text-center opacity-60 md:opacity-0 md:group-hover:opacity-100">
                                                 <button onClick={() => removeBreakdownLine(node.id, line.idx)} className="text-red-400 hover:text-red-600"><Trash2 size={12} /></button>
                                             </td>
                                         </tr>
@@ -3018,34 +3015,8 @@ export default function App() {
     };
 
     // --- Renderitzadors ---
-    const renderTreeNodes = (nodes, level = 0) => {
-        return nodes.map(node => (
-            <div key={node.id}>
-                <div
-                    className={`flex items-center gap-2 p-1.5 cursor-pointer border-l-2 ${selectedId === node.id ? 'bg-blue-600 text-white border-blue-800' : 'hover:bg-slate-100 text-slate-700 border-transparent'}`}
-                    style={{ paddingLeft: `${level * 12 + 8}px` }}
-                    onClick={() => { setSelectedId(node.id); if (!node.unit) toggleChapter(node.id); }}
-                >
-                    {(!node.unit && (node.subChapters?.length > 0 || node.items?.length > 0)) ? (
-                        expandedChapters[node.id] ? <ChevronDown size={14} /> : <ChevronRight size={14} />
-                    ) : (
-                        node.unit ? <FileText size={14} className={selectedId === node.id ? 'text-blue-100' : 'text-slate-400'} /> : <Box size={14} />
-                    )}
-                    <span className={`font-mono text-[9px] px-1 ${selectedId === node.id ? 'bg-blue-500 text-white' : 'bg-slate-200 text-slate-600'}`}>{node.code}</span>
-                    <span className="truncate text-xs font-semibold">{node.description}</span>
-                </div>
-                {expandedChapters[node.id] && (
-                    <div>
-                        {renderTreeNodes(node.subChapters || [], level + 1)}
-                        {renderTreeNodes(node.items || [], level + 1)}
-                    </div>
-                )}
-            </div>
-        ));
-    };
-
     const renderTableRows = (nodes, level = 0) => {
-        return nodes.map((node, index) => {
+        return nodes.map((node) => {
             const isTarget = dragOverTarget?.id === node.id;
             let dropClass = 'border-b border-slate-100';
 
@@ -3104,25 +3075,26 @@ export default function App() {
                                 handleReorder(draggedNodeId, node.id, dragOverTarget.pos);
                             }
                         }}
-                        className={`cursor-pointer transition-colors group ${selectedId === node.id ? 'bg-blue-50/50' : 'hover:bg-slate-50'} ${!node.unit
+                        className={`cursor-pointer transition-colors group [&>td]:py-2.5 md:[&>td]:py-0 ${selectedId === node.id ? 'bg-blue-50/50' : 'hover:bg-slate-50'} ${!node.unit
                             ? (level === 0 ? 'bg-emerald-100/60' : (level === 1 ? 'bg-emerald-50/60' : (level === 2 ? 'bg-emerald-50/30' : 'bg-slate-50/30')))
                             : 'bg-white'
                             } ${dropClass}`}
                         onClick={() => {
                             setSelectedId(node.id);
+                            // Tocar un capítol el desplega: al mòbil, encertar el chevron de
+                            // 24 px era l'única manera de navegar per l'arbre.
+                            if (!node.unit) {
+                                toggleChapter(node.id);
+                                return;
+                            }
                             if (window.innerWidth < 768) {
                                 setShowMobileSidebar(true);
                             }
                         }}
                     >
-                        <td className="p-1 md:p-2 w-6 md:w-10 text-center" onClick={(e) => {
-                            if (!node.unit) {
-                                e.stopPropagation();
-                                toggleChapter(node.id);
-                            }
-                        }}>
+                        <td className="p-1 md:p-2 w-8 md:w-10 text-center">
                             <div className="flex items-center justify-center gap-1">
-                                <GripVertical size={10} className="hidden md:block text-slate-300 opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing" />
+                                <GripVertical size={10} className="hidden md:block text-slate-300 opacity-60 md:opacity-0 md:group-hover:opacity-100 cursor-grab active:cursor-grabbing" />
                                 {!node.unit && (
                                     <div className="flex items-center justify-center text-slate-400 hover:text-blue-500 transition-colors">
                                         {expandedChapters[node.id] ? <ChevronDown size={12} className="md:w-3.5 md:h-3.5" /> : <ChevronRight size={12} className="md:w-3.5 md:h-3.5" />}
@@ -3154,7 +3126,7 @@ export default function App() {
                                                 </div>
                                                 <div className="flex items-center gap-1">
                                                     <span className="text-[8px] uppercase font-bold text-slate-300">Pr</span>
-                                                    <span className="font-mono">{formatPrice(getItemUnitPrice(node))}</span>
+                                                    <span className="font-mono">{formatPrice(getItemUnitPrice(node, priceDatabase))}</span>
                                                 </div>
                                             </>
                                         )}
@@ -3199,35 +3171,54 @@ export default function App() {
                                 <td className="hidden md:table-cell p-2 text-center text-slate-400 italic w-14 text-[10px]">{node.unit || ''}</td>
                                 <td className="hidden md:table-cell p-2 text-right font-mono w-20 text-[11px] text-slate-500">{node.unit ? formatNumber(calcItemTotalQty(node), 2) : ''}</td>
                                 <td className="hidden md:table-cell p-2 text-right font-mono w-28 text-[11px] text-slate-600">
-                                    {node.unit ? formatPrice(getItemUnitPrice(node)) : ''}
+                                    {node.unit ? formatPrice(getItemUnitPrice(node, priceDatabase)) : ''}
                                 </td>
                             </>
                         ) : (() => {
-                            const originQty = calcItemCertifiedQty(node, activeCertId, budget.certifications);
                             const prevCertId = getPreviousCertId(budget.certifications, activeCertId);
-                            const prevQty = prevCertId ? calcItemCertifiedQty(node, prevCertId, budget.certifications) : 0;
-                            const actQty = round2(originQty - prevQty);
-                            const totalQty = calcItemTotalQty(node) || 1;
+                            const isChapter = !node.unit;
 
-                            const antPct = (prevQty / totalQty) * 100;
-                            const actPct = (actQty / totalQty) * 100;
-                            const originPct = (originQty / totalQty) * 100;
+                            // Les partides es mesuren en quantitat; els capítols, en import
+                            // (barrejar unitats no tindria sentit). El percentatge d'avenç,
+                            // en canvi, és comparable en tots dos casos.
+                            let antPct, actPct, originPct, originQty, actQty, prevQty, totalQty;
+
+                            if (isChapter) {
+                                const chBudget = calcChapterTotal(node, priceDatabase);
+                                const chOrigin = calcChapterCertifiedTotal(node, activeCertId, priceDatabase, budget.certifications);
+                                const chPrev = prevCertId
+                                    ? calcChapterCertifiedTotal(node, prevCertId, priceDatabase, budget.certifications)
+                                    : 0;
+                                prevQty = chPrev;
+                                actQty = round2(chOrigin - chPrev);
+                                antPct = safePct(chPrev, chBudget);
+                                actPct = safePct(actQty, chBudget);
+                                originPct = safePct(chOrigin, chBudget);
+                            } else {
+                                originQty = calcItemCertifiedQty(node, activeCertId, budget.certifications);
+                                prevQty = prevCertId ? calcItemCertifiedQty(node, prevCertId, budget.certifications) : 0;
+                                actQty = round2(originQty - prevQty);
+                                totalQty = calcItemTotalQty(node);
+                                antPct = safePct(prevQty, totalQty);
+                                actPct = safePct(actQty, totalQty);
+                                originPct = safePct(originQty, totalQty);
+                            }
 
                             return (
                                 <>
                                     <td className="hidden md:table-cell p-2 text-center text-slate-400 italic w-10 text-[10px]">{node.unit || ''}</td>
                                     <td className="hidden md:table-cell p-2 text-right font-mono w-16 text-[10px] text-slate-400">{node.unit ? formatNumber(totalQty, 2) : ''}</td>
                                     <td className="hidden lg:table-cell p-2 text-right font-mono w-12 text-[10px] text-slate-400">
-                                        {node.unit && prevQty !== 0 ? `${formatNumber(antPct, 1)}%` : '-'}
+                                        {prevQty !== 0 ? `${formatNumber(antPct, 1)}%` : '-'}
                                     </td>
                                     <td className={`hidden lg:table-cell p-2 text-right font-mono w-12 text-[10px] ${actQty > 0 ? 'text-blue-600 font-bold' : 'text-slate-300'}`}>
-                                        {node.unit && actQty !== 0 ? `${actQty > 0 ? '+' : ''}${formatNumber(actPct, 1)}%` : '-'}
+                                        {actQty !== 0 ? `${actQty > 0 ? '+' : ''}${formatNumber(actPct, 1)}%` : '-'}
                                     </td>
                                     <td className="p-1 md:p-2 text-right font-mono w-16 md:w-20 text-[11px] text-emerald-600 font-bold bg-emerald-50/50">
                                         {node.unit ? formatNumber(originQty, 2) : ''}
                                     </td>
-                                    <td className="hidden md:table-cell p-2 text-right font-mono w-12 text-[10px] text-slate-500">
-                                        {node.unit ? `${formatNumber(originPct, 1)}%` : ''}
+                                    <td className={`hidden md:table-cell p-2 text-right font-mono w-12 text-[10px] ${isChapter ? 'text-slate-600 font-bold' : 'text-slate-500'}`}>
+                                        {`${formatNumber(originPct, 1)}%`}
                                     </td>
                                 </>
                             );
@@ -3236,7 +3227,7 @@ export default function App() {
                         <td className="p-1 md:p-2 text-right font-mono font-bold text-slate-700 w-20 md:w-32 text-[11px] md:text-[11px]">
                             <div className="flex items-center justify-end gap-2">
                                 {appMode === 'budget'
-                                    ? (node.unit ? formatCurrency(calcItemTotalAmount(node)) : formatCurrency(calcChapterTotal(node)))
+                                    ? (node.unit ? formatCurrency(calcItemTotalAmount(node, priceDatabase)) : formatCurrency(calcChapterTotal(node, priceDatabase)))
                                     : (node.unit ? formatCurrency(calcItemCertifiedAmount(node, activeCertId, priceDatabase, budget.certifications)) : formatCurrency(calcChapterCertifiedTotal(node, activeCertId, priceDatabase, budget.certifications)))
                                 }
                                 <button
@@ -3244,7 +3235,7 @@ export default function App() {
                                         e.stopPropagation();
                                         deleteNode(node.id);
                                     }}
-                                    className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all ml-2"
+                                    className="opacity-60 md:opacity-0 md:group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-all ml-1 p-2 -m-1 touch-manipulation"
                                     title="Eliminar"
                                 >
                                     <Trash2 size={12} />
@@ -3357,12 +3348,10 @@ export default function App() {
                                                     <td className="hidden md:table-cell p-3 text-right font-mono text-slate-600">{formatNumber(res.quantity, 2)}</td>
                                                     <td className="hidden md:table-cell p-3 text-right font-mono text-slate-600">
                                                         <div className="flex items-center justify-end gap-1">
-                                                            <input
-                                                                type="number"
-                                                                step="any"
+                                                            <NumberInput
                                                                 className="bg-transparent text-right border-b border-transparent hover:border-blue-300 focus:border-blue-600 outline-none w-20 font-bold text-slate-600 focus:text-blue-600 px-1"
                                                                 value={res.price}
-                                                                onChange={(e) => updateGlobalPrice(res.code, e.target.value)}
+                                                                onChange={(v) => updateGlobalPrice(res.code, v)}
                                                                 onClick={(e) => e.stopPropagation()}
                                                             />
                                                             <span className="text-[10px] text-slate-400">€</span>
@@ -3437,12 +3426,10 @@ export default function App() {
                                     <td className="p-2 md:p-3 text-right font-mono font-bold text-blue-800 bg-blue-50/10 group-hover:bg-blue-50/30">
                                         <div className="flex items-center justify-end gap-1 md:gap-2">
                                             <span className="text-[11px] md:text-xs text-slate-300">€</span>
-                                            <input
-                                                type="number"
-                                                step="0.01"
+                                            <NumberInput
                                                 className="bg-transparent text-right border-b border-transparent hover:border-blue-300 focus:border-blue-600 outline-none w-14 md:w-24 font-bold text-blue-700 text-[11px] md:text-sm"
                                                 value={data.price}
-                                                onChange={(e) => updateDbPrice(code, e.target.value)}
+                                                onChange={(v) => updateDbPrice(code, v)}
                                             />
                                         </div>
                                     </td>
@@ -3492,23 +3479,6 @@ export default function App() {
                 />
             )}
 
-            {/* 3. PRINT PREVIEW */}
-            {showPrint && (
-                <PrintView
-                    budget={budget}
-                    priceDatabase={priceDatabase}
-                    calcItemTotalAmount={calcItemTotalAmount}
-                    calcChapterTotal={calcChapterTotal}
-                    budgetTotal={budgetTotal}
-                    config={printConfig}
-                    setConfig={setPrintConfig}
-                    onOpenConfig={() => setShowPrintConfigModal(true)}
-                    onClose={() => setShowPrint(false)}
-                    onExportPDF={handleExportPDF}
-                    onExportSummaryPDF={handleExportSummaryPDF}
-                />
-            )}
-
             {isDragging && (
                 <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-blue-600/10 backdrop-blur-sm pointer-events-none border-4 border-dashed border-blue-400 m-4">
                     <div className="bg-white p-12 border border-blue-200 flex flex-col items-center animate-in zoom-in duration-200">
@@ -3520,7 +3490,7 @@ export default function App() {
             )}
 
             {/* Header Flat */}
-            <header className="bg-slate-950 text-white p-3 md:p-4 flex justify-between items-center border-b border-slate-800 z-30">
+            <header className="bg-slate-950 text-white px-2 py-2.5 md:p-4 flex justify-between items-center gap-1 border-b border-slate-800 z-30">
                 {/* Left: Logo + Title + Drive Status */}
                 <div className="flex items-center gap-2 md:gap-4">
                     <div className="bg-blue-600 p-1.5 md:p-2">
@@ -3574,18 +3544,45 @@ export default function App() {
 
                 {/* Center/Right: Actions */}
                 <div className="flex items-center gap-2 md:gap-6">
+                    {/* Desfer / refer: també al mòbil, on no hi ha teclat per a Ctrl+Z */}
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={historial.undo}
+                            disabled={!historial.canUndo}
+                            title="Desfer (Ctrl+Z)"
+                            className="p-3 md:p-2 rounded-md text-slate-400 enabled:hover:text-white enabled:hover:bg-slate-800 disabled:opacity-25 transition-colors touch-manipulation"
+                        >
+                            <Undo2 size={18} />
+                        </button>
+                        <button
+                            onClick={historial.redo}
+                            disabled={!historial.canRedo}
+                            title="Refer (Ctrl+Maj+Z)"
+                            className="p-3 md:p-2 rounded-md text-slate-400 enabled:hover:text-white enabled:hover:bg-slate-800 disabled:opacity-25 transition-colors touch-manipulation"
+                        >
+                            <Redo2 size={18} />
+                        </button>
+                    </div>
+
                     {/* Total PEM Display - Always visible */}
                     <button
-                        onClick={() => setShowPemModal(true)}
+                        onClick={() => appMode === 'budget' ? setShowPemModal(true) : setShowCertSummary(true)}
                         className="flex flex-col items-end gap-0.5 group cursor-pointer"
-                        title={appMode === 'budget' ? "Ajustar PEM" : "Total Certificat"}
+                        title={appMode === 'budget' ? "Ajustar PEM" : "Veure el resum de la certificació"}
                     >
                         <span className="text-[8px] md:text-[9px] uppercase text-slate-500 font-bold tracking-widest leading-none group-hover:text-blue-400 transition-colors">
                             {appMode === 'budget' ? 'Total PEM' : 'Total Certificat'}
                         </span>
-                        <span className={`text-sm md:text-xl font-mono font-bold tracking-tighter leading-none ${appMode === 'budget' ? 'text-emerald-400' : 'text-blue-400'}`}>
-                            {formatCurrency(appMode === 'budget' ? budgetTotal : certifiedTotal)}
-                        </span>
+                        <div className="flex items-baseline gap-2">
+                            <span className={`text-sm md:text-xl font-mono font-bold tracking-tighter leading-none ${appMode === 'budget' ? 'text-emerald-400' : 'text-blue-400'}`}>
+                                {formatCurrency(appMode === 'budget' ? budgetTotal : certifiedTotal)}
+                            </span>
+                            {appMode === 'certification' && activeCertId && (
+                                <span className="text-[10px] md:text-xs font-mono font-bold text-emerald-400 leading-none">
+                                    {formatNumber(certificationSummary.totals.originPct, 1)}%
+                                </span>
+                            )}
+                        </div>
                     </button>
 
                     {/* Desktop: All buttons visible */}
@@ -3622,6 +3619,14 @@ export default function App() {
                                     >
                                         <Cloud size={12} className="text-blue-400" />
                                         Des de Google Drive
+                                    </button>
+                                    <button
+                                        onClick={() => { setShowLibrary(true); setShowOpenDropdown(false); }}
+                                        className="w-full text-left px-4 py-2 text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-colors flex items-center gap-2 border-t border-slate-800"
+                                    >
+                                        <FolderOpen size={12} className="text-emerald-400" />
+                                        Projectes recents
+                                        <span className="ml-auto text-slate-500 font-mono">{library.length}</span>
                                     </button>
                                 </div>
                             )}
@@ -3744,6 +3749,14 @@ export default function App() {
                                         <Cloud size={18} className="text-blue-400" />
                                         <span className="font-medium">Google Drive</span>
                                     </button>
+                                    <button
+                                        onClick={() => { setShowLibrary(true); setShowMobileMenu(false); }}
+                                        className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 transition-colors flex items-center gap-3 border-b border-slate-800"
+                                    >
+                                        <FolderOpen size={18} className="text-emerald-400" />
+                                        <span className="font-medium">Projectes recents</span>
+                                        <span className="ml-auto text-xs text-slate-500 font-mono">{library.length}</span>
+                                    </button>
 
                                     <div className="px-4 py-2 text-xs font-bold text-slate-500 border-b border-slate-800 bg-slate-800/50 mt-1">DESAR JSON</div>
                                     <button
@@ -3812,7 +3825,20 @@ export default function App() {
                     setNewCertName={setNewCertName}
                     onCreateCertification={createCertification}
                     onApproveCertification={certActions.approveCertification}
+                    onReopenCertification={certActions.reopenCertification}
+                    onRenameCertification={certActions.renameCertification}
+                    onUpdateCertificationDate={certActions.updateCertificationDate}
+                    onDeleteCertification={handleDeleteCertification}
                     onToggleMethod={certActions.toggleCertificationMethod}
+                />
+            )}
+
+            {/* Resum en viu de la certificació activa */}
+            {appMode === 'certification' && activeCertId && (
+                <CertificationSummary
+                    totals={certificationSummary.totals}
+                    certName={activeCert?.name}
+                    onOpenDetail={() => setShowCertSummary(true)}
                 />
             )}
 
@@ -3860,21 +3886,21 @@ export default function App() {
                             <div className="flex bg-white border border-slate-200 p-0.5 md:p-1 flex-1 md:flex-initial">
                                 <button
                                     onClick={() => setActiveTab('editor')}
-                                    className={`flex-1 md:flex-initial px-3 md:px-4 py-1 text-[8px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-widest transition-colors ${activeTab === 'editor' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
+                                    className={`flex-1 md:flex-initial px-3 md:px-4 py-3.5 md:py-1.5 text-[10px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-widest transition-colors ${activeTab === 'editor' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
                                 >
                                     <span className="hidden md:inline">Editor de Partides</span>
                                     <span className="md:hidden">Editor</span>
                                 </button>
                                 <button
                                     onClick={() => setActiveTab('prices')}
-                                    className={`flex-1 md:flex-initial px-3 md:px-4 py-1 text-[8px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-widest transition-colors ${activeTab === 'prices' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
+                                    className={`flex-1 md:flex-initial px-3 md:px-4 py-3.5 md:py-1.5 text-[10px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-widest transition-colors ${activeTab === 'prices' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
                                 >
                                     <span className="hidden md:inline">Base de Preus</span>
                                     <span className="md:hidden">Preus</span>
                                 </button>
                                 <button
                                     onClick={() => setActiveTab('recursos')}
-                                    className={`flex-1 md:flex-initial px-3 md:px-4 py-1 text-[8px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-widest transition-colors ${activeTab === 'recursos' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
+                                    className={`flex-1 md:flex-initial px-3 md:px-4 py-3.5 md:py-1.5 text-[10px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-widest transition-colors ${activeTab === 'recursos' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
                                 >
                                     <span className="hidden md:inline">Llistat de Recursos</span>
                                     <span className="md:hidden">Recursos</span>
@@ -3960,7 +3986,7 @@ export default function App() {
                                 {/* Nova Entrada Button */}
                                 <button
                                     onClick={() => setShowCreator(true)}
-                                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-3 md:px-6 py-2 md:py-3 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-blue-500/25 flex-shrink-0"
+                                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 md:px-6 py-3 md:py-3 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-blue-500/25 flex-shrink-0"
                                     title="Nova Entrada"
                                 >
                                     <Plus size={16} className="md:w-4.5 md:h-4.5" />
@@ -4089,7 +4115,7 @@ export default function App() {
                                             <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest">{node.unit ? 'Detall de Partida' : 'Detall de Capítol'}</p>
                                             <div className="flex items-center gap-1">
                                                 <span className="text-[10px] font-black bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
-                                                    {node.unit ? formatCurrency(calcItemTotalAmount(node)) : formatCurrency(calcChapterTotal(node))}
+                                                    {node.unit ? formatCurrency(calcItemTotalAmount(node, priceDatabase)) : formatCurrency(calcChapterTotal(node, priceDatabase))}
                                                 </span>
                                                 {node.unit && <span className="text-[10px] font-black bg-green-100 text-green-700 px-1.5 py-0.5 rounded">{node.unit}</span>}
                                             </div>
@@ -4219,16 +4245,16 @@ export default function App() {
                                                                 {(node.measurements || []).filter(m => !m.isIncrement).map(m => (
                                                                     <tr key={m.id} className="group">
                                                                         <td className="p-1.5"><input type="text" value={m.description} onChange={(e) => updateMeasurement(node.id, m.id, 'description', e.target.value)} className="w-full bg-transparent border-none text-slate-600 outline-none p-0" /></td>
-                                                                        <td className="p-1.5"><input type="number" value={m.units} onChange={(e) => updateMeasurement(node.id, m.id, 'units', e.target.value)} className="w-full text-right bg-transparent border-none font-mono outline-none p-0" /></td>
-                                                                        <td className="p-1.5"><input type="number" value={m.length} onChange={(e) => updateMeasurement(node.id, m.id, 'length', e.target.value)} className="w-full text-right bg-transparent border-none font-mono text-slate-400 outline-none p-0" /></td>
-                                                                        <td className="p-1.5"><input type="number" value={m.width} onChange={(e) => updateMeasurement(node.id, m.id, 'width', e.target.value)} className="w-full text-right bg-transparent border-none font-mono text-slate-400 outline-none p-0" /></td>
-                                                                        <td className="p-1.5"><input type="number" value={m.height} onChange={(e) => updateMeasurement(node.id, m.id, 'height', e.target.value)} className="w-full text-right bg-transparent border-none font-mono text-slate-400 outline-none p-0" /></td>
+                                                                        <td className="p-1.5"><NumberInput value={m.units} onChange={(v) => updateMeasurement(node.id, m.id, 'units', v)} className="w-full text-right bg-transparent border-none font-mono outline-none p-0" /></td>
+                                                                        <td className="p-1.5"><NumberInput value={m.length} onChange={(v) => updateMeasurement(node.id, m.id, 'length', v)} className="w-full text-right bg-transparent border-none font-mono text-slate-400 outline-none p-0" /></td>
+                                                                        <td className="p-1.5"><NumberInput value={m.width} onChange={(v) => updateMeasurement(node.id, m.id, 'width', v)} className="w-full text-right bg-transparent border-none font-mono text-slate-400 outline-none p-0" /></td>
+                                                                        <td className="p-1.5"><NumberInput value={m.height} onChange={(v) => updateMeasurement(node.id, m.id, 'height', v)} className="w-full text-right bg-transparent border-none font-mono text-slate-400 outline-none p-0" /></td>
                                                                         <td className="p-1.5 text-right font-bold text-blue-900">
                                                                             <div className="flex items-center justify-end gap-1">
                                                                                 {formatNumber(calcMeasureTotal(m), 2)}
                                                                                 <button
                                                                                     onClick={() => deleteMeasurementLine(node.id, m.id)}
-                                                                                    className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 p-0.5 ml-1"
+                                                                                    className="opacity-60 md:opacity-0 md:group-hover:opacity-100 text-slate-400 hover:text-red-500 p-2 -m-1 ml-1 touch-manipulation"
                                                                                 >
                                                                                     <X size={10} />
                                                                                 </button>
@@ -4246,14 +4272,14 @@ export default function App() {
                                                                         <tr key={m.id} className="group bg-slate-50">
                                                                             <td className="p-1.5 bg-slate-50"><input type="text" value={m.description} onChange={(e) => updateMeasurement(node.id, m.id, 'description', e.target.value)} className="w-full bg-transparent border-none text-slate-600 outline-none p-0 italic" /></td>
                                                                             <td className="p-1.5 text-right text-slate-500 text-[11px] md:text-[10px]">%</td>
-                                                                            <td className="p-1.5"><input type="number" value={m.units} onChange={(e) => updateMeasurement(node.id, m.id, 'units', e.target.value)} className="w-full text-right bg-transparent border-none font-mono font-bold outline-none p-0" /></td>
+                                                                            <td className="p-1.5"><NumberInput value={m.units} onChange={(v) => updateMeasurement(node.id, m.id, 'units', v)} className="w-full text-right bg-transparent border-none font-mono font-bold outline-none p-0" /></td>
                                                                             <td colSpan={2} className="p-1.5 text-center text-slate-300">-</td>
                                                                             <td className="p-1.5 text-right font-bold text-blue-900 bg-slate-50">
                                                                                 <div className="flex items-center justify-end gap-1">
                                                                                     {formatNumber(partial, 2)}
                                                                                     <button
                                                                                         onClick={() => deleteMeasurementLine(node.id, m.id)}
-                                                                                        className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 p-0.5 ml-1"
+                                                                                        className="opacity-60 md:opacity-0 md:group-hover:opacity-100 text-slate-400 hover:text-red-500 p-2 -m-1 ml-1 touch-manipulation"
                                                                                     >
                                                                                         <X size={10} />
                                                                                     </button>
@@ -4334,6 +4360,28 @@ export default function App() {
                 />
             )}
 
+            {showLibrary && (
+                <ProjectLibraryModal
+                    projects={library}
+                    currentId={budget.id}
+                    onOpen={handleOpenFromLibrary}
+                    onDelete={handleDeleteFromLibrary}
+                    onClose={() => setShowLibrary(false)}
+                />
+            )}
+
+            {showCertSummary && appMode === 'certification' && (
+                <CertificationSummaryModal
+                    summary={certificationSummary}
+                    cert={activeCert}
+                    previousCert={previousCert}
+                    config={printConfig}
+                    setConfig={setPrintConfig}
+                    onExportPdf={handleExportCertificationPDF}
+                    onClose={() => setShowCertSummary(false)}
+                />
+            )}
+
             {showPemModal && (
                 <PemAdjustmentModal
                     currentPem={budgetTotal}
@@ -4354,8 +4402,6 @@ export default function App() {
                 <PrintView
                     budget={budget}
                     priceDatabase={priceDatabase}
-                    calcItemTotalAmount={calcItemTotalAmount}
-                    calcChapterTotal={calcChapterTotal}
                     budgetTotal={budgetTotal}
                     config={printConfig}
                     setConfig={setPrintConfig}
