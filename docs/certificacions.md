@@ -28,14 +28,55 @@ amb el percentatge sobre la quantitat pressupostada.
 
 1. **Barra de certificacions** (`CertificationBar`, visible només en mode certificació):
    pestanyes de fases, botó "Nova", commutador `A ORIGEN` / `PARCIAL` i botó **Aprovar FASE**.
-2. **Taula principal**: per cada partida, Previst / Ant.% / Act.% / Cert. Origen / % / Import.
-3. **Sidebar** (`CertificationSidebar`), en seleccionar una partida:
+2. **Resum en viu** (`CertificationSummary`), just a sota: el percentatge certificat a origen
+   com a xifra principal, un mesurador amb l'anterior i el període sobre el pressupost, i les
+   xifres d'anterior / període / pendent. Es recalcula a cada canvi, de manera que el
+   percentatge total es veu mentre s'introdueixen amidaments. Vegeu més avall.
+3. **Taula principal**: per cada partida, Previst / Ant.% / Act.% / Cert. Origen / % / Import.
+   Els **capítols** també mostren els seus percentatges, calculats sobre l'import (no sobre la
+   quantitat: barrejar m², kg i unitats no tindria sentit).
+4. **Sidebar** (`CertificationSidebar`), en seleccionar una partida:
    - resum Anterior / Actual / Origen,
    - import certificat (a origen o del període, segons el mètode),
    - accions ràpides **25% / 50% / 100%**,
    - **Copiar Amidament Pressupost** (clona les línies del pressupost a la fase),
    - camp de **percentatge** i camp de **quantitat manual**,
    - **detall d'amidament de la certificació** (mateixes columnes Ud/Ll/Am/Al que el pressupost).
+
+## El resum de certificació
+
+Dues vistes que surten del **mateix càlcul**, `buildCertificationSummary`
+(`src/utils/calculations.js`), de manera que no poden divergir:
+
+- **La barra en viu** (`CertificationSummary`) — sempre visible mentre es treballa.
+- **El detall per capítols** (`CertificationSummaryModal`) — s'obre amb el botó **Detall** de
+  la barra, o clicant el total del capçal. Una fila per capítol amb pressupost, anterior,
+  període, origen, % i pendent, i un mesurador per fila per comparar l'avenç d'un cop d'ull.
+
+`buildCertificationSummary(chapters, certId, priceDatabase, certifications)` retorna
+`{ rows, totals, prevCertId }`, on cada fila i el total porten:
+
+| Camp | Significat |
+|---|---|
+| `budget` | import pressupostat del capítol (PEM) |
+| `previous` | certificat a origen de la fase anterior |
+| `period` | `origin − previous`, el que aporta aquesta fase |
+| `origin` | certificat acumulat a origen |
+| `pending` | `budget − origin` |
+| `originPct`, `previousPct`, `periodPct` | percentatges sobre `budget` |
+
+Es compleix sempre que `previous + period = origin` i `origin + pending = budget`.
+
+Els percentatges passen per `safePct`, que retorna 0 quan la base és 0: un capítol sense
+import (o un projecte buit) no ha de produir `NaN` ni `Infinity` a la UI.
+
+**El mesurador** és d'un sol to, verd maragda, amb la rampa monòtona clar → fosc: pista
+(pendent) → període → anterior. Els dos trams van separats per 2 px perquè es llegeixin com a
+dos, i cada etiqueta duu el seu quadret de color, així que la identitat no depèn només del
+color. Si el certificat supera el 100%, el tram es satura però la xifra segueix mostrant el
+valor real i passa a color ambre.
+
+Els imports són sempre **PEM**: no hi entren despeses generals, benefici industrial ni IVA.
 
 ## Aprovació i bloqueig
 
@@ -78,5 +119,8 @@ Les certificacions viatgen en BC3 com a **fases**:
 | Mutacions d'estat (qty, línies, %, aprovar, mètode) | `src/hooks/useCertification.js` |
 | Barra de fases | `src/components/Certification/CertificationBar.jsx` |
 | Panell de detall | `src/components/Certification/CertificationSidebar.jsx` |
-| Creació de fases, `activeCertId`, `certifiedTotal` | `src/App.jsx:1055`, `1089` |
-| Columnes de la taula en mode certificació | `src/App.jsx:3210`–`3260` |
+| Resum (càlcul) | `buildCertificationSummary` a `src/utils/calculations.js` |
+| Resum en viu | `src/components/Certification/CertificationSummary.jsx` |
+| Detall per capítols | `src/components/Certification/CertificationSummaryModal.jsx` |
+| Creació de fases, `activeCertId`, `certifiedTotal` | `src/App.jsx` |
+| Columnes de la taula en mode certificació | `renderTableRows`, a `src/App.jsx` |

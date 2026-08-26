@@ -2,7 +2,7 @@
 
 Inventari fet llegint el codi (agost 2026).
 
-**Estat: els vuit defectes de la secció següent estan corregits** a la branca
+**Estat: els deu defectes de la secció següent estan corregits** a la branca
 `claude/correccions-defectes-detectats`. Es conserva la descripció de cadascun perquè
 expliquen decisions del codi actual i serveixen de referència si tornen a aparèixer.
 El deute tècnic de la segona meitat del document continua obert.
@@ -140,6 +140,44 @@ exportar → reimportar conserva quantitats, fases i descripcions.
 Aquest és el defecte que la comprovació de `CLAUDE.md` ("importar → veure PEM → exportar →
 reimportar") havia de detectar, i el motiu pel qual val la pena automatitzar-la.
 
+### 9. El total certificat del capçal ignorava el mètode de la fase ✅
+
+`certifiedTotal` cridava `calcChapterCertifiedTotal(ch, activeCertId, priceDatabase)` **sense
+el quart paràmetre**, `certifications`. Amb el valor per defecte `[]`, `calcItemCertifiedQty`
+no trobava la fase a la llista i sempre es comportava com si el mètode fos `origin`.
+
+Conseqüència: en una fase amb mètode **PARCIAL**, el total del capçal mostrava només la
+quantitat del període en comptes de l'acumulat, mentre que les files de la taula —que sí que
+passaven `budget.certifications`— mostraven l'acumulat. Els dos números no quadraven.
+
+Comprovat amb una partida de 100 € certificada 3 i 4 en dues fases: amb mètode `partial`
+el total ha de ser 70 € (3+4 acumulats) i abans en donava 40.
+
+Ara `certifiedTotal` surt de `buildCertificationSummary`, que rep sempre la llista de fases.
+
+### 10. Les etiquetes del commutador Pressupost/Certificació no es veien mai ✅
+
+Els dos botons de mode del capçal amagaven el text amb `hidden xs:inline`, però
+`tailwind.config.js` no definia cap breakpoint `xs`. Tailwind descarta la variant desconeguda,
+de manera que el `hidden` no es revertia **en cap amplada** i el commutador es quedava només
+amb les icones, sense text, també en escriptori.
+
+Es va detectar en no poder seleccionar el botó per nom accessible en provar l'aplicació amb un
+navegador: sense text, el botó no en tenia. Corregit definint `screens: { xs: '475px' }`.
+
+---
+
+## Funcionalitats afegides
+
+### Resum de certificació
+
+El mode certificació ja no és només d'entrada de dades: incorpora una **barra de resum en viu**
+sota la barra de fases i un **detall per capítols**. Tots dos surten de
+`buildCertificationSummary`. Detalls a `docs/certificacions.md`.
+
+Queda pendent, com abans, **treure'n un document**: un PDF de certificació per fase amb
+Anterior / Actual / Origen és la peça que encara falta.
+
 ---
 
 ## Deute tècnic
@@ -221,7 +259,7 @@ ESLint ≥ 9, i amb un ESLint global més nou instal·lat `npm run lint` falla.
 
 Per ordre de relació valor/esforç:
 
-1. ~~Arreglar els punts 1–8.~~ ✅ Fet.
+1. ~~Arreglar els punts 1–10.~~ ✅ Fet.
 2. ~~Activar el lint sobre `.jsx`.~~ ✅ Fet (queda la migració a flat config).
 3. **Vitest + tests de `calculations.js` i `bc3Parser.js`**, amb el BC3 de mostra com a
    fixture. És ara la prioritat: les correccions 2, 3 i 8 es van validar amb scripts d'un sol
@@ -229,8 +267,8 @@ Per ordre de relació valor/esforç:
    prova automàtica, no un ritual manual.
 4. **Extreure els exportadors i el writer BC3** d'`App.jsx` (passes 2 i 3 del refactor).
 5. **Bloqueig real de fases aprovades** al hook `useCertification`.
-6. **Informe de certificació** (PDF per fase amb Anterior / Actual / Origen): és la peça que
-   falta perquè el mode certificació sigui autònom — ara mateix es pot certificar però no
-   se'n pot treure un document.
+6. **Informe de certificació en PDF** (per fase, amb Anterior / Actual / Origen). El resum
+   ja existeix en pantalla; ara falta poder-lo imprimir i signar. `buildCertificationSummary`
+   retorna les files ja llestes per alimentar-lo.
 7. **Code-splitting** de jsPDF / SheetJS.
 8. **`git rm -r --cached node_modules dist`** en un commit dedicat.

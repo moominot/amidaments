@@ -54,13 +54,17 @@ import {
     calcChapterCertifiedTotal,
     calcItemTotalAmount,
     calcChapterTotal,
-    getPreviousCertId
+    getPreviousCertId,
+    buildCertificationSummary,
+    safePct
 } from './utils/calculations';
 import { useCertification } from './hooks/useCertification';
 import { useGoogleDrive } from './hooks/useGoogleDrive';
 import { useDriveConfig } from './context/DriveConfigContext';
 import CertificationBar from './components/Certification/CertificationBar';
 import CertificationSidebar from './components/Certification/CertificationSidebar';
+import CertificationSummary from './components/Certification/CertificationSummary';
+import CertificationSummaryModal from './components/Certification/CertificationSummaryModal';
 import DriveSettingsModal from './components/DriveSettingsModal';
 import { processBC3Data } from './utils/bc3Parser';
 import { toWindows1252Bytes } from './utils/googleDrive';
@@ -1039,6 +1043,7 @@ export default function App() {
     };
 
     const [showNewCertInput, setShowNewCertInput] = useState(false);
+    const [showCertSummary, setShowCertSummary] = useState(false);
     const [newCertName, setNewCertName] = useState('');
 
     const createCertification = useCallback(() => {
@@ -1075,10 +1080,21 @@ export default function App() {
         return budget.chapters.reduce((acc, ch) => acc + calcChapterTotal(ch, priceDatabase), 0);
     }, [budget.chapters, priceDatabase]);
 
-    const certifiedTotal = useMemo(() => {
-        if (appMode !== 'certification' || !activeCertId) return 0;
-        return budget.chapters.reduce((acc, ch) => acc + calcChapterCertifiedTotal(ch, activeCertId, priceDatabase), 0);
-    }, [budget.chapters, appMode, activeCertId, priceDatabase]);
+    // Resum de la certificació activa. Es recalcula a cada canvi de l'arbre, de manera
+    // que el percentatge certificat s'actualitza mentre s'edita.
+    const certificationSummary = useMemo(
+        () => buildCertificationSummary(budget.chapters, activeCertId, priceDatabase, budget.certifications || []),
+        [budget.chapters, budget.certifications, activeCertId, priceDatabase]
+    );
+
+    // Sense passar budget.certifications, una fase amb mètode 'partial' no acumulava
+    // i el total del capçal no coincidia amb el de les partides.
+    const certifiedTotal = activeCertId ? certificationSummary.totals.origin : 0;
+
+    const activeCert = (budget.certifications || []).find(c => c.id === activeCertId) || null;
+    const previousCert = certificationSummary.prevCertId
+        ? (budget.certifications || []).find(c => c.id === certificationSummary.prevCertId) || null
+        : null;
 
     const handleExportPDF = useCallback((config) => {
         const doc = new jsPDF('p', 'mm', 'a4');
@@ -3122,31 +3138,50 @@ export default function App() {
                                 </td>
                             </>
                         ) : (() => {
-                            const originQty = calcItemCertifiedQty(node, activeCertId, budget.certifications);
                             const prevCertId = getPreviousCertId(budget.certifications, activeCertId);
-                            const prevQty = prevCertId ? calcItemCertifiedQty(node, prevCertId, budget.certifications) : 0;
-                            const actQty = round2(originQty - prevQty);
-                            const totalQty = calcItemTotalQty(node) || 1;
+                            const isChapter = !node.unit;
 
-                            const antPct = (prevQty / totalQty) * 100;
-                            const actPct = (actQty / totalQty) * 100;
-                            const originPct = (originQty / totalQty) * 100;
+                            // Les partides es mesuren en quantitat; els capítols, en import
+                            // (barrejar unitats no tindria sentit). El percentatge d'avenç,
+                            // en canvi, és comparable en tots dos casos.
+                            let antPct, actPct, originPct, originQty, actQty, prevQty, totalQty;
+
+                            if (isChapter) {
+                                const chBudget = calcChapterTotal(node, priceDatabase);
+                                const chOrigin = calcChapterCertifiedTotal(node, activeCertId, priceDatabase, budget.certifications);
+                                const chPrev = prevCertId
+                                    ? calcChapterCertifiedTotal(node, prevCertId, priceDatabase, budget.certifications)
+                                    : 0;
+                                prevQty = chPrev;
+                                actQty = round2(chOrigin - chPrev);
+                                antPct = safePct(chPrev, chBudget);
+                                actPct = safePct(actQty, chBudget);
+                                originPct = safePct(chOrigin, chBudget);
+                            } else {
+                                originQty = calcItemCertifiedQty(node, activeCertId, budget.certifications);
+                                prevQty = prevCertId ? calcItemCertifiedQty(node, prevCertId, budget.certifications) : 0;
+                                actQty = round2(originQty - prevQty);
+                                totalQty = calcItemTotalQty(node);
+                                antPct = safePct(prevQty, totalQty);
+                                actPct = safePct(actQty, totalQty);
+                                originPct = safePct(originQty, totalQty);
+                            }
 
                             return (
                                 <>
                                     <td className="hidden md:table-cell p-2 text-center text-slate-400 italic w-10 text-[10px]">{node.unit || ''}</td>
                                     <td className="hidden md:table-cell p-2 text-right font-mono w-16 text-[10px] text-slate-400">{node.unit ? formatNumber(totalQty, 2) : ''}</td>
                                     <td className="hidden lg:table-cell p-2 text-right font-mono w-12 text-[10px] text-slate-400">
-                                        {node.unit && prevQty !== 0 ? `${formatNumber(antPct, 1)}%` : '-'}
+                                        {prevQty !== 0 ? `${formatNumber(antPct, 1)}%` : '-'}
                                     </td>
                                     <td className={`hidden lg:table-cell p-2 text-right font-mono w-12 text-[10px] ${actQty > 0 ? 'text-blue-600 font-bold' : 'text-slate-300'}`}>
-                                        {node.unit && actQty !== 0 ? `${actQty > 0 ? '+' : ''}${formatNumber(actPct, 1)}%` : '-'}
+                                        {actQty !== 0 ? `${actQty > 0 ? '+' : ''}${formatNumber(actPct, 1)}%` : '-'}
                                     </td>
                                     <td className="p-1 md:p-2 text-right font-mono w-16 md:w-20 text-[11px] text-emerald-600 font-bold bg-emerald-50/50">
                                         {node.unit ? formatNumber(originQty, 2) : ''}
                                     </td>
-                                    <td className="hidden md:table-cell p-2 text-right font-mono w-12 text-[10px] text-slate-500">
-                                        {node.unit ? `${formatNumber(originPct, 1)}%` : ''}
+                                    <td className={`hidden md:table-cell p-2 text-right font-mono w-12 text-[10px] ${isChapter ? 'text-slate-600 font-bold' : 'text-slate-500'}`}>
+                                        {`${formatNumber(originPct, 1)}%`}
                                     </td>
                                 </>
                             );
@@ -3478,16 +3513,23 @@ export default function App() {
                 <div className="flex items-center gap-2 md:gap-6">
                     {/* Total PEM Display - Always visible */}
                     <button
-                        onClick={() => setShowPemModal(true)}
+                        onClick={() => appMode === 'budget' ? setShowPemModal(true) : setShowCertSummary(true)}
                         className="flex flex-col items-end gap-0.5 group cursor-pointer"
-                        title={appMode === 'budget' ? "Ajustar PEM" : "Total Certificat"}
+                        title={appMode === 'budget' ? "Ajustar PEM" : "Veure el resum de la certificació"}
                     >
                         <span className="text-[8px] md:text-[9px] uppercase text-slate-500 font-bold tracking-widest leading-none group-hover:text-blue-400 transition-colors">
                             {appMode === 'budget' ? 'Total PEM' : 'Total Certificat'}
                         </span>
-                        <span className={`text-sm md:text-xl font-mono font-bold tracking-tighter leading-none ${appMode === 'budget' ? 'text-emerald-400' : 'text-blue-400'}`}>
-                            {formatCurrency(appMode === 'budget' ? budgetTotal : certifiedTotal)}
-                        </span>
+                        <div className="flex items-baseline gap-2">
+                            <span className={`text-sm md:text-xl font-mono font-bold tracking-tighter leading-none ${appMode === 'budget' ? 'text-emerald-400' : 'text-blue-400'}`}>
+                                {formatCurrency(appMode === 'budget' ? budgetTotal : certifiedTotal)}
+                            </span>
+                            {appMode === 'certification' && activeCertId && (
+                                <span className="text-[10px] md:text-xs font-mono font-bold text-emerald-400 leading-none">
+                                    {formatNumber(certificationSummary.totals.originPct, 1)}%
+                                </span>
+                            )}
+                        </div>
                     </button>
 
                     {/* Desktop: All buttons visible */}
@@ -3715,6 +3757,15 @@ export default function App() {
                     onCreateCertification={createCertification}
                     onApproveCertification={certActions.approveCertification}
                     onToggleMethod={certActions.toggleCertificationMethod}
+                />
+            )}
+
+            {/* Resum en viu de la certificació activa */}
+            {appMode === 'certification' && activeCertId && (
+                <CertificationSummary
+                    totals={certificationSummary.totals}
+                    certName={activeCert?.name}
+                    onOpenDetail={() => setShowCertSummary(true)}
                 />
             )}
 
@@ -4233,6 +4284,15 @@ export default function App() {
                     description={importPending.duplicates[importPending.currentIdx].description}
                     onConfirm={() => handleConfirmDuplicate(true)}
                     onSkip={() => handleConfirmDuplicate(false)}
+                />
+            )}
+
+            {showCertSummary && appMode === 'certification' && (
+                <CertificationSummaryModal
+                    summary={certificationSummary}
+                    cert={activeCert}
+                    previousCert={previousCert}
+                    onClose={() => setShowCertSummary(false)}
                 />
             )}
 

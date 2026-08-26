@@ -152,3 +152,57 @@ export const getPreviousCertId = (certifications, certId) => {
     if (idx <= 0) return null;
     return certifications[idx - 1].id;
 };
+
+/**
+ * Percentatge segur: evita NaN i Infinity quan la base és 0.
+ */
+export const safePct = (part, whole) => (whole ? (part / whole) * 100 : 0);
+
+/**
+ * Resum d'una certificació, capítol per capítol i en total.
+ *
+ * Per a cada capítol de primer nivell calcula l'import pressupostat, el certificat
+ * a origen, el de la certificació anterior, el del període (origen − anterior) i el
+ * pendent, amb els percentatges corresponents sobre el pressupost.
+ *
+ * Ho fa servir tant la barra de resum en viu com el detall per capítols, de manera
+ * que totes dues vistes surten sempre del mateix càlcul.
+ */
+export const buildCertificationSummary = (chapters = [], certId, priceDatabase = {}, certifications = []) => {
+    const prevCertId = getPreviousCertId(certifications, certId);
+
+    const rows = chapters.map(chapter => {
+        const budget = round2(calcChapterTotal(chapter, priceDatabase));
+        const origin = certId ? calcChapterCertifiedTotal(chapter, certId, priceDatabase, certifications) : 0;
+        const previous = prevCertId ? calcChapterCertifiedTotal(chapter, prevCertId, priceDatabase, certifications) : 0;
+        const period = round2(origin - previous);
+
+        return {
+            id: chapter.id,
+            code: chapter.code,
+            description: chapter.description,
+            budget,
+            origin,
+            previous,
+            period,
+            pending: round2(budget - origin),
+            originPct: safePct(origin, budget),
+            previousPct: safePct(previous, budget),
+            periodPct: safePct(period, budget)
+        };
+    });
+
+    const sum = (key) => round2(rows.reduce((acc, row) => acc + row[key], 0));
+    const totals = {
+        budget: sum('budget'),
+        origin: sum('origin'),
+        previous: sum('previous'),
+        period: sum('period'),
+        pending: sum('pending')
+    };
+    totals.originPct = safePct(totals.origin, totals.budget);
+    totals.previousPct = safePct(totals.previous, totals.budget);
+    totals.periodPct = safePct(totals.period, totals.budget);
+
+    return { rows, totals, prevCertId };
+};

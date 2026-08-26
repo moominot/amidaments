@@ -50,6 +50,10 @@ del sector: *amidament*, *partida*, *capítol*, *descomposat*, *rendiment*, *cer
   `utils/`, `hooks/` o `components/` — hi ha un pla de refactor a `docs/estat-actual.md`.
 - El path base `/amidaments/` està escrit a mà a `vite.config.js`, `public/manifest.json` i
   `public/sw.js`.
+- Les funcions de `calculations.js` amb `priceDatabase` o `certifications` com a paràmetre
+  **opcional** fallen en silenci si no els passes: cauen a `node.price` o tracten qualsevol
+  fase com si fos `origin`. Han estat l'origen de tres defectes (§1, §6 i §9 de
+  `docs/estat-actual.md`). Passa'ls sempre.
 
 ## Abans de donar per acabada una feina
 

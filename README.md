@@ -20,6 +20,8 @@ opcionalment, a Google Drive.
 - Fases d'obra amb quantitats a origen o parcials (model Presto).
 - Certificació per percentatge, per quantitat manual o amb detall d'amidament propi.
 - Comparativa Anterior / Actual / Origen per partida i per capítol.
+- Resum en viu amb el percentatge total certificat, sempre visible mentre s'introdueixen dades.
+- Detall per capítols amb pressupost, anterior, període, origen, % i pendent.
 - Aprovació i bloqueig de fases.
 
 **Entrada i sortida**
@@ -69,7 +71,7 @@ Les credencials de Drive s'injecten des dels secrets del repositori.
 | [`docs/estat-actual.md`](docs/estat-actual.md) | **Bugs coneguts, deute tècnic i properes passes** |
 
 Si comences a treballar en el projecte, llegeix primer
-[`docs/estat-actual.md`](docs/estat-actual.md): recull els vuit defectes ja corregits (útils
+[`docs/estat-actual.md`](docs/estat-actual.md): recull els deu defectes ja corregits (útils
 com a context) i el deute tècnic que continua obert.
 
 ## Stack

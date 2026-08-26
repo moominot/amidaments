@@ -20,7 +20,7 @@ const CertificationBar = ({
     const method = activeCert?.method || 'origin';
 
     return (
-        <div className="bg-emerald-950/20 border-b border-emerald-500/30 p-2 md:p-3 flex items-center justify-between gap-4 overflow-x-auto no-scrollbar">
+        <div className="bg-slate-900 border-b border-emerald-500/20 p-2 md:p-3 flex items-center justify-between gap-4 overflow-x-auto no-scrollbar">
             <div className="flex items-center gap-3 overflow-x-auto no-scrollbar pb-1 md:pb-0">
                 <div className="flex items-center gap-2 bg-emerald-900/40 text-emerald-300 px-3 py-1.5 rounded-md border border-emerald-500/30 whitespace-nowrap">
                     <Layers size={14} />
