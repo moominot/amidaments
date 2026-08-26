@@ -1113,6 +1113,21 @@ export default function App() {
         ? (budget.certifications || []).find(c => c.id === certificationSummary.prevCertId) || null
         : null;
 
+    /**
+     * El botó d'imprimir segueix el mode actiu. En pressupost obre la vista d'impressió;
+     * en certificació, el document de la fase, que és on hi ha les opcions de G.G./B.I./IVA
+     * i l'exportació a PDF. Per imprimir el pressupost des del mode certificació, es canvia
+     * de mode: la resta de la interfície ja funciona així.
+     */
+    const obreImpressio = useCallback(() => {
+        if (appMode !== 'certification') { setShowPrint(true); return; }
+        if (!activeCertId) {
+            notify('Crea o selecciona una certificació per poder imprimir-la', 'error');
+            return;
+        }
+        setShowCertSummary(true);
+    }, [appMode, activeCertId]); // eslint-disable-line react-hooks/exhaustive-deps
+
     const handleExportCertificationPDF = useCallback(() => {
         if (!activeCertId) {
             notify('Selecciona una certificació abans d\'exportar', 'error');
@@ -3699,8 +3714,15 @@ export default function App() {
                             <span className="text-[10px] font-bold uppercase tracking-widest">Importar</span>
                         </button>
 
-                        {/* Imprimir */}
-                        <button onClick={() => setShowPrint(true)} className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-4 py-2 border border-slate-700 transition-colors" title="Imprimir">
+                        {/* Imprimir: segueix el mode actiu, com la resta de la interfície.
+                            Abans sempre obria el pressupost, també quan s'estava certificant. */}
+                        <button
+                            onClick={obreImpressio}
+                            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-4 py-2 border border-slate-700 transition-colors"
+                            title={appMode === 'certification'
+                                ? (activeCertId ? `Imprimir ${activeCert?.name || 'la certificació'}` : 'Cap certificació activa')
+                                : 'Imprimir el pressupost i els amidaments'}
+                        >
                             <Printer size={16} className="text-slate-300" />
                             <span className="text-[10px] font-bold uppercase tracking-widest">Imprimir</span>
                         </button>
@@ -3800,7 +3822,7 @@ export default function App() {
                                     </button>
 
                                     <button
-                                        onClick={() => { setShowPrint(true); setShowMobileMenu(false); }}
+                                        onClick={() => { obreImpressio(); setShowMobileMenu(false); }}
                                         className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 transition-colors flex items-center gap-3"
                                     >
                                         <Printer size={18} className="text-slate-300" />

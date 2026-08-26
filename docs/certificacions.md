@@ -81,8 +81,11 @@ Aquests només s'apliquen al PDF.
 
 ## El PDF de certificació
 
-Es genera des del peu del detall per capítols (**Exporta PDF**), amb
-`exportCertificationPDF` (`src/utils/certificationPdf.js`). Estructura:
+S'hi arriba de dues maneres, totes dues al mateix lloc: el botó **Imprimir** del capçal —que
+segueix el mode actiu, de manera que en certificació porta al document de la fase i no al
+pressupost— i el botó **Detall** de la barra de resum. D'allà, **Exporta PDF**.
+
+El genera `exportCertificationPDF` (`src/utils/certificationPdf.js`). Estructura:
 
 1. **Resum per capítols** — pressupost, anterior, període, origen, % i pendent, amb totals.
 2. **Quadre de liquidació** del període.
