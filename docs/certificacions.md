@@ -77,6 +77,46 @@ color. Si el certificat supera el 100%, el tram es satura però la xifra segueix
 valor real i passa a color ambre.
 
 Els imports són sempre **PEM**: no hi entren despeses generals, benefici industrial ni IVA.
+Aquests només s'apliquen al PDF.
+
+## El PDF de certificació
+
+Es genera des del peu del detall per capítols (**Exporta PDF**), amb
+`exportCertificationPDF` (`src/utils/certificationPdf.js`). Estructura:
+
+1. **Resum per capítols** — pressupost, anterior, període, origen, % i pendent, amb totals.
+2. **Quadre de liquidació** del període.
+3. **Import a certificar en lletres** (`numberToTextCatalan`, a `src/utils/numberToText.js`).
+4. **Signatures**: propietat, direcció facultativa i empresa constructora.
+5. **Detall per partides**, opcional, a partir de pàgina nova: previst, anterior, període,
+   origen, % i import de cada partida, amb els capítols com a separadors.
+
+### Com es liquida
+
+Els percentatges **s'apliquen sobre l'import del període**, que és el que es factura:
+
+```
+IMPORT D'AQUESTA CERTIFICACIÓ (PEM) = origen − anterior
+  + G.G. %   sobre el període
+  + B.I. %   sobre el període
+  = P.E.C.
+  + I.V.A. % sobre el P.E.C.
+  = TOTAL A CERTIFICAR
+```
+
+Com que són percentatges lineals, això dona el mateix que restar la cascada a origen menys
+la cascada anterior, i evita arrossegar diferències d'arrodoniment entre fases.
+
+Els tres percentatges surten de `printConfig`, el mateix objecte que fa servir el pressupost,
+i es poden activar i ajustar des del mateix peu del modal. Si estan tots desactivats, el total
+a certificar és el PEM del període.
+
+### Noms de fitxer
+
+Passen per `safeFileName` (`src/utils/fileName.js`), que **translitera els accents**. No és
+cosmètic: Chromium descarta l'atribut `download` sencer si porta caràcters no ASCII i desa el
+fitxer com a `download`, sense extensió. Amb noms de projecte en català passava sempre. Ho fan
+servir totes les exportacions de l'aplicació, no només aquesta.
 
 ## Aprovació i bloqueig
 
@@ -122,5 +162,9 @@ Les certificacions viatgen en BC3 com a **fases**:
 | Resum (càlcul) | `buildCertificationSummary` a `src/utils/calculations.js` |
 | Resum en viu | `src/components/Certification/CertificationSummary.jsx` |
 | Detall per capítols | `src/components/Certification/CertificationSummaryModal.jsx` |
+| PDF de certificació | `src/utils/certificationPdf.js` |
+| Files del detall per partides | `buildCertificationDetail` a `src/utils/calculations.js` |
+| Import en lletres | `src/utils/numberToText.js` |
+| Noms de fitxer segurs | `src/utils/fileName.js` |
 | Creació de fases, `activeCertId`, `certifiedTotal` | `src/App.jsx` |
 | Columnes de la taula en mode certificació | `renderTableRows`, a `src/App.jsx` |

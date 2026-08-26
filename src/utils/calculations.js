@@ -206,3 +206,66 @@ export const buildCertificationSummary = (chapters = [], certId, priceDatabase =
 
     return { rows, totals, prevCertId };
 };
+
+/**
+ * Aplana l'arbre en files de certificació, capítols i partides, per al detall del PDF.
+ *
+ * Manté l'ordre de lectura del pressupost (subcapítols abans que partides, com a la resta
+ * de l'aplicació) i marca el nivell de cada fila perquè es pugui sagnar.
+ */
+export const buildCertificationDetail = (chapters = [], certId, priceDatabase = {}, certifications = []) => {
+    const prevCertId = getPreviousCertId(certifications, certId);
+    const rows = [];
+
+    const walk = (nodes, level) => {
+        nodes.forEach(node => {
+            const isChapter = !node.unit;
+
+            if (isChapter) {
+                const budget = round2(calcChapterTotal(node, priceDatabase));
+                const origin = certId ? calcChapterCertifiedTotal(node, certId, priceDatabase, certifications) : 0;
+                const previous = prevCertId ? calcChapterCertifiedTotal(node, prevCertId, priceDatabase, certifications) : 0;
+                rows.push({
+                    isChapter: true,
+                    level,
+                    code: node.code,
+                    description: node.description,
+                    budgetAmount: budget,
+                    previousAmount: previous,
+                    periodAmount: round2(origin - previous),
+                    originAmount: origin,
+                    originPct: safePct(origin, budget)
+                });
+                walk([...(node.subChapters || []), ...(node.items || [])], level + 1);
+                return;
+            }
+
+            const budgetQty = calcItemTotalQty(node);
+            const originQty = certId ? calcItemCertifiedQty(node, certId, certifications) : 0;
+            const previousQty = prevCertId ? calcItemCertifiedQty(node, prevCertId, certifications) : 0;
+            const originAmount = certId ? calcItemCertifiedAmount(node, certId, priceDatabase, certifications) : 0;
+            const previousAmount = prevCertId ? calcItemCertifiedAmount(node, prevCertId, priceDatabase, certifications) : 0;
+
+            rows.push({
+                isChapter: false,
+                level,
+                code: node.code,
+                description: node.description,
+                unit: node.unit,
+                unitPrice: getItemUnitPrice(node, priceDatabase),
+                budgetQty,
+                previousQty,
+                periodQty: round2(originQty - previousQty),
+                originQty,
+                budgetAmount: calcItemTotalAmount(node, priceDatabase),
+                previousAmount,
+                periodAmount: round2(originAmount - previousAmount),
+                originAmount,
+                originPct: safePct(originQty, budgetQty)
+            });
+        });
+    };
+
+    walk(chapters, 0);
+    return rows;
+};

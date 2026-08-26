@@ -2,7 +2,7 @@
 
 Inventari fet llegint el codi (agost 2026).
 
-**Estat: els deu defectes de la secció següent estan corregits** a la branca
+**Estat: els onze defectes de la secció següent estan corregits** a la branca
 `claude/correccions-defectes-detectats`. Es conserva la descripció de cadascun perquè
 expliquen decisions del codi actual i serveixen de referència si tornen a aparèixer.
 El deute tècnic de la segona meitat del document continua obert.
@@ -173,10 +173,30 @@ navegador: sense text, el botó no en tenia. Corregit definint `screens: { xs: '
 
 El mode certificació ja no és només d'entrada de dades: incorpora una **barra de resum en viu**
 sota la barra de fases i un **detall per capítols**. Tots dos surten de
-`buildCertificationSummary`. Detalls a `docs/certificacions.md`.
+`buildCertificationSummary`.
 
-Queda pendent, com abans, **treure'n un document**: un PDF de certificació per fase amb
-Anterior / Actual / Origen és la peça que encara falta.
+### PDF de certificació
+
+Document complet per fase: resum per capítols, quadre de liquidació amb G.G. / B.I. / IVA,
+import en lletres, signatures i detall per partides opcional. A `src/utils/certificationPdf.js`,
+fora d'`App.jsx` — és la primera passa del refactor d'exportadors que hi ha més avall.
+
+Detalls de tots dos a `docs/certificacions.md`.
+
+### 11. Els fitxers exportats es descarregaven com a «download» ✅
+
+`doc.save()` i `a.download` rebien el nom del projecte sense sanejar. **Chromium descarta
+l'atribut `download` sencer si conté qualsevol caràcter no ASCII** i desa el fitxer com a
+`download`, sense extensió. Amb noms de projecte en català ("Reforma d'habitatge",
+"Certificació 2") passava pràcticament sempre.
+
+Comprovat amb el navegador: `"Simple 2.pdf"` arriba bé, `"Certificació 2.pdf"` arriba com a
+`"download"`. Afectava **totes** les exportacions: PDF d'amidaments, PDF de resum, Excel, BC3
+i el projecte JSON.
+
+Corregit amb `safeFileName` (`src/utils/fileName.js`), que translitera els accents
+(`Certificació 2` → `Certificacio 2`) i elimina els caràcters no vàlids. Es perd el diacrític,
+però el nom continua essent llegible i el fitxer conserva l'extensió.
 
 ---
 
@@ -191,9 +211,11 @@ suggerit, de menys a més arriscat:
 1. **Components de presentació pura**, que ja estan aïllats dins del fitxer:
    `PrintView`, `PrintConfigModal`, `PemAdjustmentModal`, `ItemCreator`, `ImportConfirmModal`
    → `src/components/`.
-2. **Exportadors**: `handleExportPDF`, `handleExportSummaryPDF`, `handleExportXLSX`,
-   `numberToTextCatalan`, `flattenBudget` → `src/utils/export/`. Són funcions que només
-   necessiten `(budget, priceDatabase, config)`; extreure-les força a arreglar el punt 1.
+2. **Exportadors**: `handleExportPDF`, `handleExportSummaryPDF`, `handleExportXLSX` i
+   `flattenBudget` → `src/utils/export/`. Són funcions que només necessiten
+   `(budget, priceDatabase, config)`. `numberToTextCatalan` i el PDF de certificació ja
+   estan extrets (`utils/numberToText.js`, `utils/certificationPdf.js`) i serveixen de
+   model: reben dades, retornen un `jsPDF`, i es poden provar sense muntar React.
 3. **`generateBC3`** → `src/utils/bc3Writer.js`, al costat de `bc3Parser.js`.
 4. **Mutacions de l'arbre** → un `useBudgetTree(budget, setBudget)` amb un únic helper
    `mapNode(nodes, id, fn)` que substitueixi les ~15 còpies del mateix `updateInTree`.
@@ -259,7 +281,7 @@ ESLint ≥ 9, i amb un ESLint global més nou instal·lat `npm run lint` falla.
 
 Per ordre de relació valor/esforç:
 
-1. ~~Arreglar els punts 1–10.~~ ✅ Fet.
+1. ~~Arreglar els punts 1–11.~~ ✅ Fet.
 2. ~~Activar el lint sobre `.jsx`.~~ ✅ Fet (queda la migració a flat config).
 3. **Vitest + tests de `calculations.js` i `bc3Parser.js`**, amb el BC3 de mostra com a
    fixture. És ara la prioritat: les correccions 2, 3 i 8 es van validar amb scripts d'un sol
@@ -267,8 +289,6 @@ Per ordre de relació valor/esforç:
    prova automàtica, no un ritual manual.
 4. **Extreure els exportadors i el writer BC3** d'`App.jsx` (passes 2 i 3 del refactor).
 5. **Bloqueig real de fases aprovades** al hook `useCertification`.
-6. **Informe de certificació en PDF** (per fase, amb Anterior / Actual / Origen). El resum
-   ja existeix en pantalla; ara falta poder-lo imprimir i signar. `buildCertificationSummary`
-   retorna les files ja llestes per alimentar-lo.
+6. ~~Informe de certificació en PDF.~~ ✅ Fet.
 7. **Code-splitting** de jsPDF / SheetJS.
 8. **`git rm -r --cached node_modules dist`** en un commit dedicat.

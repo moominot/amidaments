@@ -23,6 +23,8 @@ opcionalment, a Google Drive.
 - Resum en viu amb el percentatge total certificat, sempre visible mentre s'introdueixen dades.
 - Detall per capítols amb pressupost, anterior, període, origen, % i pendent.
 - Aprovació i bloqueig de fases.
+- **PDF de certificació** per fase: resum per capítols, liquidació amb G.G. / B.I. / IVA,
+  import en lletres, signatures i detall per partides opcional.
 
 **Entrada i sortida**
 - Importació BC3 des de disc, URL, arrossegament, Google Drive o "Obrir amb…" (PWA).
@@ -71,7 +73,7 @@ Les credencials de Drive s'injecten des dels secrets del repositori.
 | [`docs/estat-actual.md`](docs/estat-actual.md) | **Bugs coneguts, deute tècnic i properes passes** |
 
 Si comences a treballar en el projecte, llegeix primer
-[`docs/estat-actual.md`](docs/estat-actual.md): recull els deu defectes ja corregits (útils
+[`docs/estat-actual.md`](docs/estat-actual.md): recull els onze defectes ja corregits (útils
 com a context) i el deute tècnic que continua obert.
 
 ## Stack

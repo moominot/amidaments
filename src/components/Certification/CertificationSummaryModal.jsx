@@ -1,4 +1,4 @@
-import { X, BarChart3, Lock } from 'lucide-react';
+import { X, BarChart3, Lock, FileDown } from 'lucide-react';
 import { formatCurrency, formatNumber } from '../../utils/calculations';
 
 /**
@@ -28,8 +28,18 @@ const MiniMeter = ({ previousPct, periodPct }) => {
     );
 };
 
-const CertificationSummaryModal = ({ summary, cert, previousCert, onClose }) => {
+const Toggle = ({ checked, onChange, label, children }) => (
+    <label className="flex items-center gap-1.5 cursor-pointer whitespace-nowrap">
+        <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} />
+        <span className="text-[10px] text-slate-600">{label}</span>
+        {children}
+    </label>
+);
+
+const CertificationSummaryModal = ({ summary, cert, previousCert, config, setConfig, onExportPdf, onClose }) => {
     const { rows, totals } = summary;
+
+    const setPct = (key, patch) => setConfig({ ...config, [key]: { ...config[key], ...patch } });
 
     return (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-md p-2 md:p-8">
@@ -162,16 +172,53 @@ const CertificationSummaryModal = ({ summary, cert, previousCert, onClose }) => 
                     </table>
                 </div>
 
-                <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-between items-center flex-shrink-0">
-                    <p className="text-[10px] text-slate-400 italic">
-                        Els imports són PEM, sense despeses generals ni benefici industrial.
-                    </p>
-                    <button
-                        onClick={onClose}
-                        className="bg-slate-800 text-white hover:bg-slate-700 px-6 py-2 text-[10px] font-bold uppercase tracking-widest transition-colors"
-                    >
-                        Tancar
-                    </button>
+                {/* Opcions del PDF: els percentatges s'apliquen sobre l'import DEL PERÍODE,
+                    que és el que es factura. Comparteixen configuració amb el pressupost. */}
+                <div className="p-3 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center gap-x-5 gap-y-2 flex-shrink-0">
+                    <span className="text-[9px] uppercase font-bold tracking-widest text-slate-400">PDF</span>
+
+                    {[
+                        { key: 'ge', label: 'G.G.' },
+                        { key: 'ip', label: 'B.I.' },
+                        { key: 'iva', label: 'I.V.A.' },
+                    ].map(({ key, label }) => (
+                        <Toggle
+                            key={key}
+                            checked={!!config?.[key]?.enabled}
+                            onChange={v => setPct(key, { enabled: v })}
+                            label={label}
+                        >
+                            <input
+                                type="number"
+                                step="0.01"
+                                value={config?.[key]?.percentage ?? 0}
+                                onChange={e => setPct(key, { percentage: parseFloat(e.target.value) || 0 })}
+                                className="w-12 border border-slate-300 rounded p-0.5 text-[10px] text-right"
+                            />
+                            <span className="text-[9px] text-slate-400 font-bold">%</span>
+                        </Toggle>
+                    ))}
+
+                    <Toggle
+                        checked={!!config?.certItemDetail}
+                        onChange={v => setConfig({ ...config, certItemDetail: v })}
+                        label="Detall per partides"
+                    />
+
+                    <div className="flex items-center gap-2 ml-auto">
+                        <button
+                            onClick={onExportPdf}
+                            className="flex items-center gap-2 bg-emerald-600 text-white hover:bg-emerald-500 px-5 py-2 text-[10px] font-bold uppercase tracking-widest transition-colors shadow-lg shadow-emerald-900/20"
+                        >
+                            <FileDown size={14} /> Exporta PDF
+                        </button>
+                        <button
+                            onClick={onClose}
+                            className="bg-slate-800 text-white hover:bg-slate-700 px-5 py-2 text-[10px] font-bold uppercase tracking-widest transition-colors"
+                        >
+                            Tancar
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

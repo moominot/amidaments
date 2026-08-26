@@ -56,6 +56,7 @@ import {
     calcChapterTotal,
     getPreviousCertId,
     buildCertificationSummary,
+    buildCertificationDetail,
     safePct
 } from './utils/calculations';
 import { useCertification } from './hooks/useCertification';
@@ -67,56 +68,12 @@ import CertificationSummary from './components/Certification/CertificationSummar
 import CertificationSummaryModal from './components/Certification/CertificationSummaryModal';
 import DriveSettingsModal from './components/DriveSettingsModal';
 import { processBC3Data } from './utils/bc3Parser';
+import { numberToTextCatalan } from './utils/numberToText';
+import { exportCertificationPDF } from './utils/certificationPdf';
+import { safeFileName } from './utils/fileName';
 import { toWindows1252Bytes } from './utils/googleDrive';
 
 const formatPrice = (val) => formatNumber(val, 2);
-
-const numberToTextCatalan = (n) => {
-    const units = ['', 'UN', 'DOS', 'TRES', 'QUATRE', 'CINC', 'SIS', 'SET', 'VUIT', 'NOU'];
-    const tens = ['', 'DEU', 'VINT', 'TRENTA', 'QUARANTA', 'CINQUANTA', 'SEIXANTA', 'SETANTA', 'VUITANTA', 'NORANTA'];
-    const unique = {
-        11: 'ONZE', 12: 'DOTZE', 13: 'TRETZE', 14: 'CATORZE', 15: 'QUINZE',
-        16: 'SETZE', 17: 'DISSET', 18: 'DIVUIT', 19: 'DINOU'
-    };
-    const n2t = (num) => {
-        if (num === 0) return '';
-        if (num < 10) return units[num];
-        if (num < 20 && unique[num]) return unique[num];
-        if (num < 100) {
-            const t = Math.floor(num / 10);
-            const u = num % 10;
-            if (u === 0) return tens[t];
-            if (t === 2) return `VINT-I-${units[u]}`;
-            return `${tens[t]}-${units[u]}`;
-        }
-        if (num < 1000) {
-            const h = Math.floor(num / 100);
-            const r = num % 100;
-            const prefix = h === 1 ? 'CENT' : `${units[h]}-CENTS`;
-            if (r === 0) return prefix;
-            return `${prefix} ${n2t(r)}`;
-        }
-        return '';
-    };
-    const integerPart = Math.floor(n);
-    const decimalPart = Math.round((n - integerPart) * 100);
-    let result = '';
-    const millions = Math.floor(integerPart / 1000000);
-    const thousands = Math.floor((integerPart % 1000000) / 1000);
-    const units_part = integerPart % 1000;
-    if (millions > 0) result += millions === 1 ? 'UN MILIÓ' : `${n2t(millions)} MILIONS`;
-    if (thousands > 0) {
-        if (result) result += ' ';
-        result += thousands === 1 ? 'MIL' : `${n2t(thousands)} MIL`;
-    }
-    if (units_part > 0 || (millions === 0 && thousands === 0)) {
-        if (result) result += ' ';
-        result += units_part === 0 && (millions > 0 || thousands > 0) ? '' : (integerPart === 0 ? 'ZERO' : n2t(units_part));
-    }
-    result += integerPart === 1 ? ' EURO' : ' EUROS';
-    if (decimalPart > 0) result += ` AMB ${n2t(decimalPart)} ${decimalPart === 1 ? 'CÈNTIM' : 'CÈNTIMS'}`;
-    return result.trim();
-};
 
 const flattenBudget = (nodes, level = 0, parentRef = '', counterObj = { val: 0 }, config, priceDatabase) => {
     let rows = [];
@@ -933,6 +890,7 @@ export default function App() {
         showMeasurements: true,
         useCorrelativeCodes: true,
         chaptersOnNewPage: true,
+        certItemDetail: true,
         ge: { enabled: false, percentage: 13 },
         ip: { enabled: false, percentage: 6 },
         iva: { enabled: false, percentage: 21 }
@@ -1096,6 +1054,26 @@ export default function App() {
         ? (budget.certifications || []).find(c => c.id === certificationSummary.prevCertId) || null
         : null;
 
+    const handleExportCertificationPDF = useCallback(() => {
+        if (!activeCertId) {
+            notify('Selecciona una certificació abans d\'exportar', 'error');
+            return;
+        }
+        const certs = budget.certifications || [];
+        const cert = certs.find(c => c.id === activeCertId);
+        exportCertificationPDF({
+            budget,
+            summary: certificationSummary,
+            detail: printConfig.certItemDetail
+                ? buildCertificationDetail(budget.chapters, activeCertId, priceDatabase, certs)
+                : [],
+            cert,
+            certIndex: certs.findIndex(c => c.id === activeCertId) + 1,
+            config: { ...printConfig, showItemDetail: printConfig.certItemDetail },
+        });
+        notify(`Certificació "${cert?.name}" exportada en PDF`);
+    }, [budget, priceDatabase, activeCertId, certificationSummary, printConfig]); // eslint-disable-line react-hooks/exhaustive-deps
+
     const handleExportPDF = useCallback((config) => {
         const doc = new jsPDF('p', 'mm', 'a4');
         const counter = { val: 0 };
@@ -1230,7 +1208,7 @@ export default function App() {
         doc.text('LA PROPIETAT', 55, finalY, { align: 'center' });
         doc.text('LA DIRECCIÓ FACULTATIVA', 155, finalY, { align: 'center' });
 
-        doc.save(`Amidaments_${budget.name}.pdf`);
+        doc.save(`Amidaments_${safeFileName(budget.name, 'projecte')}.pdf`);
     }, [budget, priceDatabase, budgetTotal]);
 
     const handleExportSummaryPDF = useCallback((config) => {
@@ -1333,7 +1311,7 @@ export default function App() {
         finalY += 15;
         doc.text(`, a ${date}`, 120, finalY);
 
-        doc.save(`${budget.name}_resum.pdf`);
+        doc.save(`${safeFileName(budget.name, 'projecte')}_resum.pdf`);
     }, [budget, priceDatabase, budgetTotal]);
 
     const handleExportXLSX = useCallback(() => {
@@ -1417,7 +1395,7 @@ export default function App() {
             XLSX.utils.book_append_sheet(wb, ws, "Pressupost");
         }
 
-        XLSX.writeFile(wb, `${budget.name}.xlsx`);
+        XLSX.writeFile(wb, `${safeFileName(budget.name, 'projecte')}.xlsx`);
     }, [budget, priceDatabase, printConfig.chaptersOnNewPage, printConfig.showLongDesc]);
 
     // --- Search Filtering ---
@@ -2118,7 +2096,7 @@ export default function App() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${budget.name || 'projecte'}.bc3`;
+        a.download = `${safeFileName(budget.name, 'projecte')}.bc3`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -2141,7 +2119,7 @@ export default function App() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${budget.name || 'projecte'}.json`;
+        a.download = `${safeFileName(budget.name, 'projecte')}.json`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -4292,6 +4270,9 @@ export default function App() {
                     summary={certificationSummary}
                     cert={activeCert}
                     previousCert={previousCert}
+                    config={printConfig}
+                    setConfig={setPrintConfig}
+                    onExportPdf={handleExportCertificationPDF}
                     onClose={() => setShowCertSummary(false)}
                 />
             )}
