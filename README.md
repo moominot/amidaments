@@ -81,6 +81,7 @@ Les credencials de Drive s'injecten des dels secrets del repositori.
 | [`docs/model-de-dades.md`](docs/model-de-dades.md) | Estructura de `budget`, nodes, amidaments, preus |
 | [`docs/calculs.md`](docs/calculs.md) | Com es calculen quantitats, preus, imports i certificats |
 | [`docs/bc3.md`](docs/bc3.md) | Registres BC3 suportats, parser i writer |
+| [`worker/README.md`](worker/README.md) | Proxy CORS propi a Cloudflare per importar del Generador de Preus |
 | [`docs/fiebdc-norma.md`](docs/fiebdc-norma.md) | Extracte de l'especificació FIEBDC-3/2020: què diu de cada registre |
 | [`docs/certificacions.md`](docs/certificacions.md) | Model de fases, mètodes origen/parcial, aprovació |
 | [`docs/exportacions.md`](docs/exportacions.md) | Impressió, PDF, Excel i la seva configuració |

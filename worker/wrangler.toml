@@ -1,0 +1,6 @@
+name = "amidaments-proxy"
+main = "worker.js"
+compatibility_date = "2026-08-27"
+
+# Sense KV, sense D1, sense secrets: el worker no desa res i no té estat.
+# El pla gratuït (100.000 peticions al dia) és de sobres per a aquest ús.

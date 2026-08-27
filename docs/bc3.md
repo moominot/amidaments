@@ -210,9 +210,10 @@ prova diversos serveis en ordre i es queda amb el primer que respon un BC3 de ve
 > el pla gratuït només respon a peticions de navegador —des d'un script diu «Server-side
 > requests are not allowed on your plan».
 >
-> Per no dependre'n, amb `VITE_CORS_PROXY` es pot posar un proxy propi (un Worker de
-> Cloudflare en són quinze línies), amb `{url}` allà on hi vagi la URL codificada. Es prova
-> primer.
+> Per no dependre'n, a **`worker/`** hi ha un Worker de Cloudflare a punt de desplegar
+> (`npx wrangler deploy`), amb llista blanca de dominis d'origen i de llocs que el poden
+> cridar. La seva URL va a `VITE_CORS_PROXY`, amb `{url}` allà on hi vagi la URL codificada,
+> i es prova primer. Veure `worker/README.md`.
 
 Cada intent té un límit de 15 segons i es comprova que la resposta comenci per un registre
 BC3: gairebé tots aquests serveis contesten `200` amb un JSON d'error a dins quan et refusen,
