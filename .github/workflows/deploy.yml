@@ -44,6 +44,9 @@ jobs:
           VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
           VITE_GOOGLE_API_KEY: ${{ secrets.VITE_GOOGLE_API_KEY }}
           VITE_GOOGLE_APP_ID: ${{ secrets.VITE_GOOGLE_APP_ID }}
+          # Opcional: el proxy CORS propi de worker/. Si el secret no hi és, la importació
+          # des d'URL cau als serveis públics, que és el comportament de sempre.
+          VITE_CORS_PROXY: ${{ secrets.VITE_CORS_PROXY }}
       - name: Setup Pages
         uses: actions/configure-pages@v4
       - name: Upload artifact

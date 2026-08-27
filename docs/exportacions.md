@@ -61,6 +61,23 @@ el full es pot seguir editant:
 Amb `chaptersOnNewPage` activat es genera un full "Resum" més un full per capítol
 (nom del full = codi del capítol, retallat a 31 caràcters i sanejat).
 
+## Estudi de gestió de residus — `utils/wasteStudyPdf.js`
+
+No surt de la vista d'impressió sinó de la pestanya **Residus**, amb el botó *Estudi PDF*, i
+té la seva pròpia configuració (`WasteStudyModal`): dades administratives de l'obra i tarifes
+de gestió per tona.
+
+Segueix els set apartats de l'article 4.1.a) del RD 105/2008. Detall a
+[`docs/residus.md`](residus.md).
+
+Dues coses a tenir presents si s'hi toca:
+
+- La capçalera es dibuixa des del `didDrawPage` d'autoTable, **que es dispara a cada taula i
+  no només en canviar de pàgina**. Sense portar el compte de les pàgines ja pintades, la
+  capçalera i el peu es dibuixaven una vegada per taula i quedaven sobreimpresos.
+- Els apartats 2, 3, 5 i 6 són redactat estàndard. Si es canvien, val més fer-ho a les
+  constants `PREVENCIO` i `PLEC` que escampar text pel cos de la funció.
+
 ## Consistència de preus a les sortides
 
 Aquest és el punt a vigilar quan es toca qualsevol exportació. `calcChapterTotal` i

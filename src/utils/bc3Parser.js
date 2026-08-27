@@ -21,6 +21,12 @@ export const processBC3Data = (text) => {
     const longTexts = {};
     const phases = []; // [{ id, code, name, date }]
 
+    // Residus. `~X` són les propietats de cada concepte (codi LER, massa, volum) i `~R` la
+    // relació entre una partida i els components que en generen. Veure `docs/residus.md`.
+    const wasteProperties = {};   // id de propietat -> { label, unit }
+    const propietatsPerCodi = {}; // normCode -> { ler, m, v, ... }
+    const residusPerCodi = {};    // normCode del pare -> [{ type, child, props }]
+
     // Què és aquest fitxer, segons el seu registre ~V. TIPUS_INFORMACIO 3 vol dir que és una
     // certificació: mateixa estructura que un pressupost, però els amidaments són el que s'ha
     // executat a origen. Veure `utils/bc3Writer.js`.
@@ -88,6 +94,43 @@ export const processBC3Data = (text) => {
                         method: 'origin'
                     });
                 }
+                break;
+            }
+            case 'X': {
+                // Capçalera (codi buit): tripletes id\etiqueta\unitat, una per propietat.
+                //   ~X||ce\Cost energètic\MJ\eCO2\Emissió de CO2\kg\ler\Codi LER\\…
+                // Per concepte: parelles id\valor.
+                //   ~X|re150101|ler\15 01 01\m\1.000000\v\0.001333\
+                const xCode = normalizeCode(fields[0]);
+                const trossos = (fields[1] || '').split('\\').map(t => t.trim());
+                if (!fields[0]?.trim()) {
+                    for (let i = 0; i + 1 < trossos.length; i += 3) {
+                        if (trossos[i]) wasteProperties[trossos[i]] = { label: trossos[i + 1] || '', unit: trossos[i + 2] || '' };
+                    }
+                } else if (xCode) {
+                    const props = propietatsPerCodi[xCode] || (propietatsPerCodi[xCode] = {});
+                    for (let i = 0; i + 1 < trossos.length; i += 2) {
+                        if (trossos[i]) props[trossos[i]] = trossos[i + 1];
+                    }
+                }
+                break;
+            }
+            case 'R': {
+                // ~R | PARE | {TIPUS\FILL\{PROPIETAT\VALOR\[UM]\}|}
+                // Cada camp a partir del primer és un component de residu.
+                const rCode = normalizeCode(fields[0]);
+                if (!rCode) break;
+                const components = residusPerCodi[rCode] || (residusPerCodi[rCode] = []);
+                fields.slice(1).forEach(bloc => {
+                    const t = bloc.split('\\').map(x => x.trim());
+                    const [tipus, fill] = t;
+                    if (!fill) return;
+                    const props = {};
+                    for (let i = 2; i + 1 < t.length; i += 3) {
+                        if (t[i]) props[t[i]] = t[i + 1];
+                    }
+                    components.push({ type: tipus || '', child: normalizeCode(fill), props });
+                });
                 break;
             }
             case 'D': {
@@ -325,6 +368,33 @@ export const processBC3Data = (text) => {
             }
         });
 
+        // Residus de la partida.
+        //
+        // Es desen les tres magnituds primitives i no la massa ja multiplicada: `quantity` és
+        // quant component surt per unitat de partida, i `massPerUnit`/`volumePerUnit` són la
+        // massa i el volum per unitat de component, que és el que diu el `~X`. Guardant només
+        // el producte es perdrien els components declarats amb quantitat zero —els envasos
+        // ho són sovint— i en exportar no es podria refer el `~X`.
+        const numero = (valor, defecte) => {
+            const n = parseFloat(String(valor ?? '').replace(',', '.'));
+            return Number.isFinite(n) ? n : defecte;
+        };
+        const waste = (residusPerCodi[normCode] || []).map(rel => {
+            const x = propietatsPerCodi[rel.child] || {};
+            const fill = concepts[rel.child];
+            return {
+                code: fill?.originalCode || rel.child,
+                description: fill?.summary || '',
+                unit: fill?.unit || 'kg',
+                type: rel.type,
+                ler: (x.ler || '').replace(/\s+/g, ' ').trim(),
+                // La norma diu `o` (rendiment); CYPE hi escriu `r`. S'accepten tots dos.
+                quantity: numero(rel.props.r ?? rel.props.o, 0),
+                massPerUnit: numero(x.m, 1),
+                volumePerUnit: numero(x.v, 0),
+            };
+        });
+
         const node = {
             id: crypto.randomUUID(),
             code: concept.originalCode,
@@ -334,7 +404,8 @@ export const processBC3Data = (text) => {
             price: concept.price,
             breakdown,
             measurements: itemMeasurements,
-            certifications: certData
+            certifications: certData,
+            ...(waste.length > 0 ? { waste } : {}),
         };
 
         const children = (relations[normCode] || [])
@@ -358,12 +429,23 @@ export const processBC3Data = (text) => {
 
     // Busquem l'arrel (normalment el concepte que no és fill de ningú, o el primer 'C' sense relacions d'entrada)
     const allChildren = new Set(Object.values(relations).flat().map(r => r.child));
+    const teAmidament = new Set(measurements.map(m => m.target));
     const roots = Object.keys(concepts)
         .filter(c => !allChildren.has(c))
-        // Un concepte que no és fill de ningú, no es descompon i no té unitat no és cap
-        // capítol: és un residu, típicament l'arrel d'un projecte anterior que s'ha quedat a
-        // la base de preus. Penjar-lo de l'arbre hi afegia un capítol buit a cada cicle.
-        .filter(c => (relations[c] || []).length > 0 || concepts[c].unit);
+        // Un concepte de percentatge és un component del preu, mai una partida del projecte.
+        // Com a fill ja s'excloïa; com a arrel s'hi colava.
+        .filter(c => concepts[c].unit !== '%')
+        // Un concepte que no és fill de ningú només és un node del projecte si es descompon
+        // —és un capítol— o si porta amidament —és una partida.
+        //
+        // Sense això, importar una partida del Generador de Preus de CYPE hi afegia també els
+        // disset conceptes de gestió de residus que porta el fitxer (`re150101`, `ruo170101`…),
+        // que no són partides d'obra sinó entrades de banc de preus: no els referencia ningú i
+        // no tenen amidament. On han d'anar és a `prices`, i ja hi van.
+        //
+        // Els fitxers que són una llista plana de partides sense estructura (~C i ~M sense cap
+        // ~D) continuen entrant: cadascuna porta el seu amidament.
+        .filter(c => (relations[c] || []).length > 0 || teAmidament.has(c));
     
     // Si no hi ha una arrel clara, usem el primer concepte 'C' que tingui fills
     
@@ -406,6 +488,7 @@ export const processBC3Data = (text) => {
         chapters: tree,
         phases: phases,
         prices: prices,
-        info
+        info,
+        wasteProperties,
     };
 };

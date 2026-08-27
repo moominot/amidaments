@@ -17,6 +17,19 @@
     "file_handlers": [
         {
             "action": "/amidaments/",
+            "name": "Projecte d'amidaments",
+            "accept": {
+                "application/x-amidaments+json": [
+                    ".amid"
+                ],
+                "application/json": [
+                    ".json"
+                ]
+            }
+        },
+        {
+            "action": "/amidaments/",
+            "name": "Fitxer BC3 (FIEBDC-3)",
             "accept": {
                 "application/x-bc3": [
                     ".bc3"
@@ -27,6 +40,28 @@
             }
         }
     ],
+    "share_target": {
+        "action": "/amidaments/comparteix",
+        "method": "POST",
+        "enctype": "multipart/form-data",
+        "params": {
+            "files": [
+                {
+                    "name": "fitxer",
+                    "accept": [
+                        "application/x-amidaments+json",
+                        "application/json",
+                        "application/x-bc3",
+                        "text/plain",
+                        "application/octet-stream",
+                        ".amid",
+                        ".json",
+                        ".bc3"
+                    ]
+                }
+            ]
+        }
+    },
     "orientation": "any",
     "categories": [
         "productivity",

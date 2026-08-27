@@ -16,6 +16,8 @@ subllistes es separen per `\`.
 | `~M` | Línies d'amidament | ✔ (amb heurística) | ✔ |
 | `~F` | **Document adjunt** | llegit com a fase només si en té la forma antiga | ja no s'escriu |
 | `~Q` | — | — | ja no s'escriu (veure avís) |
+| `~R` | Descomposició de residus | ✔ | ✔ |
+| `~X` | Propietats del concepte (codi LER, massa, volum) | ✔ | ✔ |
 | `~L`, `~P`, `~W`, `~A`, `~G`, `~E`, `~O` | plecs, paramètrics, entitats… | no suportats | no s'escriuen |
 
 > **El `~Q` existeix, però és el registre de PLECS DE CONDICIONS**, no de quantitats:
@@ -141,7 +143,8 @@ El mateix parell de botons —disc i Drive— serveix per als dos documents.
    - `measurementsByCode` (línies i total per concepte).
    També s'hi afegeixen com a conceptes les entrades de `priceDatabase` que no hi siguin ja.
 
-2. **Escriptura** de `~V`, `~K`, el concepte arrel `##`, els `~C` i `~T`, els `~D` i els `~M`.
+2. **Escriptura** de `~V`, `~K`, el concepte arrel `##`, els `~C` i `~T`, els `~D`, els `~X` i
+   `~R` de residus, i els `~M`.
 
 Detalls a tenir en compte:
 
@@ -163,6 +166,8 @@ Detalls a tenir en compte:
   la comparteixen l'exportació a disc i la de Drive: si hi afegeixes caràcters, n'hi ha prou
   amb tocar-la en un lloc.
 - **Noms de fitxer**: tot passa per `safeFileName`, que conserva el `#` de la convenció.
+- **Residus**: els `~X` i `~R` es reescriuen tal com van entrar, inclosos els components amb
+  quantitat zero. Veure `docs/residus.md`.
 
 ### Importar una certificació
 
@@ -195,11 +200,31 @@ per codi normalitzat.
 
 ### Importació des d'URL
 
-`importFromUrl` passa per `https://corsproxy.io/?<url>` perquè el navegador no pot llegir
-directament les URL de tercers. **És una dependència externa no controlada**: si corsproxy.io
-cau o canvia d'API, la funció deixa de funcionar en silenci (només queda un `notify` d'error).
-Està pensada sobretot per a arrossegar preus des del Generador de Preus de CYPE
-(el codi busca literalment `generadordepreus` a les URL candidates).
+`importFromUrl` és el camí de l'enllaç arrossegat des del [Generador de Preus de
+CYPE](https://www.generadordepreus.info/): s'arrossega l'enllaç del BC3 a la finestra i la
+partida entra al projecte sense passar per la carpeta de descàrregues. Funciona tant amb
+l'enllaç «BC3 estàndard» com amb el «BC3 d'Arquímedes».
+
+El servidor de CYPE **no envia `Access-Control-Allow-Origin`**, de manera que el navegador no
+en pot llegir la resposta i cal un proxy pel mig. La descàrrega viu a `utils/corsProxy.js`, que
+prova diversos serveis en ordre i es queda amb el primer que respon un BC3 de veritat.
+
+> **Ja ens ha caigut un cop.** L'agost de 2026 corsproxy.io va canviar l'API: el format antic
+> `?<url>` va passar a respondre `403 keyless_legacy_url` i la importació va deixar de
+> funcionar sense que aquí hagués canviat res. El format bo és `?url=<url codificada>`, i amb
+> el pla gratuït només respon a peticions de navegador —des d'un script diu «Server-side
+> requests are not allowed on your plan».
+>
+> Per no dependre'n, a **`worker/`** hi ha un Worker de Cloudflare a punt de desplegar
+> (`npx wrangler deploy`), amb llista blanca de dominis d'origen i de llocs que el poden
+> cridar. La seva URL va a `VITE_CORS_PROXY`, amb `{url}` allà on hi vagi la URL codificada,
+> i es prova primer. Veure `worker/README.md`.
+
+Cada intent té un límit de 15 segons i es comprova que la resposta comenci per un registre
+BC3: gairebé tots aquests serveis contesten `200` amb un JSON d'error a dins quan et refusen,
+i sense la comprovació el text d'error acabava al parser. Si no se'n surt cap, el missatge
+diu què es pot fer —descarregar el fitxer i arrossegar-lo— i el detall de cada intent va a
+la consola.
 
 ## Fitxer de mostra
 

@@ -11,6 +11,10 @@ import {
     updateDriveFile,
     toWindows1252Bytes,
 } from '../utils/googleDrive';
+import {
+    EXTENSIO_PROJECTE, MIME_PROJECTE, esFitxerBC3,
+    ambExtensioProjecte, serialitzaProjecte, llegeixProjecte,
+} from '../utils/projectFile';
 
 /**
  * Hook principal d'integració amb Google Drive.
@@ -160,13 +164,13 @@ export const useGoogleDrive = ({
             const token = await _ensureToken();
             console.log('🎫 Token acquired for _loadFile');
             const rawFileName = fileName || (await getFileMetadata(fileId, token)).name;
-            const ext = rawFileName.toLowerCase().endsWith('.bc3') ? 'bc3' : 'json';
+            const ext = esFitxerBC3(rawFileName) ? 'bc3' : 'json';
 
             const data = await downloadDriveFile(fileId, token, ext);
 
             if (ext === 'json') {
-                const projectData = JSON.parse(data);
-                if (projectData.budget && projectData.priceDatabase) {
+                const projectData = llegeixProjecte(data);
+                if (projectData) {
                     onProjectLoaded(projectData);
                     setCurrentFileId(fileId);
                     setCurrentFileName(rawFileName);
@@ -218,7 +222,7 @@ export const useGoogleDrive = ({
 
                 const meta = await getFileMetadata(fileId, token);
                 console.log('📄 Metadata retrieved:', meta.name);
-                const ext = meta.name.toLowerCase().endsWith('.bc3') ? 'bc3' : 'json';
+                const ext = esFitxerBC3(meta.name) ? 'bc3' : 'json';
                 await _loadFile(fileId, meta.name, ext);
             }
         } catch (err) {
@@ -233,24 +237,17 @@ export const useGoogleDrive = ({
     const saveToDrive = useCallback(async (budget, priceDatabase) => {
         try {
             const token = await _ensureToken();
-            const projectData = {
-                budget,
-                priceDatabase,
-                exportDate: new Date().toISOString(),
-                version: '1.0',
-            };
-            const json = JSON.stringify(projectData, null, 2);
-            const mimeType = 'application/json';
+            const json = serialitzaProjecte(budget, priceDatabase);
 
             if (currentFileId && currentFileType === 'json') {
-                await updateDriveFile(currentFileId, json, mimeType, token);
+                await updateDriveFile(currentFileId, json, MIME_PROJECTE, token);
                 notify?.(`Desat a Drive: ${currentFileName} ✓`);
             } else {
                 // Nou fitxer
-                const name = prompt('Nom del fitxer a Drive:', `${budget.name || 'projecte'}.json`);
+                const name = prompt('Nom del fitxer a Drive:', `${budget.name || 'projecte'}${EXTENSIO_PROJECTE}`);
                 if (!name) return;
-                const fileName = name.endsWith('.json') ? name : `${name}.json`;
-                const result = await createDriveFile(fileName, json, mimeType, token);
+                const fileName = ambExtensioProjecte(name);
+                const result = await createDriveFile(fileName, json, MIME_PROJECTE, token);
                 setCurrentFileId(result.id);
                 setCurrentFileName(fileName);
                 setCurrentFileType('json');
@@ -265,11 +262,10 @@ export const useGoogleDrive = ({
     const saveAsToDrive = useCallback(async (budget, priceDatabase) => {
         try {
             const token = await _ensureToken();
-            const name = prompt('Nom del nou fitxer a Drive:', `${budget.name || 'projecte'}.json`);
+            const name = prompt('Nom del nou fitxer a Drive:', `${budget.name || 'projecte'}${EXTENSIO_PROJECTE}`);
             if (!name) return;
-            const fileName = name.endsWith('.json') ? name : `${name}.json`;
-            const projectData = { budget, priceDatabase, exportDate: new Date().toISOString(), version: '1.0' };
-            const result = await createDriveFile(fileName, JSON.stringify(projectData, null, 2), 'application/json', token);
+            const fileName = ambExtensioProjecte(name);
+            const result = await createDriveFile(fileName, serialitzaProjecte(budget, priceDatabase), MIME_PROJECTE, token);
             setCurrentFileId(result.id);
             setCurrentFileName(fileName);
             setCurrentFileType('json');

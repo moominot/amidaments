@@ -37,13 +37,22 @@ opcionalment, a Google Drive.
 - **Desfer i refer** (Ctrl+Z / Ctrl+Maj+Z) sobre tot el projecte.
 - **Projectes recents**: crear-ne un de nou ja no destrueix l'anterior.
 
+**Residus**
+- Estimació de residus de construcció i demolició agregada per codi LER, a partir dels
+  registres `~R` i `~X` del BC3.
+- **Estudi de gestió de residus** en PDF amb els set apartats de l'article 4.1.a) del
+  RD 105/2008, amb els llindars de separació de l'article 5.5 calculats i la valoració del
+  cost segons les tarifes que s'hi introdueixin.
+
 **Entrada i sortida**
 - Importació BC3 des de disc, URL, arrossegament, Google Drive o "Obrir amb…" (PWA).
 - Exportació BC3 en Windows-1252: el pressupost, o la certificació activa com a fitxer
   independent `<projecte>#certification NNNN.bc3`, segons mana la norma FIEBDC-3.
 - PDF de pressupost i amidaments, i PDF de resum amb G.G. / B.I. / IVA i import en lletres.
 - Excel amb fórmules vives (els parcials i els totals es recalculen al full).
-- Projecte natiu en JSON.
+- Projecte natiu en **`.amid`** (JSON amb extensió pròpia), que el sistema associa a
+  l'aplicació: doble clic a l'escriptori, i «Compartir amb» a Android. Els `.json` desats
+  abans es continuen obrint.
 
 ## Posar-ho en marxa
 
@@ -79,6 +88,8 @@ Les credencials de Drive s'injecten des dels secrets del repositori.
 | [`docs/model-de-dades.md`](docs/model-de-dades.md) | Estructura de `budget`, nodes, amidaments, preus |
 | [`docs/calculs.md`](docs/calculs.md) | Com es calculen quantitats, preus, imports i certificats |
 | [`docs/bc3.md`](docs/bc3.md) | Registres BC3 suportats, parser i writer |
+| [`docs/residus.md`](docs/residus.md) | Estimació de residus: registres `~R` i `~X`, model i càlcul |
+| [`worker/README.md`](worker/README.md) | Proxy CORS propi a Cloudflare per importar del Generador de Preus |
 | [`docs/fiebdc-norma.md`](docs/fiebdc-norma.md) | Extracte de l'especificació FIEBDC-3/2020: què diu de cada registre |
 | [`docs/certificacions.md`](docs/certificacions.md) | Model de fases, mètodes origen/parcial, aprovació |
 | [`docs/exportacions.md`](docs/exportacions.md) | Impressió, PDF, Excel i la seva configuració |

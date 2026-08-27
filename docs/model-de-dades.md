@@ -44,7 +44,9 @@ s'introdueix un tipus explícit, s'ha de canviar en desenes de llocs.
 
   certifications: {              // MAPA per id de certificació (no llista!)
     "<certId>": { quantity: Number, measurements: [ Measurement, ... ] }
-  }
+  },
+
+  waste: [ WasteComponent, ... ] // residus que genera (només si el BC3 en portava)
 }
 ```
 
@@ -55,6 +57,29 @@ s'introdueix un tipus explícit, s'ha de canviar en desenes de llocs.
 Els fills es guarden en dues llistes separades i gairebé sempre es recorren com
 `[...(node.subChapters || []), ...(node.items || [])]`, cosa que fa que els subcapítols
 sempre surtin abans que les partides germanes, independentment de l'ordre d'inserció.
+
+## `WasteComponent` — component de residu
+
+Present només a les partides que vénen d'un BC3 amb els registres `~R` i `~X` (els del
+Generador de Preus de CYPE en porten). Detall a [`docs/residus.md`](residus.md).
+
+```js
+{
+  code: "ruo170101",
+  description: "Formigó (formigons, morters i prefabricats).",
+  unit: "kg",
+  type: "1",                 // 0 col·locació · 1 demolició · 2 excavació · 3 embalatge
+  ler: "17 01 01",           // Llista Europea de Residus (Ordre MAM/304/2002)
+  quantity: 21580,           // component per unitat de partida
+  massPerUnit: 1,            // kg per unitat de component   (~X m)
+  volumePerUnit: 0.000667    // m³ per unitat de component   (~X v)
+}
+```
+
+> **Les tres magnituds es desen sense multiplicar.** La massa al projecte és
+> `quantity × massPerUnit × amidament`. Desar-hi el producte ja fet perdria els components
+> declarats amb quantitat zero —els envasos ho són sovint— i llavors l'exportació no podria
+> refer el `~X`.
 
 ## `Measurement` — línia d'amidament
 
