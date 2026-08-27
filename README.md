@@ -44,6 +44,11 @@ opcionalment, a Google Drive.
   RD 105/2008, amb els llindars de separació de l'article 5.5 calculats i la valoració del
   cost segons les tarifes que s'hi introdueixin.
 
+**Banc de preus**
+- Deixar anar un BC3 (o el seu enllaç) sobre la pestanya del banc hi afegeix els conceptes
+  sense tocar el pressupost.
+- Crear partides i línies de descomposat triant del banc, amb cerca per codi o descripció.
+
 **Entrada i sortida**
 - Importació BC3 des de disc, URL, arrossegament, Google Drive o "Obrir amb…" (PWA).
 - Exportació BC3 en Windows-1252: el pressupost, o la certificació activa com a fitxer

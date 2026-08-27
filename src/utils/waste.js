@@ -144,6 +144,35 @@ export const buildWasteSummary = (chapters = []) => {
     };
 };
 
+/**
+ * Catàleg de components de residu que ja hi ha al projecte.
+ *
+ * No cal desar-lo: es dedueix de les partides importades. Un cop entra una partida del
+ * Generador de Preus, el projecte ja té els seus disset components amb codi LER, massa i
+ * volum, i una partida feta a mà els pot reaprofitar sense tornar-los a teclejar.
+ */
+export const catalegResidus = (chapters = []) => {
+    const cataleg = new Map();
+    const visita = (node) => {
+        (node.waste || []).forEach(w => {
+            const codi = normalizeCode(w.code);
+            if (!codi || cataleg.has(codi)) return;
+            cataleg.set(codi, {
+                code: w.code,
+                description: w.description || '',
+                unit: w.unit || 'kg',
+                type: w.type ?? '1',
+                ler: w.ler || '',
+                massPerUnit: w.massPerUnit ?? 1,
+                volumePerUnit: w.volumePerUnit ?? 0,
+            });
+        });
+        [...(node.subChapters || []), ...(node.items || [])].forEach(visita);
+    };
+    chapters.forEach(visita);
+    return [...cataleg.values()].sort((a, b) => (a.ler || a.code).localeCompare(b.ler || b.code));
+};
+
 /** Massa en la unitat que toca: els kg es fan inllegibles a partir del miler. */
 export const formatMassa = (kg) => {
     const n = Number(kg) || 0;

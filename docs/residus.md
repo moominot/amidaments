@@ -181,9 +181,28 @@ El peu de cada pàgina ho diu: *«Estimació calculada a partir dels amidaments 
 Requereix la revisió del tècnic que la signa.»* El document no substitueix el criteri de qui
 signa i no ha de pretendre'l.
 
+## Editar-los
+
+Al panell de detall d'una partida hi ha la secció **Residus**, sota la justificació de preu.
+S'hi poden afegir components de dues maneres:
+
+- **Del projecte** — obre el selector amb els components de residu que ja hi ha al projecte,
+  amb el seu codi LER, massa i volum ja posats. El catàleg no es desa enlloc: `catalegResidus`
+  el dedueix de les partides importades. Un cop entra una partida del Generador de Preus, el
+  projecte ja té els seus disset components i una partida feta a mà els pot reaprofitar.
+  Al selector només hi surten els que aquesta partida encara no porta.
+- **Nou** — una fila en blanc per teclejar-hi codi, descripció, codi LER, quantitat per unitat
+  de partida, kg per unitat de component i m³ per unitat.
+
+La columna de la dreta mostra la **massa resultant** ja multiplicada per l'amidament de la
+partida, que és la manera ràpida de veure si el número té sentit: una densitat absurda salta a
+la vista de seguida.
+
+Esborrant l'últim component, el camp `waste` desapareix del node en comptes de quedar-hi com a
+llista buida: així la partida torna a comptar com a «sense dades» i no com a «dades a zero».
+
 ## Què falta
 
-- Poder **editar** els residus d'una partida, o afegir-los a una partida creada a mà.
 - Les propietats `ce` i `eCO2`, que ja arriben al fitxer i permetrien una petjada de carboni.
 - Que el cost de l'apartat 7 pugui entrar al pressupost com a **capítol independent**, que és
   el que demana la norma; ara surt al document però no al projecte.

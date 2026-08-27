@@ -84,7 +84,7 @@ import { numberToTextCatalan } from './utils/numberToText';
 import { exportCertificationPDF } from './utils/certificationPdf';
 import { safeFileName } from './utils/fileName';
 import { descarregaBC3 } from './utils/corsProxy';
-import { buildWasteSummary, formatMassa, nomTipus, TIPUS_RESIDU } from './utils/waste';
+import { buildWasteSummary, formatMassa, nomTipus, catalegResidus, magnitudsDe, TIPUS_RESIDU } from './utils/waste';
 import { buildWasteStudy } from './utils/wasteStudy';
 import { exportWasteStudyPDF } from './utils/wasteStudyPdf';
 import WasteStudyModal from './components/WasteStudyModal';
@@ -2984,6 +2984,49 @@ export default function App() {
         setBudget(prev => ({ ...prev, chapters: updateInTree(prev.chapters) }));
     };
 
+    // ── Residus d'una partida ───────────────────────────────────────────────────
+    //
+    // Les partides importades d'un BC3 amb `~R` i `~X` ja en porten; les creades a mà, no, i
+    // fins ara no hi havia manera d'afegir-los-en. Es guarden les magnituds primitives
+    // (`quantity`, `massPerUnit`, `volumePerUnit`), com les importades: veure `docs/residus.md`.
+
+    const mapaPartida = (itemId, fn) => {
+        const updateInTree = (nodes) => nodes.map(node => {
+            if (node.id === itemId) return fn(node);
+            return { ...node, subChapters: updateInTree(node.subChapters || []), items: updateInTree(node.items || []) };
+        });
+        setBudget(prev => ({ ...prev, chapters: updateInTree(prev.chapters) }));
+    };
+
+    const addWasteLine = (itemId, component = null) => {
+        const linia = component
+            ? { ...component }
+            : { code: '', description: 'Nou residu', unit: 'kg', type: '1', ler: '', quantity: 0, massPerUnit: 1, volumePerUnit: 0 };
+        mapaPartida(itemId, node => ({ ...node, waste: [...(node.waste || []), linia] }));
+    };
+
+    const updateWasteLine = (itemId, idx, field, value) => {
+        const numeric = ['quantity', 'massPerUnit', 'volumePerUnit'].includes(field);
+        const valor = numeric ? (parseFloat(value) || 0) : value;
+        mapaPartida(itemId, node => {
+            const waste = [...(node.waste || [])];
+            waste[idx] = { ...waste[idx], [field]: valor };
+            return { ...node, waste };
+        });
+    };
+
+    const removeWasteLine = (itemId, idx) => {
+        mapaPartida(itemId, node => {
+            const waste = (node.waste || []).filter((_, i) => i !== idx);
+            // Sense components, val més treure el camp que deixar-hi una llista buida: així
+            // la partida torna a comptar com a «sense dades» i no com a «dades a zero».
+            const seguent = { ...node };
+            if (waste.length > 0) seguent.waste = waste;
+            else delete seguent.waste;
+            return seguent;
+        });
+    };
+
     const removeBreakdownLine = (itemId, idx) => {
         const updateInTree = (nodes) => {
             return nodes.map(node => {
@@ -3067,7 +3110,7 @@ export default function App() {
                             onPick: (c) => { addBreakdownLine(node.id, c); setPicker(null); },
                             onCrearNou: () => { addBreakdownLine(node.id); setPicker(null); },
                         })}
-                        className="text-[10px] bg-blue-600 text-white border border-blue-600 px-2 py-0.5 hover:bg-blue-500 flex items-center gap-1 uppercase font-bold"
+                        className="text-[10px] bg-blue-600 text-white border border-blue-600 px-2.5 py-2 md:py-0.5 hover:bg-blue-500 flex items-center gap-1 uppercase font-bold"
                     >
                         <Database size={11} /> Del banc
                     </button>
@@ -3155,6 +3198,149 @@ export default function App() {
                         <span className="font-mono font-bold text-blue-700">{formatCurrency(totalCost)}</span>
                     </div>
                 </div>
+
+                {renderWasteEditor(node)}
+            </div>
+        );
+    };
+
+    /**
+     * Residus de la partida, editables.
+     *
+     * Les magnituds que es demanen són les primitives del `~X`: quant component surt per unitat
+     * de partida, i quina massa i volum té cada unitat de component. La massa resultant es
+     * calcula i es mostra al costat perquè es vegi si el número té sentit —una densitat
+     * absurda salta a la vista de seguida.
+     */
+    const renderWasteEditor = (node) => {
+        const residus = node.waste || [];
+        const cataleg = catalegResidus(resolvedChapters);
+        const jaHi = new Set(residus.map(w => normalizeCode(w.code)));
+
+        const afegirDelCataleg = () => setPicker({
+            titol: 'Afegir un component de residu',
+            subtitol: 'Del que ja hi ha al projecte',
+            onPick: (c) => {
+                const original = cataleg.find(x => normalizeCode(x.code) === c.norm);
+                addWasteLine(node.id, original || {
+                    code: c.code, description: c.description, unit: c.unit || 'kg',
+                    type: '1', ler: '', quantity: 0, massPerUnit: 1, volumePerUnit: 0,
+                });
+                setPicker(null);
+            },
+            onCrearNou: () => { addWasteLine(node.id); setPicker(null); },
+            // Al selector només hi surten els components que ja tenen dades de residu i que
+            // aquesta partida encara no porta: oferir-li tot el banc seria soroll.
+            filtre: (c) => cataleg.some(x => normalizeCode(x.code) === c.norm) && !jaHi.has(c.norm),
+        });
+
+        return (
+            <div className="border-t-2 border-slate-200 mt-2">
+                <div className="flex items-center justify-between p-2 px-4 bg-emerald-50/60">
+                    <span className="text-[11px] uppercase font-black text-emerald-700 tracking-widest flex items-center gap-2">
+                        <Recycle size={13} /> Residus
+                    </span>
+                    <div className="flex gap-1.5">
+                        <button
+                            onClick={afegirDelCataleg}
+                            disabled={cataleg.length === 0}
+                            className="text-[10px] bg-emerald-600 text-white px-2.5 py-2 md:py-0.5 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 uppercase font-bold touch-manipulation"
+                            title={cataleg.length === 0 ? 'Encara no hi ha cap component de residu al projecte' : 'Triar-ne un dels que ja hi ha'}
+                        >
+                            <Database size={11} /> Del projecte
+                        </button>
+                        <button
+                            onClick={() => addWasteLine(node.id)}
+                            className="text-[10px] bg-white border border-slate-300 px-2.5 py-2 md:py-0.5 hover:bg-slate-50 flex items-center gap-1 uppercase font-bold touch-manipulation"
+                        >
+                            <Plus size={11} /> Nou
+                        </button>
+                    </div>
+                </div>
+
+                {residus.length === 0 ? (
+                    <p className="px-4 py-3 text-[10px] text-slate-400 italic leading-relaxed">
+                        Aquesta partida no genera residus, o encara no s&apos;hi han declarat. Els que
+                        s&apos;hi posin compten a la pestanya Residus i a l&apos;estudi del RD 105/2008.
+                    </p>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead className="bg-slate-50 text-[8px] md:text-[9px] text-slate-500 font-bold uppercase tracking-widest border-b border-slate-200">
+                                <tr>
+                                    <th className="p-1.5 px-2 w-24">Codi</th>
+                                    <th className="p-1.5 px-2">Residu</th>
+                                    <th className="p-1.5 px-2 w-20">LER</th>
+                                    <th className="p-1.5 px-2 w-20 text-right">Quant.</th>
+                                    <th className="p-1.5 px-2 w-16 text-right">kg/ud</th>
+                                    <th className="p-1.5 px-2 w-20 text-right">m³/ud</th>
+                                    <th className="p-1.5 px-2 w-24 text-right bg-emerald-50/60">Massa</th>
+                                    <th className="w-6"></th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {residus.map((w, idx) => {
+                                    const unitari = magnitudsDe(w);
+                                    return (
+                                        <tr key={`${w.code}-${idx}`} className="hover:bg-slate-50/70">
+                                            <td className="p-1 px-2">
+                                                <input
+                                                    className="w-full bg-transparent font-mono text-[10px] border-b border-transparent hover:border-slate-300 focus:border-emerald-500 outline-none"
+                                                    value={w.code || ''}
+                                                    onChange={e => updateWasteLine(node.id, idx, 'code', e.target.value)}
+                                                />
+                                            </td>
+                                            <td className="p-1 px-2">
+                                                <input
+                                                    className="w-full bg-transparent text-[10px] border-b border-transparent hover:border-slate-300 focus:border-emerald-500 outline-none"
+                                                    value={w.description || ''}
+                                                    onChange={e => updateWasteLine(node.id, idx, 'description', e.target.value)}
+                                                />
+                                            </td>
+                                            <td className="p-1 px-2">
+                                                <input
+                                                    className="w-full bg-transparent font-mono text-[10px] border-b border-transparent hover:border-slate-300 focus:border-emerald-500 outline-none"
+                                                    value={w.ler || ''}
+                                                    placeholder="17 01 01"
+                                                    onChange={e => updateWasteLine(node.id, idx, 'ler', e.target.value)}
+                                                />
+                                            </td>
+                                            <td className="p-1 px-2">
+                                                <NumberInput
+                                                    className="w-full bg-transparent text-right font-mono text-[10px] border-b border-transparent hover:border-slate-300 focus:border-emerald-500 outline-none"
+                                                    value={w.quantity}
+                                                    onChange={v => updateWasteLine(node.id, idx, 'quantity', v)}
+                                                />
+                                            </td>
+                                            <td className="p-1 px-2">
+                                                <NumberInput
+                                                    className="w-full bg-transparent text-right font-mono text-[10px] border-b border-transparent hover:border-slate-300 focus:border-emerald-500 outline-none"
+                                                    value={w.massPerUnit}
+                                                    onChange={v => updateWasteLine(node.id, idx, 'massPerUnit', v)}
+                                                />
+                                            </td>
+                                            <td className="p-1 px-2">
+                                                <NumberInput
+                                                    className="w-full bg-transparent text-right font-mono text-[10px] border-b border-transparent hover:border-slate-300 focus:border-emerald-500 outline-none"
+                                                    value={w.volumePerUnit}
+                                                    onChange={v => updateWasteLine(node.id, idx, 'volumePerUnit', v)}
+                                                />
+                                            </td>
+                                            <td className="p-1 px-2 text-right font-mono text-[10px] text-emerald-800 bg-emerald-50/40 whitespace-nowrap">
+                                                {formatMassa(unitari.mass * calcItemTotalQty(node))}
+                                            </td>
+                                            <td className="p-1 text-center">
+                                                <button onClick={() => removeWasteLine(node.id, idx)} className="text-red-400 hover:text-red-600 p-1 touch-manipulation">
+                                                    <Trash2 size={11} />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
             </div>
         );
     };

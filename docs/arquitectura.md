@@ -29,6 +29,7 @@ Navegador
 | `src/utils/bc3Writer.js` | 215 | Escriptor FIEBDC-3. Un fitxer per document: pressupost o certificació. |
 | `src/utils/projectFile.js` | 68 | Identitat del fitxer natiu `.amid`: extensions, MIME, serialització i lectura. |
 | `src/utils/waste.js` | 152 | Agregació dels residus per codi LER, per tipus i per partida. |
+| `src/components/PriceBankPicker.jsx` | 160 | Selector d'un concepte del banc de preus, compartit pel descomposat, la creació de partides i els residus. |
 | `src/utils/wasteStudy.js` | 108 | Fraccions i llindars de l'article 5.5 del RD 105/2008, i valoració del cost. |
 | `src/utils/wasteStudyPdf.js` | 300 | L'estudi de gestió de residus en PDF, amb els set apartats. |
 | `src/utils/corsProxy.js` | 95 | Descàrrega d'un BC3 des d'una URL, amb la cadena de proxys CORS. |
