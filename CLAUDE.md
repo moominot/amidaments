@@ -83,6 +83,9 @@ del sector: *amidament*, *partida*, *capítol*, *descomposat*, *rendiment*, *cer
   `volumePerUnit`), no amb la massa ja multiplicada: guardant el producte es perden els
   components declarats amb quantitat zero i l'exportació no pot refer el `~X`. El càlcul viu a
   `utils/waste.js` i vol `resolvedChapters`. Veure `docs/residus.md`.
+- **`ce` i `eCO2` del `~X` van a `priceDatabase`, no al node**: són propietats del concepte,
+  com el preu. Els residus sí que van al node perquè la quantitat depèn de la relació amb la
+  partida. Veure `docs/petjada.md`.
 - **La importació des d'URL depèn d'un proxy CORS de tercers** (`utils/corsProxy.js`): CYPE no
   envia `Access-Control-Allow-Origin`. Se'n proven uns quants per ordre i es comprova que la
   resposta comenci per un registre `~`; amb `VITE_CORS_PROXY` se n'hi pot posar un de propi.

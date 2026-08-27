@@ -38,6 +38,7 @@ import {
     Redo2,
     LogOut,
     Recycle,
+    Leaf,
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -85,6 +86,7 @@ import { exportCertificationPDF } from './utils/certificationPdf';
 import { safeFileName } from './utils/fileName';
 import { descarregaBC3 } from './utils/corsProxy';
 import { buildWasteSummary, formatMassa, nomTipus, catalegResidus, magnitudsDe, TIPUS_RESIDU } from './utils/waste';
+import { buildCarbonSummary, formatEnergia, formatCO2 } from './utils/carbon';
 import { buildWasteStudy } from './utils/wasteStudy';
 import { exportWasteStudyPDF } from './utils/wasteStudyPdf';
 import WasteStudyModal from './components/WasteStudyModal';
@@ -1169,6 +1171,13 @@ export default function App() {
     // Residus. Sobre `resolvedChapters`: si es fes sobre `budget.chapters`, les partides amb
     // amidament vinculat comptarien zero.
     const wasteSummary = useMemo(() => buildWasteSummary(resolvedChapters), [resolvedChapters]);
+
+    // Petjada de carboni. `energy` i `co2` viuen a la base de preus, no al node: són propietats
+    // del concepte, com el preu. Veure `docs/petjada.md`.
+    const carbonSummary = useMemo(
+        () => buildCarbonSummary(resolvedChapters, priceDatabase),
+        [resolvedChapters, priceDatabase]
+    );
 
     const activeCert = (budget.certifications || []).find(c => c.id === activeCertId) || null;
     const previousCert = certificationSummary.prevCertId
@@ -3590,6 +3599,213 @@ export default function App() {
      * en porten) i són l'estimació que demana el RD 105/2008. Si el projecte no en porta cap,
      * val més dir-ho i explicar d'on surten que ensenyar una taula buida.
      */
+    /**
+     * Petjada de carboni i cost energètic, per material i per partida.
+     *
+     * És l'energia **incorporada als materials**: ni transport, ni maquinària, ni la fase d'ús
+     * de l'edifici. Val més dir-ho a la mateixa pantalla que deixar que algú se n'endugui una
+     * xifra que no vol dir el que sembla.
+     */
+    const renderCarbonTable = () => {
+        const { perMaterial, partides, capitols, totals, ambDades, ambAportacio, senseAmidament, sense } = carbonSummary;
+
+        const buit = (titol, cos, peu) => (
+            <div className="p-6 md:p-12">
+                <div className="bg-white border border-slate-200 p-8 md:p-12 text-center max-w-2xl mx-auto">
+                    <Leaf size={44} className="mx-auto text-slate-200 mb-4" />
+                    <p className="text-sm font-bold text-slate-600 uppercase tracking-widest mb-3">{titol}</p>
+                    <div className="text-[11px] text-slate-500 leading-relaxed space-y-2">{cos}</div>
+                    {peu && <p className="text-[10px] text-slate-400 mt-4 italic">{peu}</p>}
+                </div>
+            </div>
+        );
+
+        if (ambDades === 0) {
+            return buit(
+                'Cap material no porta dades de petjada',
+                <>
+                    <p>
+                        El cost energètic i les emissions surten de les propietats{' '}
+                        <span className="font-mono">ce</span> i <span className="font-mono">eCO2</span> del
+                        registre <span className="font-mono">~X</span> del BC3, que els declara per unitat de
+                        cada material del descomposat.
+                    </p>
+                    <p className="bg-amber-50 border border-amber-200 text-amber-800 p-2.5 text-left">
+                        Els porten les partides de <b>construcció</b> del Generador de Preus (enllaç
+                        <b> BC3 estàndard</b>). Les de <b>demolició</b> no en tenen: el que generen són
+                        residus, no energia incorporada.
+                    </p>
+                </>,
+                sense > 0 ? `${sense} ${sense === 1 ? 'partida al projecte' : 'partides al projecte'}, cap amb dades.` : null
+            );
+        }
+
+        if (ambAportacio === 0) {
+            return buit(
+                'Les partides amb dades tenen l\'amidament a zero',
+                <p>
+                    {ambDades === 1 ? 'Hi ha una partida' : `Hi ha ${ambDades} partides`} amb materials que
+                    declaren petjada, però {ambDades === 1 ? 'el seu amidament és' : 'els seus amidaments són'} zero.
+                    Les dades són correctes: el que falta és entrar l&apos;amidament.
+                </p>
+            );
+        }
+
+        const maxim = perMaterial[0]?.co2 || 1;
+
+        return (
+            <div className="p-0 md:p-6 space-y-0 md:space-y-6">
+                <div className="bg-slate-900 text-white p-4 md:p-5">
+                    <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
+                        <div>
+                            <div className="text-[9px] uppercase tracking-widest text-slate-400 mb-1">Emissions</div>
+                            <div className="text-2xl md:text-3xl font-black font-mono text-emerald-400">{formatCO2(totals.co2)}</div>
+                            <div className="text-[9px] text-slate-500 mt-0.5">CO₂ equivalent</div>
+                        </div>
+                        <div>
+                            <div className="text-[9px] uppercase tracking-widest text-slate-400 mb-1">Cost energètic</div>
+                            <div className="text-2xl md:text-3xl font-black font-mono text-amber-400">{formatEnergia(totals.energy)}</div>
+                            <div className="text-[9px] text-slate-500 mt-0.5">
+                                {formatNumber(totals.energy / 3.6, 0)} kWh
+                            </div>
+                        </div>
+                        <div className="ml-auto text-right">
+                            <div className="text-[9px] uppercase tracking-widest text-slate-400 mb-1">Amb dades</div>
+                            <div className="text-[11px] font-mono text-slate-300">{ambDades} de {ambDades + sense} partides</div>
+                        </div>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-4 pt-3 border-t border-white/10 leading-relaxed">
+                        Energia <b className="text-slate-300">incorporada als materials</b> del descomposat. No hi ha
+                        el transport a obra, ni la maquinària, ni la fase d&apos;ús de l&apos;edifici.
+                    </p>
+                </div>
+
+                <div className="bg-white border border-slate-200">
+                    <div className="bg-slate-800 p-3 text-white flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Leaf size={16} className="text-emerald-400" />
+                            <span className="text-xs font-bold uppercase tracking-widest">Per material</span>
+                        </div>
+                        <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded text-slate-300">{perMaterial.length} materials</span>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead className="bg-slate-50 border-b border-slate-200 text-[8px] md:text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                                <tr>
+                                    <th className="p-2 md:p-3 w-24 md:w-32 border-r border-slate-200">Codi</th>
+                                    <th className="p-2 md:p-3">Material</th>
+                                    <th className="p-2 md:p-3 w-24 md:w-32 text-right">Energia</th>
+                                    <th className="p-2 md:p-3 w-24 md:w-32 text-right bg-emerald-50/50">CO₂</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {perMaterial.map(m => (
+                                    <tr key={m.code} className="hover:bg-slate-50/70">
+                                        <td className="p-2 md:p-3 border-r border-slate-100 font-mono text-[10px] text-slate-500 truncate">{m.code}</td>
+                                        <td className="p-2 md:p-3">
+                                            <div className="text-[11px] text-slate-700 leading-tight line-clamp-2">{m.description}</div>
+                                            <div className="h-1 bg-slate-100 mt-1.5 max-w-[220px]">
+                                                <div className="h-full bg-emerald-500" style={{ width: `${Math.max(2, (m.co2 / maxim) * 100)}%` }} />
+                                            </div>
+                                        </td>
+                                        <td className="p-2 md:p-3 text-right font-mono text-[11px] text-amber-700 whitespace-nowrap">{formatEnergia(m.energy)}</td>
+                                        <td className="p-2 md:p-3 text-right font-mono text-[11px] text-emerald-800 bg-emerald-50/30 whitespace-nowrap">{formatCO2(m.co2)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                            <tfoot className="bg-slate-100 border-t-2 border-slate-300 font-bold">
+                                <tr>
+                                    <td className="p-2 md:p-3 text-[10px] uppercase tracking-widest text-slate-600" colSpan={2}>Total</td>
+                                    <td className="p-2 md:p-3 text-right font-mono text-[11px]">{formatEnergia(totals.energy)}</td>
+                                    <td className="p-2 md:p-3 text-right font-mono text-[11px]">{formatCO2(totals.co2)}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+
+                {capitols.length > 1 && (
+                    <div className="bg-white border border-slate-200">
+                        <div className="bg-slate-800 p-3 text-white flex items-center gap-2">
+                            <Layers size={16} className="text-blue-400" />
+                            <span className="text-xs font-bold uppercase tracking-widest">Per capítol</span>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <tbody className="divide-y divide-slate-100">
+                                    {capitols.map(c => (
+                                        <tr key={c.id} className="hover:bg-slate-50/70">
+                                            <td className="p-2 md:p-3 font-mono text-[10px] text-slate-500 w-24 md:w-32 border-r border-slate-100 truncate">{c.code}</td>
+                                            <td className="p-2 md:p-3 text-[11px] text-slate-700">{c.description}</td>
+                                            <td className="p-2 md:p-3 text-right font-mono text-[11px] text-amber-700 w-24 md:w-32 whitespace-nowrap">{formatEnergia(c.energy)}</td>
+                                            <td className="p-2 md:p-3 text-right font-mono text-[11px] text-emerald-800 bg-emerald-50/30 w-24 md:w-32 whitespace-nowrap">{formatCO2(c.co2)}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+
+                <div className="bg-white border border-slate-200">
+                    <div className="bg-slate-800 p-3 text-white flex items-center gap-2">
+                        <FileText size={16} className="text-blue-400" />
+                        <span className="text-xs font-bold uppercase tracking-widest">Per partida</span>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead className="bg-slate-50 border-b border-slate-200 text-[8px] md:text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                                <tr>
+                                    <th className="p-2 md:p-3 w-20 md:w-32 border-r border-slate-200">Codi</th>
+                                    <th className="p-2 md:p-3">Partida</th>
+                                    <th className="hidden md:table-cell p-3 w-28 text-right">Amidament</th>
+                                    <th className="p-2 md:p-3 w-24 md:w-32 text-right">Energia</th>
+                                    <th className="p-2 md:p-3 w-24 md:w-32 text-right bg-emerald-50/50">CO₂</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {partides.map(x => (
+                                    <tr key={x.id} className="hover:bg-slate-50/70">
+                                        <td className="p-2 md:p-3 border-r border-slate-100 font-mono text-[10px] text-slate-500 truncate">{x.code}</td>
+                                        <td className="p-2 md:p-3">
+                                            <div className="text-[11px] text-slate-700 leading-tight line-clamp-2">{x.description}</div>
+                                            {x.capitol && <div className="text-[9px] text-slate-400 uppercase truncate">{x.capitol}</div>}
+                                            <div className="md:hidden text-[9px] text-slate-400 font-mono mt-0.5">{formatNumber(x.quantity, 2)} {x.unit}</div>
+                                        </td>
+                                        <td className="hidden md:table-cell p-3 text-right font-mono text-[11px] text-slate-600">
+                                            {formatNumber(x.quantity, 2)} <span className="text-slate-400">{x.unit}</span>
+                                        </td>
+                                        <td className="p-2 md:p-3 text-right font-mono text-[11px] text-amber-700 whitespace-nowrap">{formatEnergia(x.energy)}</td>
+                                        <td className="p-2 md:p-3 text-right font-mono text-[11px] text-emerald-800 bg-emerald-50/30 whitespace-nowrap">{formatCO2(x.co2)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {(sense > 0 || senseAmidament.length > 0) && (
+                    <div className="text-[10px] text-slate-400 italic px-4 py-3 md:px-0 md:py-0 leading-relaxed space-y-1">
+                        {sense > 0 && (
+                            <p>
+                                {sense} {sense === 1 ? 'partida no té' : 'partides no tenen'} cap material amb dades de
+                                petjada: no {sense === 1 ? 'compta' : 'compten'} al total. Les partides de demolició i les
+                                creades a mà no en tenen.
+                            </p>
+                        )}
+                        {senseAmidament.length > 0 && (
+                            <p>
+                                {senseAmidament.length === 1 ? 'Una partida té' : `${senseAmidament.length} partides tenen`} materials
+                                amb petjada i l&apos;amidament a zero ({senseAmidament.slice(0, 3).map(x => x.code).join(', ')}
+                                {senseAmidament.length > 3 ? '…' : ''}).
+                            </p>
+                        )}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     const renderWasteTable = () => {
         const { perLer, perTipus, partides, totals, ambDades, ambAportacio, senseAmidament, sense } = wasteSummary;
 
@@ -4509,6 +4725,12 @@ export default function App() {
                                 >
                                     Residus
                                 </button>
+                                <button
+                                    onClick={() => setActiveTab('petjada')}
+                                    className={`flex-1 md:flex-initial px-3 md:px-4 py-3.5 md:py-1.5 text-[10px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-widest transition-colors ${activeTab === 'petjada' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
+                                >
+                                    Petjada
+                                </button>
                             </div>
 
                             {/* Search */}
@@ -4637,6 +4859,7 @@ export default function App() {
                         {activeTab === 'prices' && renderPricesTable()}
                         {activeTab === 'recursos' && renderResourcesTable()}
                         {activeTab === 'residus' && renderWasteTable()}
+                        {activeTab === 'petjada' && renderCarbonTable()}
 
                         {budget.chapters.length === 0 && activeTab === 'editor' && (
                             <div className="p-24 text-center">

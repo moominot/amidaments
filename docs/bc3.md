@@ -17,7 +17,7 @@ subllistes es separen per `\`.
 | `~F` | **Document adjunt** | llegit com a fase només si en té la forma antiga | ja no s'escriu |
 | `~Q` | — | — | ja no s'escriu (veure avís) |
 | `~R` | Descomposició de residus | ✔ | ✔ |
-| `~X` | Propietats del concepte (codi LER, massa, volum) | ✔ | ✔ |
+| `~X` | Propietats del concepte (codi LER, massa, volum, cost energètic, CO₂) | ✔ | ✔ |
 | `~L`, `~P`, `~W`, `~A`, `~G`, `~E`, `~O` | plecs, paramètrics, entitats… | no suportats | no s'escriuen |
 
 > **El `~Q` existeix, però és el registre de PLECS DE CONDICIONS**, no de quantitats:

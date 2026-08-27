@@ -49,6 +49,10 @@ opcionalment, a Google Drive.
   sense tocar el pressupost.
 - Crear partides i línies de descomposat triant del banc, amb cerca per codi o descripció.
 
+**Petjada de carboni**
+- Energia incorporada (MJ) i emissions de CO₂ (kg) dels materials, a partir de les propietats
+  `ce` i `eCO2` del registre `~X`, agregades per material, capítol i partida.
+
 **Entrada i sortida**
 - Importació BC3 des de disc, URL, arrossegament, Google Drive o "Obrir amb…" (PWA).
 - Exportació BC3 en Windows-1252: el pressupost, o la certificació activa com a fitxer
@@ -94,6 +98,7 @@ Les credencials de Drive s'injecten des dels secrets del repositori.
 | [`docs/calculs.md`](docs/calculs.md) | Com es calculen quantitats, preus, imports i certificats |
 | [`docs/bc3.md`](docs/bc3.md) | Registres BC3 suportats, parser i writer |
 | [`docs/residus.md`](docs/residus.md) | Estimació de residus: registres `~R` i `~X`, model i càlcul |
+| [`docs/petjada.md`](docs/petjada.md) | Petjada de carboni: propietats `ce` i `eCO2`, model i límits |
 | [`worker/README.md`](worker/README.md) | Proxy CORS propi a Cloudflare per importar del Generador de Preus |
 | [`docs/fiebdc-norma.md`](docs/fiebdc-norma.md) | Extracte de l'especificació FIEBDC-3/2020: què diu de cada registre |
 | [`docs/certificacions.md`](docs/certificacions.md) | Model de fases, mètodes origen/parcial, aprovació |

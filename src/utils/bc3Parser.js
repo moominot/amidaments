@@ -21,8 +21,10 @@ export const processBC3Data = (text) => {
     const longTexts = {};
     const phases = []; // [{ id, code, name, date }]
 
-    // Residus. `~X` són les propietats de cada concepte (codi LER, massa, volum) i `~R` la
-    // relació entre una partida i els components que en generen. Veure `docs/residus.md`.
+    // `~X` són les propietats de cada concepte i `~R` la relació entre una partida i els
+    // components que en generen residu. Del `~X` se'n treuen dues coses ben diferents: el codi
+    // LER, la massa i el volum, que van als residus (`docs/residus.md`), i el cost energètic i
+    // les emissions de CO₂, que van a la base de preus (`docs/petjada.md`).
     const wasteProperties = {};   // id de propietat -> { label, unit }
     const propietatsPerCodi = {}; // normCode -> { ler, m, v, ... }
     const residusPerCodi = {};    // normCode del pare -> [{ type, child, props }]
@@ -469,16 +471,28 @@ export const processBC3Data = (text) => {
 
     // Construïm la base de dades de preus, excloent els conceptes de %
     const prices = {};
+    const aNumero = (valor) => {
+        const n = parseFloat(String(valor ?? '').replace(',', '.'));
+        return Number.isFinite(n) ? n : null;
+    };
     Object.keys(concepts).forEach(c => {
         const concept = concepts[c];
         // El concepte arrel («##», que normalitzat queda buit) no és un preu: si entrava a la
         // base, la següent exportació escrivia un ~C sense codi i el fitxer es desmuntava.
         if (c && concept.unit !== '%') {
+            const x = propietatsPerCodi[c] || {};
+            // Cost energètic (MJ) i emissions (kg CO₂) per unitat del concepte. Són propietats
+            // del concepte, com el preu, i per això viuen a la base de preus i no al node: un
+            // mateix material surt a moltes partides i el valor no hi canvia.
+            const energy = aNumero(x.ce);
+            const co2 = aNumero(x.eCO2);
             prices[c] = {
                 code: concept.originalCode,
                 price: concept.price,
                 summary: concept.summary,
-                unit: concept.unit
+                unit: concept.unit,
+                ...(energy !== null ? { energy } : {}),
+                ...(co2 !== null ? { co2 } : {}),
             };
         }
     });

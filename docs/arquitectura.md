@@ -28,6 +28,7 @@ Navegador
 | `src/utils/bc3Parser.js` | 380 | Parser FIEBDC-3 (importació). Llegeix el `~V` per saber si el fitxer és un pressupost o una certificació. |
 | `src/utils/bc3Writer.js` | 215 | Escriptor FIEBDC-3. Un fitxer per document: pressupost o certificació. |
 | `src/utils/projectFile.js` | 68 | Identitat del fitxer natiu `.amid`: extensions, MIME, serialització i lectura. |
+| `src/utils/carbon.js` | 175 | Petjada de carboni i cost energètic, agregats per material, capítol i partida. |
 | `src/utils/waste.js` | 152 | Agregació dels residus per codi LER, per tipus i per partida. |
 | `src/components/PriceBankPicker.jsx` | 160 | Selector d'un concepte del banc de preus, compartit pel descomposat, la creació de partides i els residus. |
 | `src/utils/wasteStudy.js` | 108 | Fraccions i llindars de l'article 5.5 del RD 105/2008, i valoració del cost. |
