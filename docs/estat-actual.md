@@ -2,7 +2,7 @@
 
 Inventari fet llegint el codi (agost 2026).
 
-**Estat: els vint-i-set defectes estan corregits.** Es conserva la descripció de cadascun
+**Estat: els vint-i-nou defectes estan corregits.** Es conserva la descripció de cadascun
 perquè expliquen decisions del codi actual i serveixen de referència si tornen a aparèixer.
 El deute tècnic de la segona meitat del document continua obert.
 
@@ -472,6 +472,49 @@ ha d'avisar l'usuari quan retorna `null`.
 De passada, l'arrossegament de fitxers donava per fet que tot el que es deixava caure era un
 BC3: un projecte arrossegat es llegia com a Windows-1252 i acabava amb «Format BC3 no
 reconegut». Ara també passa per `obreFitxer`.
+
+### 28. La importació des d'URL va deixar de funcionar ✅
+
+Arrossegar l'enllaç d'un BC3 del Generador de Preus donava un `403 (Forbidden)` a la consola.
+No havia canviat res ni aquí ni a CYPE: **corsproxy.io va canviar l'API**. El format que
+fèiem servir,
+
+```js
+`https://corsproxy.io/?${encodeURIComponent(url)}`
+```
+
+ara respon `{"success":false,"status":403,"error":"keyless_legacy_url"}`. El bo és
+`?url=<url codificada>`, i amb el pla gratuït només respon a peticions de navegador; des d'un
+script diu «Server-side requests are not allowed on your plan».
+
+A sobre, `importFromUrl` no mirava `response.ok`: el cos de l'error se n'anava al parser i
+l'usuari veia «Format BC3 no reconegut», que apunta a un lloc que no és.
+
+La descàrrega passa a `utils/corsProxy.js`, amb tres coses que abans no hi eren:
+
+- **Una llista de proxys**, provats per ordre, en comptes d'un de sol. Ja ens n'ha caigut un;
+  amb un de sol tornarà a passar.
+- **`VITE_CORS_PROXY`** per posar-hi un proxy propi, que es prova primer. Un Worker de
+  Cloudflare són quinze línies i no depèn de ningú.
+- **Comprovació que la resposta és un BC3** (que comenci per un registre `~`), perquè
+  gairebé tots aquests serveis contesten `200` amb un JSON d'error a dins quan et refusen.
+
+### 29. Importar una partida de CYPE n'arrossegava disset de residus ✅
+
+Un BC3 del Generador de Preus porta, a més de la partida, els conceptes de gestió de residus
+(`re150101`, `ruo170101`…) i el concepte de percentatge «Costos directes complementaris». No
+els referencia ningú i no tenen amidament: són entrades de banc de preus, no partides d'obra.
+Com que el filtre d'arrels acceptava qualsevol concepte orfe **amb unitat**, entraven tots al
+projecte com a partides de primer nivell. Arrossegar una partida n'afegia divuit.
+
+Ara una arrel només és un node del projecte si es descompon —és un capítol— o si porta
+amidament —és una partida. I un concepte de percentatge no ho és mai: com a fill ja s'excloïa,
+com a arrel s'hi colava.
+
+Els fitxers que són una llista plana de partides sense estructura continuen entrant, perquè
+cadascuna porta el seu amidament. Comprovat: el fitxer de mostra segueix a 135.202,54 € amb
+24 capítols, i arrossegar l'enllaç de CYPE deixa un sol capítol, `D# DEMOLICIONS`, amb la
+partida `DCE010` a dins.
 
 ---
 

@@ -82,6 +82,7 @@ import { generateBC3, nomFitxerCertificacio } from './utils/bc3Writer';
 import { numberToTextCatalan } from './utils/numberToText';
 import { exportCertificationPDF } from './utils/certificationPdf';
 import { safeFileName } from './utils/fileName';
+import { descarregaBC3 } from './utils/corsProxy';
 import {
     EXTENSIO_PROJECTE, MIME_PROJECTE, esFitxerProjecte, esFitxerBC3,
     serialitzaProjecte, llegeixProjecte,
@@ -2397,26 +2398,28 @@ export default function App() {
     };
 
     // --- BC3 URL Handlers (defined after dependencies) ---
+    /**
+     * Importa un BC3 des d'una URL: el cas de l'enllaç arrossegat del Generador de Preus.
+     * La descàrrega i els proxys CORS viuen a `utils/corsProxy.js`.
+     */
     const importFromUrl = useCallback(async (url) => {
         if (!url) return;
         try {
-            console.log("Attempting import from URL:", url);
-            notify("Consolidant amb el projecte...");
-            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url.trim())}`;
-            const response = await fetch(proxyUrl);
-            const buffer = await response.arrayBuffer();
-            const decoder = new TextDecoder('windows-1252');
-            const text = decoder.decode(buffer);
-
+            notify('Descarregant la partida...');
+            const { text, via } = await descarregaBC3(url);
             const result = processBC3Data(text);
             if (result) {
                 startImportProcess(result);
+                console.log(`BC3 importat des de ${url} (via ${via})`);
             } else {
-                notify("Format BC3 no reconegut", "error");
+                notify('Format BC3 no reconegut', 'error');
             }
         } catch (err) {
-            console.error("Error important dades:", err);
-            notify(`Error: ${err.message}`, "error");
+            // El detall va a la consola i el missatge curt a la interfície: a l'usuari li
+            // interessa què pot fer, no quin intermediari ha fallat.
+            if (err.detall) console.error('Descàrrega fallida:', err.detall);
+            else console.error('Error important dades:', err);
+            notify(err.message, 'error');
         }
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

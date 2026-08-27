@@ -195,11 +195,30 @@ per codi normalitzat.
 
 ### Importació des d'URL
 
-`importFromUrl` passa per `https://corsproxy.io/?<url>` perquè el navegador no pot llegir
-directament les URL de tercers. **És una dependència externa no controlada**: si corsproxy.io
-cau o canvia d'API, la funció deixa de funcionar en silenci (només queda un `notify` d'error).
-Està pensada sobretot per a arrossegar preus des del Generador de Preus de CYPE
-(el codi busca literalment `generadordepreus` a les URL candidates).
+`importFromUrl` és el camí de l'enllaç arrossegat des del [Generador de Preus de
+CYPE](https://www.generadordepreus.info/): s'arrossega l'enllaç del BC3 a la finestra i la
+partida entra al projecte sense passar per la carpeta de descàrregues. Funciona tant amb
+l'enllaç «BC3 estàndard» com amb el «BC3 d'Arquímedes».
+
+El servidor de CYPE **no envia `Access-Control-Allow-Origin`**, de manera que el navegador no
+en pot llegir la resposta i cal un proxy pel mig. La descàrrega viu a `utils/corsProxy.js`, que
+prova diversos serveis en ordre i es queda amb el primer que respon un BC3 de veritat.
+
+> **Ja ens ha caigut un cop.** L'agost de 2026 corsproxy.io va canviar l'API: el format antic
+> `?<url>` va passar a respondre `403 keyless_legacy_url` i la importació va deixar de
+> funcionar sense que aquí hagués canviat res. El format bo és `?url=<url codificada>`, i amb
+> el pla gratuït només respon a peticions de navegador —des d'un script diu «Server-side
+> requests are not allowed on your plan».
+>
+> Per no dependre'n, amb `VITE_CORS_PROXY` es pot posar un proxy propi (un Worker de
+> Cloudflare en són quinze línies), amb `{url}` allà on hi vagi la URL codificada. Es prova
+> primer.
+
+Cada intent té un límit de 15 segons i es comprova que la resposta comenci per un registre
+BC3: gairebé tots aquests serveis contesten `200` amb un JSON d'error a dins quan et refusen,
+i sense la comprovació el text d'error acabava al parser. Si no se'n surt cap, el missatge
+diu què es pot fer —descarregar el fitxer i arrossegar-lo— i el detall de cada intent va a
+la consola.
 
 ## Fitxer de mostra
 

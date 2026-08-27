@@ -79,6 +79,10 @@ del sector: *amidament*, *partida*, *capítol*, *descomposat*, *rendiment*, *cer
   El patró correcte és `opacity-60 md:opacity-0 md:group-hover:opacity-100`.
 - `scrollIntoView` arrossega també els contenidors superiors. Per desplaçar una llista
   horitzontal, fes `contenidor.scrollTo({ left })` a mà.
+- **La importació des d'URL depèn d'un proxy CORS de tercers** (`utils/corsProxy.js`): CYPE no
+  envia `Access-Control-Allow-Origin`. Se'n proven uns quants per ordre i es comprova que la
+  resposta comenci per un registre `~`; amb `VITE_CORS_PROXY` se n'hi pot posar un de propi.
+  No hi deixis un sol proxy: el de corsproxy.io va canviar d'API i va caure sol (§28).
 - Qualsevol nom de fitxer que vagi a `doc.save()` o `a.download` ha de passar per
   `safeFileName` (`utils/fileName.js`): Chromium descarta l'atribut sencer si porta accents i
   desa el fitxer com a `download`, sense extensió (§11 de `docs/estat-actual.md`).

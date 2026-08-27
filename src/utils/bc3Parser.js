@@ -358,12 +358,23 @@ export const processBC3Data = (text) => {
 
     // Busquem l'arrel (normalment el concepte que no és fill de ningú, o el primer 'C' sense relacions d'entrada)
     const allChildren = new Set(Object.values(relations).flat().map(r => r.child));
+    const teAmidament = new Set(measurements.map(m => m.target));
     const roots = Object.keys(concepts)
         .filter(c => !allChildren.has(c))
-        // Un concepte que no és fill de ningú, no es descompon i no té unitat no és cap
-        // capítol: és un residu, típicament l'arrel d'un projecte anterior que s'ha quedat a
-        // la base de preus. Penjar-lo de l'arbre hi afegia un capítol buit a cada cicle.
-        .filter(c => (relations[c] || []).length > 0 || concepts[c].unit);
+        // Un concepte de percentatge és un component del preu, mai una partida del projecte.
+        // Com a fill ja s'excloïa; com a arrel s'hi colava.
+        .filter(c => concepts[c].unit !== '%')
+        // Un concepte que no és fill de ningú només és un node del projecte si es descompon
+        // —és un capítol— o si porta amidament —és una partida.
+        //
+        // Sense això, importar una partida del Generador de Preus de CYPE hi afegia també els
+        // disset conceptes de gestió de residus que porta el fitxer (`re150101`, `ruo170101`…),
+        // que no són partides d'obra sinó entrades de banc de preus: no els referencia ningú i
+        // no tenen amidament. On han d'anar és a `prices`, i ja hi van.
+        //
+        // Els fitxers que són una llista plana de partides sense estructura (~C i ~M sense cap
+        // ~D) continuen entrant: cadascuna porta el seu amidament.
+        .filter(c => (relations[c] || []).length > 0 || teAmidament.has(c));
     
     // Si no hi ha una arrel clara, usem el primer concepte 'C' que tingui fills
     
