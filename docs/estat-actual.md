@@ -2,7 +2,7 @@
 
 Inventari fet llegint el codi (agost 2026).
 
-**Estat: els vint-i-sis defectes estan corregits.** Es conserva la descripció de cadascun
+**Estat: els vint-i-set defectes estan corregits.** Es conserva la descripció de cadascun
 perquè expliquen decisions del codi actual i serveixen de referència si tornen a aparèixer.
 El deute tècnic de la segona meitat del document continua obert.
 
@@ -448,6 +448,30 @@ Del mateix cicle sortien dos residus més, que ara també es filtren:
 
 Comprovat encadenant tres cicles sobre el fitxer de mostra: PEM, nombre de capítols i ordre es
 conserven.
+
+### 27. Obrir un projecte des del sistema no feia res ✅
+
+El manifest declarava `file_handlers` només per a `.bc3`, de manera que un projecte natiu no
+s'associava mai a l'aplicació. I encara que s'hi hagués associat, el consumidor del
+`launchQueue` comprovava:
+
+```js
+if (projectData.budget && projectData.projectMetadata) { ... }
+```
+
+i `projectMetadata` **no s'escrivia enlloc**: el que desem és `{budget, priceDatabase,
+exportDate, version}`. La condició sempre era falsa i el codi no tenia branca `else`, o sigui
+que el fitxer s'obria, es llegia, es descartava i no passava res ni sortia cap avís.
+
+L'arrel era que hi havia **tres comprovacions diferents** del mateix: el selector de fitxers
+demanava `budget && priceDatabase`, la File Handling API `budget && projectMetadata`, i Drive
+`budget && priceDatabase`. Ara totes tres passen per `llegeixProjecte` (`utils/projectFile.js`),
+que a més accepta un projecte sense base de preus pròpia —abans es descartava— i qui la crida
+ha d'avisar l'usuari quan retorna `null`.
+
+De passada, l'arrossegament de fitxers donava per fet que tot el que es deixava caure era un
+BC3: un projecte arrossegat es llegia com a Windows-1252 i acabava amb «Format BC3 no
+reconegut». Ara també passa per `obreFitxer`.
 
 ---
 

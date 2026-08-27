@@ -82,6 +82,10 @@ import { generateBC3, nomFitxerCertificacio } from './utils/bc3Writer';
 import { numberToTextCatalan } from './utils/numberToText';
 import { exportCertificationPDF } from './utils/certificationPdf';
 import { safeFileName } from './utils/fileName';
+import {
+    EXTENSIO_PROJECTE, MIME_PROJECTE, esFitxerProjecte, esFitxerBC3,
+    serialitzaProjecte, llegeixProjecte,
+} from './utils/projectFile';
 import { toWindows1252Bytes } from './utils/googleDrive';
 
 const formatPrice = (val) => formatNumber(val, 2);
@@ -2046,18 +2050,11 @@ export default function App() {
     const fileInputRef = React.useRef(null);
 
     const handleDownloadProject = () => {
-        const projectData = {
-            budget,
-            priceDatabase,
-            exportDate: new Date().toISOString(),
-            version: '1.0'
-        };
-        const json = JSON.stringify(projectData, null, 2);
-        const blob = new Blob([json], { type: 'application/json' });
+        const blob = new Blob([serialitzaProjecte(budget, priceDatabase)], { type: MIME_PROJECTE });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${safeFileName(budget.name, 'projecte')}.json`;
+        a.download = `${safeFileName(budget.name, 'projecte')}${EXTENSIO_PROJECTE}`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -2069,48 +2066,41 @@ export default function App() {
         fileInputRef.current?.click();
     };
 
-    const handleFileSelect = (e) => {
-        const file = e.target.files[0];
+    /**
+     * Obre un fitxer, vingui d'on vingui: del selector, de la File Handling API o del menú de
+     * compartir del sistema. Els tres camins feien la seva pròpia comprovació —i la de la File
+     * Handling API mirava un camp que no s'escrivia enlloc— així que ara passen tots per aquí.
+     */
+    const obreFitxer = useCallback(async (file, { replace = true } = {}) => {
         if (!file) return;
 
-        const fileName = file.name.toLowerCase();
-
-        if (fileName.endsWith('.json')) {
-            // Handle JSON project file
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                try {
-                    const projectData = JSON.parse(event.target.result);
-                    if (projectData.budget && projectData.priceDatabase) {
-                        adoptaProjecte(projectData.budget);
-                        setPriceDatabase(projectData.priceDatabase);
-                        notify("Projecte carregat correctament");
-                    } else {
-                        notify("Format de fitxer no vàlid", "error");
-                    }
-                } catch (err) {
-                    notify("Error llegint el fitxer", "error");
-                    console.error(err);
-                }
-            };
-            reader.readAsText(file);
-        } else if (fileName.endsWith('.bc3')) {
-            // Handle BC3 file
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                const result = processBC3Data(ev.target.result);
-                if (result) {
-                    // "Open Project" replaces the current one
-                    startImportProcess(result, { replace: true });
-                } else {
-                    notify("Format BC3 no reconegut", "error");
-                }
-            };
-            reader.readAsText(file, 'windows-1252');
-        } else {
-            notify("Format de fitxer no suportat. Utilitza .json o .bc3", "error");
+        if (esFitxerProjecte(file.name)) {
+            const projecte = llegeixProjecte(await file.text());
+            if (!projecte) {
+                notify(`"${file.name}" no sembla un projecte d'amidaments`, 'error');
+                return;
+            }
+            adoptaProjecte(projecte.budget);
+            setPriceDatabase(projecte.priceDatabase);
+            notify('Projecte carregat correctament');
+            return;
         }
 
+        if (esFitxerBC3(file.name)) {
+            // El BC3 és Windows-1252, no UTF-8: llegir-lo com a text el destrossaria.
+            const text = new TextDecoder('windows-1252').decode(await file.arrayBuffer());
+            const result = processBC3Data(text);
+            if (result) startImportProcess(result, { replace });
+            else notify('Format BC3 no reconegut', 'error');
+            return;
+        }
+
+        notify(`Format no suportat. Fes servir ${EXTENSIO_PROJECTE} o .bc3`, 'error');
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const handleFileSelect = (e) => {
+        const file = e.target.files[0];
+        obreFitxer(file);
         e.target.value = ''; // Reset input
     };
 
@@ -2430,44 +2420,44 @@ export default function App() {
         }
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // --- PWA File Handling API ---
+    // --- Obrir des del sistema operatiu ---
+    //
+    // Dos camins, un per plataforma:
+    //
+    //   · Escriptori (Chromium): File Handling API. El manifest declara `file_handlers` amb
+    //     .amid i .bc3, i el fitxer arriba pel `launchQueue`.
+    //   · Android: Web Share Target. La File Handling API no hi existeix, així que la PWA es
+    //     declara com a destinació del menú de compartir; el service worker rep el POST, desa
+    //     el fitxer en un cache i ens redirigeix amb `?compartit=1`.
+    //
+    // iOS no en té cap dels dos: allà només queda obrir des de dins de l'aplicació.
     useEffect(() => {
         if ('launchQueue' in window) {
             window.launchQueue.setConsumer(async (launchParams) => {
-                if (launchParams.files && launchParams.files.length > 0) {
-                    for (const handle of launchParams.files) {
-                        const file = await handle.getFile();
-                        const fileName = file.name.toLowerCase();
-
-                        if (fileName.endsWith('.json')) {
-                            const text = await file.text();
-                            try {
-                                const projectData = JSON.parse(text);
-                                if (projectData.budget && projectData.projectMetadata) {
-                                    adoptaProjecte(projectData.budget);
-                                    if (projectData.priceDatabase) setPriceDatabase(projectData.priceDatabase);
-                                    notify("Projecte carregat correctament");
-                                }
-                            } catch (e) {
-                                notify("Error carregant el projecte JSON", "error");
-                            }
-                        } else if (fileName.endsWith('.bc3')) {
-                            // We need to read as windows-1252 for BC3
-                            const reader = new FileReader();
-                            reader.onload = (ev) => {
-                                const result = processBC3Data(ev.target.result);
-                                if (result) {
-                                    startImportProcess(result);
-                                } else {
-                                    notify("Format BC3 no reconegut", "error");
-                                }
-                            };
-                            reader.readAsText(file, 'windows-1252');
-                        }
-                    }
+                for (const handle of launchParams.files || []) {
+                    await obreFitxer(await handle.getFile());
                 }
             });
         }
+
+        const recullCompartit = async () => {
+            if (!new URLSearchParams(window.location.search).has('compartit')) return;
+            // El paràmetre es treu de seguida perquè recarregar no reobri el mateix fitxer.
+            window.history.replaceState({}, '', window.location.pathname);
+            try {
+                const cache = await caches.open('amidaments-compartit');
+                const clau = `${window.location.pathname.replace(/[^/]*$/, '')}__compartit__`;
+                const resposta = await cache.match(clau);
+                if (!resposta) return;
+                await cache.delete(clau);
+                const nom = decodeURIComponent(resposta.headers.get('x-nom-fitxer') || 'compartit');
+                await obreFitxer(new File([await resposta.blob()], nom));
+            } catch (err) {
+                notify('No s\'ha pogut llegir el fitxer compartit', 'error');
+                console.error(err);
+            }
+        };
+        recullCompartit();
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleDrop = async (e) => {
@@ -2533,19 +2523,11 @@ export default function App() {
             return;
         }
 
+        // Arrossegar un fitxer accepta tant un projecte com un BC3. El BC3 es fusiona amb el
+        // que hi ha —és el comportament de sempre— i un projecte substitueix, que és l'únic
+        // que té sentit per a un fitxer que ja és un projecte sencer.
         const file = e.dataTransfer.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                const result = processBC3Data(ev.target.result);
-                if (result) {
-                    startImportProcess(result);
-                } else {
-                    notify("Format BC3 no reconegut", "error");
-                }
-            };
-            reader.readAsText(file, 'windows-1252');
-        }
+        if (file) obreFitxer(file, { replace: false });
     };
 
     const handlePaste = useCallback((e) => {
@@ -3699,13 +3681,13 @@ export default function App() {
                             </button>
                             {showSaveDropdown && (
                                 <div className="absolute top-full right-0 mt-1 bg-slate-900 border border-slate-700 shadow-2xl z-50 min-w-[220px]">
-                                    <div className="px-3 py-1 text-[8px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-800">JSON (Natiu)</div>
+                                    <div className="px-3 py-1 text-[8px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-800">Projecte ({EXTENSIO_PROJECTE})</div>
                                     <button
                                         onClick={() => { handleDownloadProject(); setShowSaveDropdown(false); }}
                                         className="w-full text-left px-4 py-2 text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-colors flex items-center gap-2"
                                     >
                                         <FileDown size={12} className="text-emerald-400" />
-                                        Desar JSON (Disc)
+                                        Desar projecte (Disc)
                                     </button>
                                     <button
                                         onClick={() => { requireDrive(() => drive.saveToDrive(budget, priceDatabase)); setShowSaveDropdown(false); }}
@@ -3822,7 +3804,7 @@ export default function App() {
                                         <span className="ml-auto text-xs text-slate-500 font-mono">{library.length}</span>
                                     </button>
 
-                                    <div className="px-4 py-2 text-xs font-bold text-slate-500 border-b border-slate-800 bg-slate-800/50 mt-1">DESAR JSON</div>
+                                    <div className="px-4 py-2 text-xs font-bold text-slate-500 border-b border-slate-800 bg-slate-800/50 mt-1">DESAR PROJECTE ({EXTENSIO_PROJECTE})</div>
                                     <button
                                         onClick={() => { handleDownloadProject(); setShowMobileMenu(false); }}
                                         className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 transition-colors flex items-center gap-3 border-b border-slate-800"
@@ -3913,7 +3895,7 @@ export default function App() {
             <input
                 ref={fileInputRef}
                 type="file"
-                accept=".json,.bc3"
+                accept=".amid,.json,.bc3"
                 onChange={handleFileSelect}
                 style={{ display: 'none' }}
             />

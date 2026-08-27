@@ -64,8 +64,15 @@ del sector: *amidament*, *partida*, *capítol*, *descomposat*, *rendiment*, *cer
   reimportar (§25 de `docs/estat-actual.md`).
 - `App.jsx` fa 4.380 línies. Abans d'afegir-hi res de nou, mira si toca extreure-ho a
   `utils/`, `hooks/` o `components/` — hi ha un pla de refactor a `docs/estat-actual.md`.
-- El path base `/amidaments/` està escrit a mà a `vite.config.js`, `public/manifest.json` i
-  `public/sw.js`.
+- El path base `/amidaments/` està escrit a mà a `vite.config.js`, `public/manifest.json`
+  (`start_url`, `file_handlers` i `share_target`) i `public/sw.js`.
+- **El fitxer natiu és `.amid`**, no `.json`: és JSON a dins, però amb extensió i MIME propis
+  perquè l'associació de fitxers del sistema sigui neta. Tot el que sap què és un fitxer de
+  projecte viu a `utils/projectFile.js`; els `.json` desats abans s'han de continuar obrint.
+- **Qualsevol fitxer que entri passa per `obreFitxer`** (`App.jsx`): selector, arrossegament,
+  `launchQueue` d'escriptori i fitxers compartits des d'Android. Si hi afegeixes un camí nou,
+  fes-lo passar per aquí i no repeteixis la comprovació: tenir-ne tres de diferents va deixar
+  la File Handling API mirant un camp inexistent, fallant en silenci.
 - **Cap camp numèric no pot ser `type="number"`**: el navegador es menja la coma decimal i
   «12,5» es converteix en 125 sense avisar. Fes servir `components/NumberInput.jsx`.
 - **Res d'`opacity-0 group-hover:`**: al tacte no hi ha hover i el control queda inabastable.

@@ -43,7 +43,9 @@ opcionalment, a Google Drive.
   independent `<projecte>#certification NNNN.bc3`, segons mana la norma FIEBDC-3.
 - PDF de pressupost i amidaments, i PDF de resum amb G.G. / B.I. / IVA i import en lletres.
 - Excel amb fórmules vives (els parcials i els totals es recalculen al full).
-- Projecte natiu en JSON.
+- Projecte natiu en **`.amid`** (JSON amb extensió pròpia), que el sistema associa a
+  l'aplicació: doble clic a l'escriptori, i «Compartir amb» a Android. Els `.json` desats
+  abans es continuen obrint.
 
 ## Posar-ho en marxa
 

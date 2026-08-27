@@ -4,6 +4,8 @@
  * No requereix cap paquet npm — carrega les APIs de Google dinàmicament.
  */
 
+import { esFitxerProjecte, esFitxerBC3 } from './projectFile';
+
 // ─── Càrrega dinàmica d'APIs ────────────────────────────────────────────────
 
 let _gapiInitialized = false;
@@ -75,16 +77,15 @@ export const openPicker = ({ accessToken, apiKey, appId, onPicked, onCancel }) =
         .setOAuthToken(accessToken)
         .setDeveloperKey(apiKey)
         .setAppId(appId)
-        .setTitle('Selecciona un fitxer .json o .bc3')
+        .setTitle('Selecciona un fitxer .amid o .bc3')
         .setCallback((data) => {
             if (data.action === window.google.picker.Action.PICKED) {
                 const file = data.docs[0];
-                const nameLower = (file.name || '').toLowerCase();
-                if (nameLower.endsWith('.json') || nameLower.endsWith('.bc3')) {
-                    const fileType = nameLower.endsWith('.json') ? 'json' : 'bc3';
+                if (esFitxerProjecte(file.name) || esFitxerBC3(file.name)) {
+                    const fileType = esFitxerBC3(file.name) ? 'bc3' : 'json';
                     onPicked({ fileId: file.id, fileName: file.name, fileType });
                 } else {
-                    alert('Format no suportat. Selecciona un fitxer .json o .bc3');
+                    alert('Format no suportat. Selecciona un fitxer .amid o .bc3');
                 }
             } else if (data.action === window.google.picker.Action.CANCEL) {
                 onCancel?.();

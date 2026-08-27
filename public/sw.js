@@ -13,9 +13,20 @@
  *   · Peticions externes (Google Drive, corsproxy) i no-GET → sempre a la xarxa, mai cachejades.
  */
 
-const VERSION = 'v2';
+const VERSION = 'v3';
 const CACHE_NAME = `amidaments-${VERSION}`;
 const BASE = '/amidaments/';
+
+// ── Compartir des del sistema (Android) ────────────────────────────────────────
+//
+// La File Handling API («obrir amb») només existeix a Chromium d'escriptori. Al mòbil el
+// camí equivalent és la Web Share Target API: el manifest declara `share_target` i el
+// sistema envia un POST amb el fitxer a aquesta URL. Un POST no el pot llegir la pàgina
+// directament, així que l'intercepta el worker: en desa el fitxer en un cache a part i
+// redirigeix a l'aplicació, que el recull i el buida.
+const URL_COMPARTIR = `${BASE}comparteix`;
+const CACHE_COMPARTIT = 'amidaments-compartit';
+const CLAU_COMPARTIT = `${BASE}__compartit__`;
 
 // Mínim imprescindible per arrencar. La resta s'hi va afegint a mesura que es demana.
 const APP_SHELL = [BASE, `${BASE}index.html`, `${BASE}manifest.json`, `${BASE}icon.svg`];
@@ -67,7 +78,10 @@ self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys()
             .then(noms => Promise.all(
-                noms.filter(n => n.startsWith('amidaments-') && n !== CACHE_NAME)
+                // El cache del fitxer compartit no és una versió del shell: si s'esborrés
+                // aquí, una actualització del worker enmig d'un «compartir amb» perdria
+                // el fitxer que l'usuari acaba d'enviar.
+                noms.filter(n => n.startsWith('amidaments-') && n !== CACHE_NAME && n !== CACHE_COMPARTIT)
                     .map(n => caches.delete(n))
             ))
             .then(() => self.clients.claim())
@@ -80,11 +94,43 @@ self.addEventListener('message', (event) => {
 
 const esPropi = (url) => url.origin === self.location.origin && url.pathname.startsWith(BASE);
 
+/**
+ * Desa el fitxer compartit i redirigeix a l'aplicació.
+ *
+ * El nom del fitxer viatja en una capçalera perquè l'aplicació sàpiga si és un `.amid` o un
+ * `.bc3` sense haver-lo d'ensumar: la codificació dels dos és diferent i importa (el BC3 és
+ * Windows-1252). Es respon amb un 303 perquè la navegació resultant sigui un GET.
+ */
+const rebCompartit = async (request) => {
+    try {
+        const formData = await request.formData();
+        const fitxer = formData.get('fitxer');
+        if (fitxer && fitxer.size >= 0) {
+            const cache = await caches.open(CACHE_COMPARTIT);
+            await cache.put(CLAU_COMPARTIT, new Response(fitxer, {
+                headers: {
+                    'content-type': fitxer.type || 'application/octet-stream',
+                    'x-nom-fitxer': encodeURIComponent(fitxer.name || 'compartit'),
+                },
+            }));
+            return Response.redirect(`${BASE}?compartit=1`, 303);
+        }
+    } catch {
+        // Si el POST no porta el que esperem, val més obrir l'aplicació buida que fallar.
+    }
+    return Response.redirect(BASE, 303);
+};
+
 self.addEventListener('fetch', (event) => {
     const { request } = event;
-    if (request.method !== 'GET') return;
-
     const url = new URL(request.url);
+
+    if (request.method === 'POST' && url.pathname === URL_COMPARTIR) {
+        event.respondWith(rebCompartit(request));
+        return;
+    }
+
+    if (request.method !== 'GET') return;
 
     // Navegació: xarxa primer perquè un desplegament nou s'agafi de seguida,
     // amb l'index.html cachejat com a xarxa de seguretat quan no hi ha cobertura.

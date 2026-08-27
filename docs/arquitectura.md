@@ -27,6 +27,7 @@ Navegador
 | `src/utils/measurementRefs.js` | — | Resolució de les línies d'amidament vinculades. |
 | `src/utils/bc3Parser.js` | 380 | Parser FIEBDC-3 (importació). Llegeix el `~V` per saber si el fitxer és un pressupost o una certificació. |
 | `src/utils/bc3Writer.js` | 215 | Escriptor FIEBDC-3. Un fitxer per document: pressupost o certificació. |
+| `src/utils/projectFile.js` | 68 | Identitat del fitxer natiu `.amid`: extensions, MIME, serialització i lectura. |
 | `src/utils/googleDrive.js` | 260 | Wrapper de Drive API + Picker + codificació Windows-1252. |
 | `src/hooks/useCertification.js` | 163 | Mutacions d'estat de certificacions. |
 | `src/hooks/useGoogleDrive.js` | 347 | Cicle de vida OAuth, obrir/desar a Drive, "Open with…". |
@@ -34,8 +35,8 @@ Navegador
 | `src/components/Certification/CertificationBar.jsx` | 105 | Selector de fases i aprovació. |
 | `src/components/Certification/CertificationSidebar.jsx` | 222 | Panell de certificació d'una partida. |
 | `src/components/DriveSettingsModal.jsx` | 145 | Formulari de credencials Google. |
-| `public/sw.js` | 22 | Service worker cache-first. |
-| `public/manifest.json` | — | PWA + `file_handlers` per a `.bc3`. |
+| `public/sw.js` | 166 | Service worker: precache del shell i dels bundles, i recepció dels fitxers compartits des d'Android. |
+| `public/manifest.json` | — | PWA + `file_handlers` (`.amid`, `.json`, `.bc3`) i `share_target`. |
 
 ## Estructura interna d'`App.jsx`
 
@@ -62,7 +63,7 @@ Dins d'`App`, els blocs grans són:
 - **Mutacions de preus** (1653–1780): `adjustPem`, `updateGlobalPrice`.
 - **Arbre: alta, clonatge, fusió** (1781–1897).
 - **Exportació BC3** (~1990–2035): `seleccioBC3`, `documentBC3`, `handleExportBC3`. L'escriptura viu a `utils/bc3Writer.js`.
-- **Obertura/importació** (2175–2570): fitxers locals, URL (proxy CORS), drag&drop, paste, PWA `launchQueue`.
+- **Obertura/importació** (~2070–2570): `obreFitxer` (punt d'entrada únic de qualsevol fitxer), URL (proxy CORS), drag&drop, paste, `launchQueue` i fitxers compartits.
 - **Mutacions de node** (2569–2870): amidaments, descripcions, unitats, esborrat, reordenació, descomposats.
 - **Renderitzadors** (2876–3500): justificació de preus, files de taula, recursos, banc de preus.
 - **JSX principal** (3500–4380): capçalera, barra de certificacions, taula, sidebar de detall, modals.
@@ -155,10 +156,42 @@ L'autodesat és un `useEffect` amb `setTimeout` de 1000 ms que es reinicia a cad
 (`App.jsx:901`), més un `beforeunload` de seguretat (`App.jsx:910`). L'estat `lastSaved`
 s'actualitza però **no es mostra enlloc** a la UI.
 
+## Obrir des del sistema operatiu
+
+L'aplicació es pot obrir amb un fitxer sense passar pel botó d'obrir, però el mecanisme no és
+el mateix a cada plataforma:
+
+| Plataforma | Mecanisme | Com hi arriba el fitxer |
+|---|---|---|
+| Escriptori (Chrome, Edge) | **File Handling API** | `file_handlers` al manifest → `window.launchQueue` |
+| Android (Chrome) | **Web Share Target** | `share_target` al manifest → POST al service worker → `?compartit=1` |
+| iOS, iPadOS | — | Safari no en suporta cap: només obrir des de dins de l'aplicació |
+
+La File Handling API només existeix a Chromium d'escriptori, i per això al mòbil s'hi arriba
+pel menú de compartir: l'aplicació instal·lada surt a la llista i el sistema li envia el fitxer
+en un POST. Un POST no el pot llegir la pàgina, així que l'intercepta `public/sw.js`, en desa
+el fitxer al cache `amidaments-compartit` i redirigeix a `/amidaments/?compartit=1`; l'aplicació
+el recull en muntar-se, el buida del cache i neteja el paràmetre de la URL perquè recarregar no
+el torni a obrir.
+
+Els dos camins acaben a **`obreFitxer`** (`App.jsx`), que també és on van a parar el selector de
+fitxers i l'arrossegament. Abans cadascun feia la seva pròpia comprovació —i la de la File
+Handling API mirava un camp `projectMetadata` que no s'escrivia enlloc, de manera que obrir un
+projecte des del sistema no feia absolutament res i tampoc no avisava.
+
+### El fitxer natiu: `.amid`
+
+El projecte és JSON, però es desa com a **`.amid`** amb el tipus MIME
+`application/x-amidaments+json`. El motiu és justament l'associació: el `.json` se'l disputen
+l'editor de text, el navegador i mig sistema operatiu, i declarar-lo a `file_handlers` no dona
+una associació neta. Els projectes desats abans porten `.json` i es continuen obrint;
+`src/utils/projectFile.js` és qui ho sap tot d'això.
+
 ## Desplegament
 
 `.github/workflows/deploy.yml` construeix i publica a GitHub Pages en cada push a `main`.
 Les credencials de Drive s'injecten com a secrets del repositori
 (`VITE_GOOGLE_CLIENT_ID`, `VITE_GOOGLE_API_KEY`, `VITE_GOOGLE_APP_ID`).
-`vite.config.js` fixa `base: '/amidaments/'`, que ha de coincidir amb `start_url` del
-manifest i amb les rutes cachejades al service worker.
+`vite.config.js` fixa `base: '/amidaments/'`, que ha de coincidir amb `start_url`, `action`
+dels `file_handlers` i `action` del `share_target` al manifest, i amb les rutes del service
+worker.
