@@ -117,9 +117,14 @@ export const buildWasteSummary = (chapters = []) => {
             } else {
                 sense++;
             }
+            // Aquí s'atura: els fills d'una partida són els components del seu descomposat, no
+            // subpartides. Baixant-hi, els materials d'una partida de construcció es comptaven
+            // com a partides pròpies —«9 de 15» quan només n'hi havia una— i la nota del peu
+            // llistava codis de material com si els faltés l'amidament.
+            return;
         }
         [...(node.subChapters || []), ...(node.items || [])]
-            .forEach(fill => visita(fill, node.unit ? capitol : (node.description || capitol)));
+            .forEach(fill => visita(fill, node.description || capitol));
     };
 
     chapters.forEach(node => visita(node, ''));

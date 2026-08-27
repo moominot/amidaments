@@ -2,7 +2,7 @@
 
 Inventari fet llegint el codi (agost 2026).
 
-**Estat: els trenta defectes estan corregits.** Es conserva la descripció de cadascun
+**Estat: els trenta-un defectes estan corregits.** Es conserva la descripció de cadascun
 perquè expliquen decisions del codi actual i serveixen de referència si tornen a aparèixer.
 El deute tècnic de la segona meitat del document continua obert.
 
@@ -532,6 +532,36 @@ de les partides afectades.
 
 Va sortir d'una pregunta que no es podia respondre des de dins de l'aplicació: «o bé els valors
 són zero al BC3 o bé no els calcula bé». Ara ho diu.
+
+### 31. Els residus d'una partida de construcció sortien a zero ✅
+
+L'estimació funcionava amb les demolicions i donava zero amb tot el que fos construir. El motiu
+és que el `~R` té **dues menes de component** i només en llegíem una:
+
+- **Components addicionals** (demolició, excavació, embalatge): no són al `~D` i la quantitat és
+  directament el seu rendiment. Això sí que ho llegíem.
+- **Components de col·locació** (tipus 0): el material que es llença en executar. Sí que són al
+  `~D`, i la quantitat és `rendiment del descomposat × factor de residu`. Ni miràvem el tipus,
+  ni buscàvem el rendiment, ni coneixíem la propietat: la norma l'anomena `wf` i CYPE hi escriu
+  `rp`, i nosaltres només acceptàvem `r`.
+
+I encara hi havia un tercer camí que se'ns escapava: l'**embalatge penja del material**, no de
+la partida, de manera que s'ha de multiplicar per la quantitat d'aquell material a la partida.
+
+Amb els tres camins, `EHS010` (pilar de formigó armat) passa de 0 a **19,99 kg i 0,0152 m³ per
+m³**, repartits en col·locació (18,54 kg) i embalatge (1,45 kg), que són dues de les fraccions
+que el RD 105/2008 separa. Contrastat a mà contra el fitxer abans d'escriure el codi.
+
+Del mateix arreglo n'han sortit dos més:
+
+- **L'exportació duplicava l'embalatge a cada cicle.** El material també és un node de l'arbre
+  —el parser el crea a partir del `~D`— i ja porta el seu propi `~R`; escrivint-lo també a la
+  partida, cada volta hi sumava una altra vegada: 19,99 kg passaven a 21,44, a 22,89, a 24,34.
+  Ara el component `packaging` no es reescriu a la partida, i el de col·locació s'escriu amb el
+  **factor** i no amb la quantitat resolta, que un altre programa tornaria a multiplicar.
+- **El resum comptava els materials com si fossin partides.** `buildWasteSummary` baixava als
+  fills d'una partida, que són els components del descomposat: sortia «9 de 15 partides» quan
+  només n'hi havia una. `buildCarbonSummary` ja s'aturava; ara les dues fan igual.
 
 ---
 

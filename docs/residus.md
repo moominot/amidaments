@@ -27,14 +27,45 @@ de CYPE; les partides creades a mà, no.
 
 ### `~R` — descomposició de residus
 
-Lliga una partida amb els components que en generen, i amb quina quantitat:
+Lliga una partida amb els components que en generen:
 
 ```
 ~R | PARE | {TIPUS \ FILL \ {PROPIETAT \ VALOR \ [UM] \ } | }
 ```
 
+**Hi ha dues menes de component, i es calculen diferent.** La norma ho explica a l'apartat
+«Compound-element waste»; una partida de demolició fa servir només la primera i una de
+construcció, totes dues. Llegint-ne només una, les partides de construcció donaven zero.
+
+**1. Components addicionals** (tipus 1 demolició, 2 excavació, 3 embalatge). No són al `~D`.
+La quantitat és directament el seu rendiment:
+
 ```
-~R|DCE010|3\re150101\r\0\\|1\ruo170101\r\21580\\|1\ruo170504\r\17886\\|…
+~R|DCE010|1\ruo170101\r\21580\\|1\ruo170504\r\17886\\|…
+        └─ 21.580 kg de formigó per unitat de partida
+```
+
+**2. Components de col·locació** (tipus 0): el material que es llença en executar. Aquests
+**sí** que són al `~D`, i la quantitat surt de combinar les dues coses:
+
+```
+quantitat = rendiment del descomposat × factor de residu
+```
+
+```
+~D|EHS010|…mt07aco010c\1\120…       120 kg d'acer per m³
+~R|EHS010|0\mt07aco010c\rp\0.0075\\|   se'n llença el 0,75 % → 0,9 kg
+```
+
+La norma anomena el factor `wf` (*waste factor*); CYPE hi escriu `rp`. El parser accepta tots
+dos, i igual amb `o`/`r` per al rendiment.
+
+**3. I un tercer camí**: l'embalatge sol penjar **del material**, no de la partida, de manera que
+cal multiplicar-lo per la quantitat d'aquell material a la partida:
+
+```
+~R|mt07sep010ac|3\re150101\r\0.072\\|   0,072 kg de cartró per separador
+                                        × 12 separadors/m³ = 0,864 kg
 ```
 
 El **TIPUS** classifica l'origen del residu, i no és decoratiu: el reial decret separa la terra
@@ -77,12 +108,29 @@ A `node.waste`, amb les magnituds **primitives**, no amb el producte ja fet:
     "unit": "kg",
     "type": "1",
     "ler": "17 01 01",
-    "quantity": 21580,        // component per unitat de partida
+    "quantity": 21580,        // component per unitat de partida, ja resolt
     "massPerUnit": 1,         // kg per unitat de component  (~X m)
-    "volumePerUnit": 0.000667 // m³ per unitat de component  (~X v)
+    "volumePerUnit": 0.000667, // m³ per unitat de component  (~X v)
+    "origin": "direct"        // direct · placement · packaging
   }
 ]
 ```
+
+`origin` diu d'on ha sortit la quantitat, i és el que permet **tornar-la a escriure bé**:
+
+| `origin` | Com s'ha calculat | Com s'exporta |
+|---|---|---|
+| `direct` | rendiment del `~R` de la partida | `tipus\codi\r\quantitat` |
+| `placement` | rendiment del `~D` × factor (`wasteFactor`) | `0\codi\wf\factor` |
+| `packaging` | rendiment del `~R` del material × quantitat del material | **no s'escriu** |
+
+Un component de col·locació s'ha de reescriure amb el **factor**, no amb la quantitat resolta:
+escrivint-hi la quantitat, un altre programa la tornaria a multiplicar pel rendiment.
+
+L'embalatge no es reescriu a la partida perquè el material també és un node de l'arbre —el
+parser el crea a partir del `~D`— i ja porta el seu propi `~R`. Escrivint-lo a totes dues
+bandes, cada cicle d'exportació hi sumava una altra vegada l'embalatge: 19,99 kg passaven a
+21,44, a 22,89…
 
 Guardar-hi directament la massa i el volum ja multiplicats semblava més còmode, però perd els
 components declarats amb quantitat zero —els envasos ho són sovint— i llavors en exportar no
@@ -113,20 +161,40 @@ volum  del component al projecte = quantity × volumePerUnit × amidament de la 
 per partida. Rep **`resolvedChapters`**, no `budget.chapters`: si no, les partides amb amidament
 vinculat comptarien zero.
 
+En arribar a una partida s'atura i no baixa als seus fills: són els components del descomposat,
+no subpartides. El parser els crea com a `items` a partir del `~D`, i baixant-hi els materials
+d'una partida de construcció es comptaven com a partides pròpies («9 de 15» quan només n'hi
+havia una).
+
 Les files amb massa i volum zero no surten al resum —serien soroll—, però **sí que s'escriuen
 al BC3**: el fitxer ha de conservar el que declarava l'original.
 
 ### Comprovació amb dades reals
 
-La partida `DCE010` del Generador de Preus (demolició completa d'un edifici de 100 m²) dona
-**62.722 kg i 45,78 m³ per unitat**, repartits en 16 components. La densitat implícita del
-formigó de runa surt a 1/0,000667 ≈ 1.500 kg/m³, que és la que toca: el model quadra.
+**Demolició.** `DCE010` (demolició completa d'un edifici de 100 m²) dona **62.722 kg i
+45,78 m³ per unitat**, repartits en 16 components. La densitat implícita del formigó de runa
+surt a 1/0,000667 ≈ 1.500 kg/m³, que és la que toca.
+
+**Construcció.** `EHS010` (pilar de formigó armat) dona **19,99 kg i 0,0152 m³ per m³**:
+
+| Origen | Component | Quantitat | kg |
+|---|---|---:|---:|
+| col·locació | xapa d'encofrat | 0,32 m² | 10,24 |
+| col·locació | matavius PVC | 17,8 U | 3,20 |
+| col·locació | formigó | 0,00136 m³ | 3,19 |
+| col·locació | acer | 0,9 kg | 0,90 |
+| embalatge | paper i cartró | 1,434 kg | 1,43 |
+| …i quatre més | | | |
+| **Total** | | | **19,99** |
+
+Els dos números s'han comprovat també a mà contra el fitxer, aplicant les fórmules de la norma.
 
 ## Exportació
 
-`generateBC3` escriu la capçalera `~X`, un `~X` per component i el `~R` de cada partida, de
-manera que el cicle exportar → reimportar conserva l'estimació. Comprovat encadenant-lo tres
-vegades: 62,72 t, 45,79 m³ i 11 codis LER, sempre iguals.
+`generateBC3` escriu la capçalera `~X`, un `~X` per component i el `~R` de cada partida, amb
+les regles de la taula d'`origin` de més amunt. Comprovat encadenant el cicle tres vegades amb
+els dos fitxers: `DCE010` es queda a 62,72 t / 45,79 m³ / 11 codis LER, i `EHS010` a 19,99 kg /
+0,02 m³ / 6 codis.
 
 ## L'estudi de gestió de residus (RD 105/2008)
 

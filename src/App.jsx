@@ -3305,6 +3305,23 @@ export default function App() {
                                                     value={w.description || ''}
                                                     onChange={e => updateWasteLine(node.id, idx, 'description', e.target.value)}
                                                 />
+                                                {/* El tipus decideix a quina fracció de l'article 5.5 va el residu, i per
+                                                    tant si en surt una obligació de separació. Va sota la descripció i no
+                                                    a una columna pròpia: al panell de detall no hi cap una vuitena. */}
+                                                <select
+                                                    value={String(w.type ?? '1')}
+                                                    onChange={e => updateWasteLine(node.id, idx, 'type', e.target.value)}
+                                                    className="mt-0.5 bg-transparent text-[9px] text-slate-400 uppercase tracking-wide border-none outline-none cursor-pointer hover:text-slate-600"
+                                                >
+                                                    {Object.entries(TIPUS_RESIDU).map(([id, t]) => (
+                                                        <option key={id} value={id}>{t.nom}</option>
+                                                    ))}
+                                                </select>
+                                                {w.via && (
+                                                    <span className="block text-[9px] text-slate-300 italic truncate" title={`Embalatge de ${w.via}`}>
+                                                        de {w.via}
+                                                    </span>
+                                                )}
                                             </td>
                                             <td className="p-1 px-2">
                                                 <input

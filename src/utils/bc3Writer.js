@@ -263,7 +263,23 @@ export const generateBC3 = ({ budget, chapters, priceDatabase = {}, certificatio
     }
     residus.forEach((components, norm) => {
         const blocs = components
-            .map(w => `${w.type ?? ''}\\${normalizeCode(w.code)}\\r\\${fNum(w.quantity)}\\\\`)
+            // L'embalatge que ve d'un material NO es reescriu aquí: el material també és un
+            // node de l'arbre —el parser el crea a partir del `~D`— i ja porta el seu propi
+            // `~R`. Escrivint-lo a totes dues bandes, cada cicle d'exportació hi sumava una
+            // altra vegada l'embalatge: 19,99 kg passaven a 21,44, a 22,89…
+            .filter(w => w.origin !== 'packaging')
+            .map(w => {
+                const codi = normalizeCode(w.code);
+                // El residu de col·locació es declara amb el FACTOR, no amb la quantitat: la
+                // norma el calcula com a rendiment del descomposat × factor, i escrivint-hi la
+                // quantitat ja resolta un altre programa la tornaria a multiplicar.
+                if (w.origin === 'placement') return `0\\${codi}\\wf\\${fNum(w.wasteFactor ?? 0)}\\\\`;
+                // L'embalatge d'un material es reescriu com a component addicional de la
+                // partida, amb la quantitat ja multiplicada. Es perd de quin material venia
+                // —no és un node de l'arbre i no en tenim registre propi— però la xifra i el
+                // codi LER es conserven, que és el que compta per a l'estimació.
+                return `${w.type ?? '3'}\\${codi}\\r\\${fNum(w.quantity)}\\\\`;
+            })
             .join('|');
         if (blocs) lines.push(`~R|${getExportCode(norm)}|${blocs}|`);
     });
