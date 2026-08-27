@@ -2,7 +2,7 @@
 
 Inventari fet llegint el codi (agost 2026).
 
-**Estat: els vint-i-nou defectes estan corregits.** Es conserva la descripció de cadascun
+**Estat: els trenta defectes estan corregits.** Es conserva la descripció de cadascun
 perquè expliquen decisions del codi actual i serveixen de referència si tornen a aparèixer.
 El deute tècnic de la segona meitat del document continua obert.
 
@@ -515,6 +515,23 @@ Els fitxers que són una llista plana de partides sense estructura continuen ent
 cadascuna porta el seu amidament. Comprovat: el fitxer de mostra segueix a 135.202,54 € amb
 24 capítols, i arrossegar l'enllaç de CYPE deixa un sol capítol, `D# DEMOLICIONS`, amb la
 partida `DCE010` a dins.
+
+### 30. Un zero de residus podia voler dir dues coses ✅
+
+La pestanya comptava com a «amb dades» qualsevol partida que portés registres de residus,
+encara que el seu amidament fos zero. El resultat era una capçalera que deia «1 de 1 partides»
+amb la taula buida i 0,00 kg de total: exactament el mateix que si el fitxer no portés residus,
+però per un motiu completament diferent.
+
+Els dos casos ara es distingeixen. `buildWasteSummary` retorna `ambDades` (partides que porten
+registres) i `ambAportacio` (les que aporten massa) per separat, més la llista de les que
+porten dades amb l'amidament a zero, i la pestanya té un missatge per a cada cas: en el primer
+explica d'on surten les dades i **quin dels dos enllaços del Generador de Preus les porta**; en
+el segon diu que el fitxer és correcte i que el que falta és entrar l'amidament, amb la llista
+de les partides afectades.
+
+Va sortir d'una pregunta que no es podia respondre des de dins de l'aplicació: «o bé els valors
+són zero al BC3 o bé no els calcula bé». Ara ho diu.
 
 ---
 

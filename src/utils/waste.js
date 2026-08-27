@@ -55,13 +55,19 @@ export const calcItemWaste = (item) => {
  *   d'estar resolts o les partides que en depenen comptarien zero.
  * @returns {{
  *   perLer: Array, perTipus: Array, partides: Array,
- *   totals: {mass: number, volume: number}, ambDades: number, sense: number
+ *   totals: {mass: number, volume: number},
+ *   ambDades: number, ambAportacio: number, senseAmidament: Array, sense: number
  * }}
+ *   Es distingeix la partida que **no porta dades** de la que **en porta però té l'amidament
+ *   a zero**: totes dues donen zero kg, però la primera és un fitxer sense residus i la segona
+ *   és un amidament per omplir. Sense separar-les, la pestanya ensenyava «1 de 1 partides» amb
+ *   la taula buida i no hi havia manera de saber quin dels dos casos era.
  */
 export const buildWasteSummary = (chapters = []) => {
     const perLer = new Map();     // codi LER -> { ler, description, type, mass, volume, codis:Set }
     const perTipus = new Map();   // tipus -> { type, nom, mass, volume }
     const partides = [];
+    const senseAmidament = [];
     let ambDades = 0;
     let sense = 0;
 
@@ -105,6 +111,8 @@ export const buildWasteSummary = (chapters = []) => {
                         unit: node.unit, capitol, quantity: quantitat,
                         mass: round2(propi.mass), volume: round2(propi.volume),
                     });
+                } else if (quantitat === 0) {
+                    senseAmidament.push({ id: node.id, code: node.code, description: node.description, unit: node.unit });
                 }
             } else {
                 sense++;
@@ -130,6 +138,8 @@ export const buildWasteSummary = (chapters = []) => {
             volume: round2(files.reduce((a, f) => a + f.volume, 0)),
         },
         ambDades,
+        ambAportacio: partides.length,
+        senseAmidament,
         sense,
     };
 };

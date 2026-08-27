@@ -3321,29 +3321,59 @@ export default function App() {
      * val més dir-ho i explicar d'on surten que ensenyar una taula buida.
      */
     const renderWasteTable = () => {
-        const { perLer, perTipus, partides, totals, ambDades, sense } = wasteSummary;
+        const { perLer, perTipus, partides, totals, ambDades, ambAportacio, senseAmidament, sense } = wasteSummary;
+
+        // Un zero pot voler dir dues coses molt diferents —el fitxer no porta residus, o els
+        // porta però l'amidament és zero— i des de fora no es distingeixen. Per això cada cas
+        // té el seu missatge en comptes d'una taula buida.
+        const buit = (titol, cos, peu) => (
+            <div className="p-6 md:p-12">
+                <div className="bg-white border border-slate-200 p-8 md:p-12 text-center max-w-2xl mx-auto">
+                    <Recycle size={44} className="mx-auto text-slate-200 mb-4" />
+                    <p className="text-sm font-bold text-slate-600 uppercase tracking-widest mb-3">{titol}</p>
+                    <div className="text-[11px] text-slate-500 leading-relaxed space-y-2">{cos}</div>
+                    {peu && <p className="text-[10px] text-slate-400 mt-4 italic">{peu}</p>}
+                </div>
+            </div>
+        );
 
         if (ambDades === 0) {
-            return (
-                <div className="p-6 md:p-12">
-                    <div className="bg-white border border-slate-200 p-8 md:p-12 text-center max-w-2xl mx-auto">
-                        <Recycle size={44} className="mx-auto text-slate-200 mb-4" />
-                        <p className="text-sm font-bold text-slate-600 uppercase tracking-widest mb-3">
-                            Cap partida no porta dades de residus
-                        </p>
-                        <p className="text-[11px] text-slate-500 leading-relaxed">
-                            L&apos;estimació surt dels registres <span className="font-mono">~R</span> i{' '}
-                            <span className="font-mono">~X</span> del fitxer BC3, que declaren quins components
-                            generen residu, amb quin codi LER i amb quina massa i volum. Els porten els fitxers
-                            del Generador de Preus de CYPE; les partides creades a mà, no.
-                        </p>
-                        {sense > 0 && (
-                            <p className="text-[10px] text-slate-400 mt-4 italic">
-                                {sense} {sense === 1 ? 'partida al projecte' : 'partides al projecte'}, cap amb dades.
-                            </p>
-                        )}
-                    </div>
-                </div>
+            return buit(
+                'Cap partida no porta dades de residus',
+                <>
+                    <p>
+                        L&apos;estimació surt dels registres <span className="font-mono">~R</span> i{' '}
+                        <span className="font-mono">~X</span> del fitxer BC3, que declaren quins components
+                        generen residu, amb quin codi LER i amb quina massa i volum. Les partides creades a
+                        mà no en tenen.
+                    </p>
+                    <p className="bg-amber-50 border border-amber-200 text-amber-800 p-2.5 text-left">
+                        Del Generador de Preus de CYPE, només els porta l&apos;enllaç <b>BC3 estàndard</b>.
+                        El <b>BC3 d&apos;Arquímedes</b> no du ni residus ni amidament: és una entrada de banc
+                        de preus.
+                    </p>
+                </>,
+                sense > 0 ? `${sense} ${sense === 1 ? 'partida al projecte' : 'partides al projecte'}, cap amb dades.` : null
+            );
+        }
+
+        if (ambAportacio === 0) {
+            return buit(
+                'Les partides amb dades tenen l\'amidament a zero',
+                <>
+                    <p>
+                        {ambDades === 1 ? 'Hi ha una partida' : `Hi ha ${ambDades} partides`} amb dades de
+                        residus al fitxer, però {ambDades === 1 ? 'el seu amidament és' : 'els seus amidaments són'} zero,
+                        de manera que no {ambDades === 1 ? 'aporta' : 'aporten'} massa ni volum. Les dades del
+                        fitxer són correctes: el que falta és entrar l&apos;amidament.
+                    </p>
+                    <ul className="text-left bg-slate-50 border border-slate-200 p-2.5 font-mono text-[10px] space-y-1">
+                        {senseAmidament.slice(0, 8).map(x => (
+                            <li key={x.id} className="truncate">{x.code} · {x.description}</li>
+                        ))}
+                        {senseAmidament.length > 8 && <li className="italic">i {senseAmidament.length - 8} més…</li>}
+                    </ul>
+                </>
             );
         }
 
@@ -3481,12 +3511,26 @@ export default function App() {
                     </div>
                 </div>
 
-                {sense > 0 && (
-                    <p className="text-[10px] text-slate-400 italic px-4 py-3 md:px-0 md:py-0 leading-relaxed">
-                        Hi ha {sense} {sense === 1 ? 'partida' : 'partides'} sense dades de residus al fitxer d&apos;origen:
-                        no compten a l&apos;estimació. Les partides creades a mà i els BC3 que no porten els
-                        registres <span className="font-mono">~R</span> i <span className="font-mono">~X</span> no en tenen.
-                    </p>
+                {(sense > 0 || senseAmidament.length > 0) && (
+                    <div className="text-[10px] text-slate-400 italic px-4 py-3 md:px-0 md:py-0 leading-relaxed space-y-1">
+                        {sense > 0 && (
+                            <p>
+                                Hi ha {sense} {sense === 1 ? 'partida' : 'partides'} sense dades de residus al fitxer
+                                d&apos;origen: no compten a l&apos;estimació. Les partides creades a mà i els BC3 que no
+                                porten els registres <span className="font-mono">~R</span> i{' '}
+                                <span className="font-mono">~X</span> no en tenen.
+                            </p>
+                        )}
+                        {senseAmidament.length > 0 && (
+                            <p>
+                                {senseAmidament.length === 1 ? 'Una partida porta' : `${senseAmidament.length} partides porten`} dades
+                                de residus però {senseAmidament.length === 1 ? 'té' : 'tenen'} l&apos;amidament a zero
+                                ({senseAmidament.slice(0, 3).map(x => x.code).join(', ')}
+                                {senseAmidament.length > 3 ? '…' : ''}): no {senseAmidament.length === 1 ? 'aporta' : 'aporten'} res
+                                fins que no s&apos;hi entri.
+                            </p>
+                        )}
+                    </div>
                 )}
             </div>
         );

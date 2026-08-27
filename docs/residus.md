@@ -11,6 +11,20 @@ Es veu a la pestanya **Residus**, al costat de la base de preus i del llistat de
 De dos registres del BC3 que abans s'ignoraven. Els porten els fitxers del Generador de Preus
 de CYPE; les partides creades a mà, no.
 
+> **Del Generador de Preus, només l'enllaç «BC3 estàndard» porta residus.** Els dos enllaços
+> que ofereix CYPE per a la mateixa partida no duen el mateix:
+>
+> | | `_bc3_2_din` (estàndard) | `_bc3_din_u` (Arquímedes) |
+> |---|---|---|
+> | `~R` (descomposició de residus) | 1 | **cap** |
+> | `~X` (propietats) | 17, amb `ler`, `m` i `v` | 3, i són blocs `INFORMACION_GENERADOR` de CYPE |
+> | `~M` (amidament) | total 1 | total **0** |
+> | Resultat a l'aplicació | 62.722 kg · 45,78 m³ | sense residus i sense amidament |
+>
+> El fitxer d'Arquímedes és una entrada de banc de preus: hi ha el preu (10.946 €) i el
+> descomposat, però ni amidament ni residus. No és cap defecte de lectura; simplement no hi
+> són. Contrastat fent el cens de registres dels dos fitxers de la mateixa partida `DCE010`.
+
 ### `~R` — descomposició de residus
 
 Lliga una partida amb els components que en generen, i amb quina quantitat:
@@ -73,6 +87,20 @@ A `node.waste`, amb les magnituds **primitives**, no amb el producte ja fet:
 Guardar-hi directament la massa i el volum ja multiplicats semblava més còmode, però perd els
 components declarats amb quantitat zero —els envasos ho són sovint— i llavors en exportar no
 es pot refer el `~X`.
+
+## Els tres estats de la pestanya
+
+Un zero pot voler dir dues coses molt diferents, i des de fora no es distingeixen. Per això
+cada cas té el seu missatge en comptes d'una taula buida:
+
+| Estat | Quan | Què diu |
+|---|---|---|
+| Sense dades | cap partida no porta `waste` | Que l'estimació surt del `~R` i el `~X`, i quin dels dos enllaços de CYPE els porta |
+| Amb dades però a zero | totes les partides amb dades tenen amidament 0 | Que el fitxer és correcte i el que falta és entrar l'amidament, amb la llista de partides |
+| Amb dades | almenys una aporta massa | La taula, i una nota al peu si n'hi ha alguna a zero |
+
+`buildWasteSummary` ho retorna separat: `ambDades` (porten registres), `ambAportacio` (aporten
+massa), `senseAmidament` (porten registres però amidament zero) i `sense` (cap dada).
 
 ## Com es calcula
 
