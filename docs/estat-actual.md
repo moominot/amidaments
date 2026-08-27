@@ -2,9 +2,8 @@
 
 Inventari fet llegint el codi (agost 2026).
 
-**Estat: els vint-i-tres primers defectes estan corregits; el §24 queda obert** a la branca
-`claude/correccions-defectes-detectats`. Es conserva la descripció de cadascun perquè
-expliquen decisions del codi actual i serveixen de referència si tornen a aparèixer.
+**Estat: els vint-i-sis defectes estan corregits.** Es conserva la descripció de cadascun
+perquè expliquen decisions del codi actual i serveixen de referència si tornen a aparèixer.
 El deute tècnic de la segona meitat del document continua obert.
 
 ---
@@ -359,41 +358,96 @@ en reprodueixen el valor (tolerància 0,02), es descarten i es deixa una sola l�
 del fitxer. Sobre el fitxer de mostra els 144 registres quadren, de manera que no salta; provat
 a part amb línies il·legibles, amb línies que no sumen el total i sense total declarat.
 
-### 24. Les certificacions en BC3 no són conformes a la norma ⚠️ obert
+### 24. Les certificacions en BC3 no eren conformes a la norma ✅
 
-Contrastat amb l'especificació oficial FIEBDC-3/2020. **Segons la norma, una certificació és un
-fitxer BC3 sencer i independent**, idèntic en estructura a un pressupost, distingit pel registre
-`~V`:
+Contrastat amb l'especificació oficial FIEBDC-3/2020 (extracte a `docs/fiebdc-norma.md`).
+**Segons la norma, una certificació és un fitxer BC3 sencer i independent**, idèntic en
+estructura a un pressupost, distingit pel registre `~V`:
 
 ```
-~V | PROPIETAT | VERSIO | PROGRAMA | CAPÇALERA | JOC_CARÀCTERS | COMENTARI
+~V | PROPIETAT | VERSIO\DATA | PROGRAMA | CAPÇALERA | JOC_CARÀCTERS | COMENTARI
    | TIPUS_INFORMACIO | NUM_CERTIFICACIO | DATA_CERTIFICACIO | URL_BASE |
 ```
 
-amb `TIPUS_INFORMACIO = 3` (*actual cost*). La convenció de nom és la del pressupost més
-`#certification NNNN`, de manera que un programa pot importar el pressupost i totes les seves
-certificacions alhora.
+amb `TIPUS_INFORMACIO = 3` (*cost real*). El nom del fitxer és el del pressupost més
+`#certification NNNN`, de manera que un programa pot importar el pressupost i les
+certificacions que vulgui alhora.
 
-Aquesta aplicació ho fa d'una altra manera —una sola fitxer amb fases declarades a `~F` i el
-número de fase al primer subcamp de cada línia de `~M`— i **xoca amb dos usos reals de la
-norma**:
+L'aplicació ho feia d'una altra manera —un sol fitxer amb les fases declarades a `~F` i el
+número de fase al primer subcamp de cada línia de `~M`— i **xocava amb dos usos reals**:
 
 | Ús nostre | Què diu la norma |
 |---|---|
 | `~F\|num\|data\|nom` com a declaració de fase | `~F` és **document adjunt**: `~F \| CODI_CONCEPTE \| {TIPUS\FITXER.EXT;}...` |
-| Primer subcamp de la línia `~M` = número de fase | És **TYPE**: «1» subtotal parcial, «2» subtotal acumulat, «3» expressió |
+| Primer subcamp de la línia `~M` = número de fase | És **TIPUS**: «1» subtotal parcial, «2» subtotal acumulat, «3» expressió |
 
-Un altre programa llegiria les nostres línies de certificació com a files de subtotal, i les
-declaracions de fase com a adjunts d'un concepte inexistent.
+Un altre programa llegia les nostres línies de certificació com a files de subtotal, i les
+declaracions de fase com a adjunts d'un concepte inexistent. A més, el `~V` que escrivíem
+(`~V|FIEBDC-3/2016|PreuArq BIM|ANSI`) tenia els camps desplaçats una posició: la versió al
+camp de la propietat, el programa al de la versió i el joc de caràcters al del programa.
 
-**No és una regressió**: ja era així abans d'aquesta sessió. El cicle intern (exportar i
-reimportar dins d'aquesta aplicació) funciona i està verificat. El que no funciona és
-l'intercanvi real amb Presto o Arquímedes.
+**Correcció.** L'exportador s'ha extret a `src/utils/bc3Writer.js` i escriu **un fitxer per
+document**: `generateBC3({...})` sol fa el pressupost (`TIPUS_INFORMACIO = 2`) i amb
+`certification` fa aquella certificació (`= 3`, amb número i data). Els registres `~F` i el
+subcamp de fase desapareixen. En importar, un `~V` de tipus 3 sobre un projecte obert va a
+`importCertification`, que fa coincidir els codis i penja els amidaments a la fase.
 
-La correcció seria exportar cada certificació com un fitxer independent amb el seu `~V`, i en
-importar detectar `TIPUS_INFORMACIO = 3` per convertir el fitxer en una fase del pressupost
-obert. És un canvi de format de sortida —passa d'un fitxer a uns quants— i per això queda
-pendent d'acordar.
+**Un botó, el document actiu.** No cal exportar-les totes: la norma preveu explícitament
+importar «només les seleccionades», i el que ha de ser correcte és el nom del fitxer i el `~V`.
+El mateix parell de botons (disc i Drive) exporta el pressupost o la certificació activa segons
+el mode, i el menú diu quin dels dos sortirà.
+
+Els fitxers exportats amb el format antic es continuen llegint: el cas `~F` del parser només
+els accepta com a fase quan el registre en té la forma exacta (número curt de fase i data de
+vuit xifres), cosa que un adjunt de veritat no té mai.
+
+### 25. L'exportació perdia el rendiment del descomposat ✅
+
+En importar una partida amb descomposat, el parser en penja els components a `breakdown` (amb
+el seu rendiment) i **també** a `items`, perquè tots dos surten del mateix registre `~D`.
+L'exportador mirava primer els fills:
+
+```js
+if (hasChildren)      { /* fills, tots amb rendiment 1 */ }
+else if (hasBreakdown) { /* descomposat, amb el rendiment bo */ }
+```
+
+Com que una partida importada amb descomposat sempre té les dues coses, sempre queia a la
+primera branca i escrivia tots els rendiments a 1. En reimportar, `getItemUnitPrice` calcula el
+preu com la suma de `preu × rendiment` dels components: amb tots els rendiments a 1, una
+partida de 15,01 €/m² en tornava **201,72**.
+
+Sobre el fitxer de mostra, el cicle exportar → reimportar donava un PEM de **394.955,33 €** en
+comptes de 135.202,54 €. Les quantitats es conservaven —que és el que es comprovava— i per això
+havia passat desapercebut: el que es movia eren els preus.
+
+Ara s'escriu primer el descomposat, amb el seu rendiment, i després els fills que no hi siguin.
+
+### 26. El registre arrel `~D|##|` es perdia en reimportar ✅
+
+`normalizeCode` treu els coixinets finals d'un codi, de manera que `##` (el concepte arrel del
+pressupost) queda com a cadena buida. El parser feia:
+
+```js
+const pCode = normalizeCode(fields[0]);
+if (pCode && rawChildren) { ... }
+```
+
+i descartava el registre com si no tingués codi. Amb ell es perdia la llista de capítols del
+projecte: els capítols es quedaven sense pare, passaven a ser arrels i sortien en l'ordre en què
+`Object.keys` retorna les claus —les que semblen índexs primer— de manera que reimportar un
+fitxer propi els reordenava a `10#`, `11#`… `23#`, `00#`, `01#`…
+
+Del mateix cicle sortien dos residus més, que ara també es filtren:
+
+- el concepte arrel entrava a la base de preus amb la clau buida, i la següent exportació
+  n'escrivia un `~C` sense codi que desmuntava el fitxer sencer (al tercer cicle el projecte
+  es quedava en un sol capítol amb el codi `#`);
+- l'arrel d'un projecte anterior que s'hagués quedat a la base de preus s'afegia com a capítol
+  buit a cada cicle.
+
+Comprovat encadenant tres cicles sobre el fitxer de mostra: PEM, nombre de capítols i ordre es
+conserven.
 
 ---
 

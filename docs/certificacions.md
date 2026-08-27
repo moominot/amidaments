@@ -150,15 +150,27 @@ amb la nota "El valor manual preval sobre el detall d'amidament".
 
 ## Relació amb BC3
 
-Les certificacions viatgen en BC3 com a **fases**:
+**Cada certificació és un fitxer BC3 propi**, no una fase dins del fitxer del pressupost. És el
+que diu la norma FIEBDC-3/2020 (veure `docs/fiebdc-norma.md`) i el que fa que Presto o
+Arquímedes ho puguin llegir.
 
-- a l'exportació, cada certificació genera un `~F|<n>|<data>|<nom>`, i les seves línies
-  d'amidament s'escriuen dins del `~M` amb el número de fase al primer camp de cada bloc;
-- a la importació, cada `~F` es converteix en un objecte `Certification` dins de `phases`,
-  i les línies `~M` amb fase > 0 van a `node.certifications[<id de la fase>]`.
+- **A l'exportació**, el mateix parell de botons —disc i Drive— treu el pressupost o la
+  certificació activa, segons el mode en què s'estigui; el menú diu quin dels dos sortirà. El
+  fitxer de la certificació té la mateixa estructura que el del pressupost, es diu
+  `<projecte>#certification NNNN.bc3` i porta al `~V` el tipus 3, el número i la data. Els
+  amidaments de cada partida són els certificats **a origen**, que és el que hi ha desat a
+  `node.certifications[certId]`; les partides no certificades hi surten amb un zero escrit.
+- **A la importació**, un fitxer amb `~V` de tipus 3 sobre un projecte obert no es tracta com
+  un projecte nou: `importCertification` fa coincidir els codis i penja els amidaments a la
+  fase corresponent. Si ja existeix una certificació amb aquell número, es demana si se'n
+  substitueixen els amidaments.
 
-> **Bug conegut:** el pont entre `phases` (el que retorna el parser) i `budget.certifications`
-> (el que espera l'aplicació) no està connectat. Veure `docs/estat-actual.md` § 2.
+No cal exportar-les totes: la norma preveu explícitament importar «només les seleccionades».
+La convenció del nom és el que permet que un programa les trobi juntes a la mateixa carpeta.
+
+> **Compatibilitat.** Els fitxers exportats amb el format antic —fases declarades amb `~F` i el
+> número de fase al primer subcamp de cada línia de `~M`— es continuen llegint. Veure
+> `docs/estat-actual.md` §24.
 
 ## On és cada cosa
 

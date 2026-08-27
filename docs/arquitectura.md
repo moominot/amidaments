@@ -25,7 +25,8 @@ Navegador
 | `src/App.jsx` | ~4380 | **Monòlit**: tot l'estat, tota la lògica de negoci no extreta i tota la UI. |
 | `src/utils/calculations.js` | 154 | Funcions pures de càlcul (quantitats, preus, imports, certificat). |
 | `src/utils/measurementRefs.js` | — | Resolució de les línies d'amidament vinculades. |
-| `src/utils/bc3Parser.js` | 326 | Parser FIEBDC-3 (importació). |
+| `src/utils/bc3Parser.js` | 380 | Parser FIEBDC-3 (importació). Llegeix el `~V` per saber si el fitxer és un pressupost o una certificació. |
+| `src/utils/bc3Writer.js` | 215 | Escriptor FIEBDC-3. Un fitxer per document: pressupost o certificació. |
 | `src/utils/googleDrive.js` | 260 | Wrapper de Drive API + Picker + codificació Windows-1252. |
 | `src/hooks/useCertification.js` | 163 | Mutacions d'estat de certificacions. |
 | `src/hooks/useGoogleDrive.js` | 347 | Cicle de vida OAuth, obrir/desar a Drive, "Open with…". |
@@ -60,7 +61,7 @@ Dins d'`App`, els blocs grans són:
 - **Derivats de cerca i recursos** (1419–1651): `filteredChapters`, `filteredPrices`, `aggregatedResources`.
 - **Mutacions de preus** (1653–1780): `adjustPem`, `updateGlobalPrice`.
 - **Arbre: alta, clonatge, fusió** (1781–1897).
-- **Exportació BC3** (1898–2175): `generateBC3`, `handleExportBC3`.
+- **Exportació BC3** (~1990–2035): `seleccioBC3`, `documentBC3`, `handleExportBC3`. L'escriptura viu a `utils/bc3Writer.js`.
 - **Obertura/importació** (2175–2570): fitxers locals, URL (proxy CORS), drag&drop, paste, PWA `launchQueue`.
 - **Mutacions de node** (2569–2870): amidaments, descripcions, unitats, esborrat, reordenació, descomposats.
 - **Renderitzadors** (2876–3500): justificació de preus, files de taula, recursos, banc de preus.

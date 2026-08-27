@@ -53,6 +53,15 @@ del sector: *amidament*, *partida*, *capítol*, *descomposat*, *rendiment*, *cer
   mutacions van sempre contra `budget.chapters`.
 - La conversió a Windows-1252 (`toWindows1252Bytes`, a `utils/googleDrive.js`) la
   comparteixen l'exportació BC3 a disc i la de Drive. Toca-la en un sol lloc.
+- **En BC3, cada certificació és un fitxer sencer**, no una fase dins del fitxer del
+  pressupost: `generateBC3` (`utils/bc3Writer.js`) sol escriu el pressupost i amb
+  `certification` escriu aquella certificació, amb `~V` de tipus 3. Abans de tocar cap
+  registre, mira `docs/fiebdc-norma.md`: hi ha l'extracte de l'especificació, i ja hem donat
+  per bo el contrari del que hi diu dues vegades.
+- **En escriure un `~D`, el descomposat va abans que els fills.** Una partida importada té els
+  components a `breakdown` (amb rendiment) i a `items` (sense), perquè surten del mateix
+  registre. Escrivint els fills primer es perd el rendiment i els preus es disparen en
+  reimportar (§25 de `docs/estat-actual.md`).
 - `App.jsx` fa 4.380 línies. Abans d'afegir-hi res de nou, mira si toca extreure-ho a
   `utils/`, `hooks/` o `components/` — hi ha un pla de refactor a `docs/estat-actual.md`.
 - El path base `/amidaments/` està escrit a mà a `vite.config.js`, `public/manifest.json` i
@@ -80,5 +89,7 @@ del sector: *amidament*, *partida*, *capítol*, *descomposat*, *rendiment*, *cer
 4. Si has tocat càlculs, exportació o el parser: prova el cicle complet amb
    `REFORMA ESPORLES_MEDICIONES_AJUSTADO.bc3` (importar → veure PEM → exportar → reimportar).
    El PEM de referència d'aquest fitxer és **135.202,54 €** amb 24 capítols i 248 partides.
-   El cicle exportar → reimportar ha de conservar les quantitats: aquí s'hi amagava el
-   defecte §8 de `docs/estat-actual.md`.
+   El cicle ha de conservar el PEM, el nombre de capítols, el seu ordre i les quantitats, i ha
+   de ser estable encadenant-lo tres vegades. Comprovar només les quantitats no basta: els
+   defectes §25 i §26 hi passaven pel mig (el PEM se n'anava a 394.955,33 € i els capítols es
+   reordenaven) i les quantitats quedaven intactes.

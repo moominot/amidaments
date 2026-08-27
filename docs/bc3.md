@@ -8,13 +8,13 @@ subllistes es separen per `\`.
 
 | Registre | Nom | Importació (`bc3Parser.js`) | Exportació (`generateBC3`) |
 |---|---|---|---|
-| `~V` | Versió / propietat | ignorat | escrit: `~V\|FIEBDC-3/2016\|PreuArq BIM\|ANSI` |
+| `~V` | Versió / propietat | ✔ (tipus, núm. i data de certificació) | ✔ amb tots els camps a lloc |
 | `~K` | Coeficients | ignorat | escrit amb valors fixos |
 | `~C` | Concepte (codi, ud, resum, preu) | ✔ | ✔ |
 | `~D` | Descomposició (pare → fills) | ✔ | ✔ |
 | `~T` | Text descriptiu llarg | ✔ | ✔ |
 | `~M` | Línies d'amidament | ✔ (amb heurística) | ✔ |
-| `~F` | **Document adjunt** (no fases) | llegit com a fase — **no conforme** | escrit com a fase — **no conforme** |
+| `~F` | **Document adjunt** | llegit com a fase només si en té la forma antiga | ja no s'escriu |
 | `~Q` | — | — | ja no s'escriu (veure avís) |
 | `~L`, `~P`, `~W`, `~A`, `~G`, `~E`, `~O` | plecs, paramètrics, entitats… | no suportats | no s'escriuen |
 
@@ -27,22 +27,17 @@ subllistes es separen per `\`.
 > Verificat contra
 > [l'especificació oficial FIEBDC-3/2020](https://www.fiebdc.es/web2/datos/uploads/Standard-exchange-format-FIEBDC-3-2020v2_eng-.pdf).
 
-> **Les certificacions no es transmeten com a fases dins d'un fitxer.** Segons la norma, una
-> certificació és **un fitxer BC3 sencer i independent**, idèntic en estructura a un pressupost,
-> que es distingeix pel registre `~V`: `INFORMATION TYPE = 3` (*actual cost*) més
-> `CERTIFICATION NUMBER` i `CERTIFICATION DATE`. La convenció de nom és la del pressupost
-> més `#certification NNNN`.
+> **Cada certificació és un fitxer BC3 propi.** Segons la norma, una certificació és un
+> fitxer sencer i independent, idèntic en estructura a un pressupost, que se'n distingeix pel
+> registre `~V`: `TIPUS_INFORMACIO = 3` (*cost real*) més `NUM_CERTIFICACIO` i
+> `DATA_CERTIFICACIO`. El nom del fitxer és el del pressupost més `#certification NNNN`.
 >
-> El que fa aquesta aplicació —declarar fases amb `~F` i posar el número de fase al primer
-> subcamp de cada línia de `~M`— **no és conforme**, i a més xoca amb dos usos reals:
-> `~F` és el registre de **documents adjunts** (`~F | CODI_CONCEPTE | {TIPUS\FITXER.EXT;}...`)
-> i el primer subcamp de la línia de `~M` és **TYPE**, on «1» vol dir subtotal parcial i «2»
-> subtotal acumulat. Un altre programa llegiria les nostres línies de certificació com a files
-> de subtotal.
->
-> Funciona per al cicle intern d'aquesta aplicació (exportar i reimportar aquí conserva
-> quantitats i fases) però no per intercanviar amb Presto o Arquímedes. Veure
-> `docs/estat-actual.md` §24.
+> Fins a l'agost de 2026 l'aplicació ho feia amb un sol fitxer, declarant les fases amb `~F` i
+> posant el número de fase al primer subcamp de cada línia de `~M`. No era conforme i xocava
+> amb dos usos reals del format: `~F` és el registre de **documents adjunts** i el primer
+> subcamp de la línia de `~M` és el **TIPUS** de línia («1» subtotal parcial, «2» subtotal
+> acumulat, «3» expressió), de manera que Presto llegia les nostres línies de certificació com
+> a files de subtotal. Veure `docs/estat-actual.md` §24 i `docs/fiebdc-norma.md`.
 
 ## Importació
 
@@ -116,36 +111,69 @@ Les línies amb `phase === 0` van a `node.measurements`; les de fase > 0 s'agrup
 > Val la pena instrumentar `testStep()` amb un `console.log` de les puntuacions abans de
 > tocar res.
 
-## Exportació — `generateBC3()` (`App.jsx:1898`)
+## Exportació — `src/utils/bc3Writer.js`
 
-Dues passades:
+```js
+generateBC3({ budget, chapters, priceDatabase, certification })
+```
+
+Un fitxer per document: **sense `certification` escriu el pressupost, amb `certification`
+escriu aquella certificació**. L'estructura és la mateixa —els mateixos `~C`, `~D`, `~T` i un
+`~M` per partida—; el que canvia és el `~V` i d'on surten els amidaments.
+
+|  | Pressupost | Certificació |
+|---|---|---|
+| `~V` TIPUS_INFORMACIO | 2 | 3, amb `NUM_CERTIFICACIO` i `DATA_CERTIFICACIO` |
+| Nom del fitxer | el del projecte | `<projecte>#certification NNNN` (`nomFitxerCertificacio`) |
+| Línies del `~M` | `node.measurements` | les de `node.certifications[certId]`, o una sola línia amb la quantitat entrada a mà |
+| Partida sense dades | sense línies | `~M\|codi\|\|0\|`, amb el zero escrit |
+
+`App.jsx` només decideix **què** s'exporta: `seleccioBC3` mira si hi ha una certificació activa
+en mode certificació, i `documentBC3()` en retorna el contingut, el nom i una etiqueta que el
+menú ensenya («Certificació 1 · Certificació juliol») perquè no sigui una sorpresa en clicar.
+El mateix parell de botons —disc i Drive— serveix per als dos documents.
+
+### Com es construeix
 
 1. **Recol·lecció**: `processNode` recorre l'arbre i omple tres `Map`:
    - `concepts` (amb un flag `isDecomposed` si el node té fills o descomposat),
    - `relationships` (pare → fills, o pare → components del descomposat),
-   - `measurementsByCode` (línies del pressupost com a fase 0, línies de cada certificació
-     com a fase 1, 2, 3… segons l'ordre de `budget.certifications`).
-   També s'hi afegeixen com a conceptes totes les entrades de `priceDatabase` que no hi
-   siguin ja.
+   - `measurementsByCode` (línies i total per concepte).
+   També s'hi afegeixen com a conceptes les entrades de `priceDatabase` que no hi siguin ja.
 
-2. **Escriptura** de `~V`, `~K`, `~F` (una per certificació), el concepte arrel `##`, els `~C`
-   i `~T`, els `~D`, i finalment els `~Q` i `~M`.
+2. **Escriptura** de `~V`, `~K`, el concepte arrel `##`, els `~C` i `~T`, els `~D` i els `~M`.
 
 Detalls a tenir en compte:
 
+- **El descomposat mana sobre els fills.** En importar una partida amb descomposat, el parser
+  en penja els components a `breakdown` (amb el rendiment) i **també** a `items`, perquè tots
+  dos surten del mateix `~D`. Si s'escriuen primer els fills, el rendiment es perd i tots
+  surten a 1: en reimportar, el preu unitari passa a ser la suma dels components sense
+  multiplicar-los pel rendiment. Va ser el defecte §25.
 - **Sufix `#`**: `getExportCode` afegeix `#` als codis de conceptes descompostos, com marca
-  la norma per distingir capítols/preus descompostos.
-- **Percentatges**: els conceptes amb unitat `%` s'escriuen amb el preu dividit per 100 i el
-  rendiment dividit per 100, perquè la norma els expressa en tant per u.
+  la norma per distingir capítols i preus descompostos.
+- **Percentatges**: els conceptes amb unitat `%` s'escriuen amb el preu i el rendiment
+  dividits per 100, perquè la norma els expressa en tant per u.
 - **Números**: el punt decimal es converteix a coma (`fNum`).
-- **Forma del `~M`**: `~M|codi||TOTAL|linies|`. Abans s'escrivia `~M|codi|linies`, amb les
-  línies al camp de la POSICIO i sense total. El nostre parser ho tolerava perquè escaneja els
-  camps 1..4 buscant-les, però qualsevol altre programa ho llegia malament.
+- **Forma del `~M`**: `~M|codi||TOTAL|{\TIPUS buit\comentari\u\l\a\h\}|`. El primer
+  subcamp de cada bloc és el **TIPUS** de línia, i es deixa buit: no és la fase.
 - **Codificació**: `handleExportBC3` converteix a Windows-1252 amb `toWindows1252Bytes`
   (`src/utils/googleDrive.js`), una taula manual limitada als accents catalans i castellans,
   `€`, `ç`, `ñ`, `°`. Qualsevol altre caràcter fora d'ASCII es converteix en `?`. La funció
   la comparteixen l'exportació a disc i la de Drive: si hi afegeixes caràcters, n'hi ha prou
   amb tocar-la en un lloc.
+- **Noms de fitxer**: tot passa per `safeFileName`, que conserva el `#` de la convenció.
+
+### Importar una certificació
+
+Quan `processBC3Data` troba un `~V` amb `TIPUS_INFORMACIO = 3` i hi ha un projecte obert,
+`startImportProcess` desvia el fitxer a `importCertification` en comptes de tractar-lo com un
+projecte nou: fa coincidir els codis, penja les línies a `node.certifications[certId]` —que ja
+és l'acumulat a origen, que és el que la norma diu que porta el fitxer— i activa la fase. El
+número de certificació és la posició de la fase; si ja n'hi ha una en aquella posició, es
+demana si se'n substitueixen els amidaments.
+
+Sense projecte obert s'importa com qualsevol altre fitxer, que és tot el que se'n pot fer.
 
 ## Vies d'entrada d'un BC3
 

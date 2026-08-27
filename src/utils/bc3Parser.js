@@ -4,6 +4,13 @@ import { normalizeCode } from './calculations';
  * Parser per al format FIEBDC-3 (BC3)
  */
 
+/** Un ISO `YYYY-MM-DD` a partir del DDMMYYYY del format. Torna null si no hi ha data. */
+const dataDeFiebdc = (raw) => {
+    const net = (raw || '').trim();
+    if (!/^\d{8}$/.test(net)) return null;
+    return `${net.substring(4, 8)}-${net.substring(2, 4)}-${net.substring(0, 2)}`;
+};
+
 export const processBC3Data = (text) => {
     if (!text) return null;
 
@@ -14,12 +21,29 @@ export const processBC3Data = (text) => {
     const longTexts = {};
     const phases = []; // [{ id, code, name, date }]
 
+    // Què és aquest fitxer, segons el seu registre ~V. TIPUS_INFORMACIO 3 vol dir que és una
+    // certificació: mateixa estructura que un pressupost, però els amidaments són el que s'ha
+    // executat a origen. Veure `utils/bc3Writer.js`.
+    const info = { type: null, certNumber: null, certDate: null, comment: '', owner: '' };
+
     records.forEach(record => {
         const type = record[0];
         const content = record.substring(2);
         const fields = content.split('|');
 
         switch (type) {
+            case 'V': {
+                // ~V | PROPIETAT | VERSIO\\DATA | PROGRAMA | CAPÇALERA | JOC_CARÀCTERS |
+                //    | COMENTARI | TIPUS_INFORMACIO | NUM_CERTIFICACIO | DATA_CERTIFICACIO | URL
+                info.owner = fields[0]?.trim() || '';
+                info.comment = fields[5]?.trim() || '';
+                const tipus = parseInt(fields[6]);
+                if (Number.isFinite(tipus)) info.type = tipus;
+                const num = parseInt(fields[7]);
+                if (Number.isFinite(num)) info.certNumber = num;
+                info.certDate = dataDeFiebdc(fields[8]);
+                break;
+            }
             case 'C': {
                 const codeRaw = fields[0].split('\\')[0].trim();
                 const normCode = normalizeCode(codeRaw);
@@ -43,15 +67,23 @@ export const processBC3Data = (text) => {
                 break;
             }
             case 'F': {
+                // A la norma, ~F és el registre de DOCUMENTS ADJUNTS:
+                //   ~F | CODI_CONCEPTE | {TIPUS\\{FITXER.EXT;}\\[DESCRIPCIO]\\} | [URL_EXT] |
+                // Fins a l'agost de 2026 aquesta aplicació hi escrivia les fases de
+                // certificació, i encara hi ha projectes exportats així. Es continuen llegint,
+                // però només quan el registre té la forma d'aquells: número de fase curt i una
+                // data de vuit xifres, cosa que un adjunt de veritat no té mai.
                 const fCode = fields[0]?.trim();
                 const fDate = fields[1]?.trim();
                 const fTitle = fields[2]?.trim();
-                if (fCode && fCode !== '0') {
+                const semblaFase = /^\d{1,3}$/.test(fCode || '') && fCode !== '0' && /^\d{8}$/.test(fDate || '');
+                if (semblaFase) {
                     phases.push({
                         id: crypto.randomUUID(),
                         code: fCode,
                         name: fTitle || `Certificació ${fCode}`,
-                        date: fDate ? `${fDate.substring(0, 4)}-${fDate.substring(4, 6)}-${fDate.substring(6, 8)}` : new Date().toISOString().split('T')[0],
+                        // Aquells fitxers escrivien la data com YYYYMMDD, no com DDMMYYYY.
+                        date: `${fDate.substring(0, 4)}-${fDate.substring(4, 6)}-${fDate.substring(6, 8)}`,
                         approved: true,
                         method: 'origin'
                     });
@@ -61,7 +93,13 @@ export const processBC3Data = (text) => {
             case 'D': {
                 const pCode = normalizeCode(fields[0]);
                 const rawChildren = fields[1]?.trim() || fields[2]?.trim();
-                if (pCode && rawChildren) {
+                // El concepte arrel del pressupost es codifica «##», i `normalizeCode` treu els
+                // coixinets finals, de manera que en queda la cadena buida. Comprovar `pCode` a
+                // seques la descartava com si fos un registre sense codi, i amb ella la llista
+                // de capítols del projecte: en reimportar un fitxer nostre, els capítols es
+                // quedaven sense pare i sortien en l'ordre en què l'objecte els retornava
+                // («10», «11»… abans que «00»), no en el del projecte.
+                if (fields[0]?.trim() && rawChildren) {
                     const parts = rawChildren.split('\\');
                     const children = [];
                     for (let i = 0; i < parts.length; i += 3) {
@@ -320,7 +358,12 @@ export const processBC3Data = (text) => {
 
     // Busquem l'arrel (normalment el concepte que no és fill de ningú, o el primer 'C' sense relacions d'entrada)
     const allChildren = new Set(Object.values(relations).flat().map(r => r.child));
-    const roots = Object.keys(concepts).filter(c => !allChildren.has(c));
+    const roots = Object.keys(concepts)
+        .filter(c => !allChildren.has(c))
+        // Un concepte que no és fill de ningú, no es descompon i no té unitat no és cap
+        // capítol: és un residu, típicament l'arrel d'un projecte anterior que s'ha quedat a
+        // la base de preus. Penjar-lo de l'arbre hi afegia un capítol buit a cada cicle.
+        .filter(c => (relations[c] || []).length > 0 || concepts[c].unit);
     
     // Si no hi ha una arrel clara, usem el primer concepte 'C' que tingui fills
     
@@ -346,7 +389,9 @@ export const processBC3Data = (text) => {
     const prices = {};
     Object.keys(concepts).forEach(c => {
         const concept = concepts[c];
-        if (concept.unit !== '%') {
+        // El concepte arrel («##», que normalitzat queda buit) no és un preu: si entrava a la
+        // base, la següent exportació escrivia un ~C sense codi i el fitxer es desmuntava.
+        if (c && concept.unit !== '%') {
             prices[c] = {
                 code: concept.originalCode,
                 price: concept.price,
@@ -360,6 +405,7 @@ export const processBC3Data = (text) => {
         name: projectName,
         chapters: tree,
         phases: phases,
-        prices: prices
+        prices: prices,
+        info
     };
 };
