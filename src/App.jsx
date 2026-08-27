@@ -88,6 +88,7 @@ import { buildWasteSummary, formatMassa, nomTipus, TIPUS_RESIDU } from './utils/
 import { buildWasteStudy } from './utils/wasteStudy';
 import { exportWasteStudyPDF } from './utils/wasteStudyPdf';
 import WasteStudyModal from './components/WasteStudyModal';
+import PriceBankPicker from './components/PriceBankPicker';
 import {
     EXTENSIO_PROJECTE, MIME_PROJECTE, esFitxerProjecte, esFitxerBC3,
     serialitzaProjecte, llegeixProjecte,
@@ -728,7 +729,7 @@ const PrintConfigModal = ({ config, setConfig, onClose }) => {
 };
 
 // --- Modal Creador de Partides ---
-const ItemCreator = ({ onClose, onSave, parentId, parentCode }) => {
+const ItemCreator = ({ onClose, onSave, parentId, parentCode, onTriarDelBanc }) => {
     const [mode, setMode] = useState('item'); // 'item' | 'chapter'
     const [target, setTarget] = useState(parentId ? 'child' : 'root'); // 'root' | 'child'
     const [data, setData] = useState({
@@ -766,6 +767,18 @@ const ItemCreator = ({ onClose, onSave, parentId, parentCode }) => {
                                 A l'Arrel del Projecte
                             </label>
                         </div>
+                    )}
+
+                    {mode === 'item' && onTriarDelBanc && (
+                        <button
+                            type="button"
+                            onClick={() => onTriarDelBanc((c) => setData({
+                                code: c.code, description: c.description, unit: c.unit || 'u', price: c.price || 0,
+                            }))}
+                            className="flex items-center justify-center gap-2 bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 p-2.5 text-[10px] font-bold uppercase tracking-widest transition-colors"
+                        >
+                            <Database size={13} /> Omplir des del banc de preus
+                        </button>
                     )}
 
                     <div className="flex gap-4 p-1 bg-slate-100 border border-slate-200 w-fit">
@@ -922,6 +935,9 @@ export default function App() {
     });
     const [showPrint, setShowPrint] = useState(false);
     const [showWasteStudy, setShowWasteStudy] = useState(false);
+    // Selector del banc de preus. `picker.onPick` decideix què se'n fa: una línia de
+    // descomposat, una partida nova… Amb un sol estat n'hi ha prou per a tots els casos.
+    const [picker, setPicker] = useState(null);
     const [showPemModal, setShowPemModal] = useState(false);
     const [importPending, setImportPending] = useState(null);
     const [notification, setNotification] = useState(null);
@@ -2094,8 +2110,22 @@ export default function App() {
      * compartir del sistema. Els tres camins feien la seva pròpia comprovació —i la de la File
      * Handling API mirava un camp que no s'escrivia enlloc— així que ara passen tots per aquí.
      */
-    const obreFitxer = useCallback(async (file, { replace = true } = {}) => {
+    const obreFitxer = useCallback(async (file, { replace = true, nomesPreus = false } = {}) => {
         if (!file) return;
+
+        // Deixar anar un fitxer sobre el banc de preus no ha de tocar el pressupost: el que
+        // s'hi vol és ampliar el catàleg de conceptes per poder-los fer servir després.
+        if (nomesPreus) {
+            if (!esFitxerBC3(file.name)) {
+                notify('Al banc de preus només s\'hi poden deixar anar fitxers .bc3', 'error');
+                return;
+            }
+            const text = new TextDecoder('windows-1252').decode(await file.arrayBuffer());
+            const result = processBC3Data(text);
+            if (!result) { notify('Format BC3 no reconegut', 'error'); return; }
+            afegeixAlBanc(result.prices || {});
+            return;
+        }
 
         if (esFitxerProjecte(file.name)) {
             const projecte = llegeixProjecte(await file.text());
@@ -2120,6 +2150,33 @@ export default function App() {
 
         notify(`Format no suportat. Fes servir ${EXTENSIO_PROJECTE} o .bc3`, 'error');
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    /**
+     * Afegeix conceptes al banc de preus sense tocar l'arbre.
+     *
+     * Els que ja hi són **no es trepitgen**: el preu del projecte mana sobre el del fitxer que
+     * arriba, que és el que espera qui ja ha ajustat un preu a mà.
+     */
+    const afegeixAlBanc = useCallback((nous) => {
+        const entrades = Object.entries(nous || {}).filter(([codi]) => codi);
+        if (entrades.length === 0) { notify('El fitxer no porta cap concepte amb preu', 'error'); return; }
+
+        // El recompte es fa fora de l'updater: React el crida durant el render, no en
+        // despatxar, de manera que llegir-lo tot seguit donava sempre zero (i amb StrictMode,
+        // el doble). El mateix parany que ja hi havia a `importCertification`.
+        let afegits = 0;
+        let existents = 0;
+        const seguent = { ...priceDatabase };
+        entrades.forEach(([codi, dades]) => {
+            if (seguent[codi]) { existents++; return; }
+            seguent[codi] = dades;
+            afegits++;
+        });
+        setPriceDatabase(seguent);
+        notify(afegits > 0
+            ? `${afegits} conceptes afegits al banc de preus${existents ? ` (${existents} ja hi eren)` : ''}`
+            : `Tots els conceptes ja hi eren (${existents})`);
+    }, [priceDatabase]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleFileSelect = (e) => {
         const file = e.target.files[0];
@@ -2424,14 +2481,17 @@ export default function App() {
      * Importa un BC3 des d'una URL: el cas de l'enllaç arrossegat del Generador de Preus.
      * La descàrrega i els proxys CORS viuen a `utils/corsProxy.js`.
      */
-    const importFromUrl = useCallback(async (url) => {
+    const importFromUrl = useCallback(async (url, { nomesPreus = false } = {}) => {
         if (!url) return;
         try {
             notify('Descarregant la partida...');
             const { text, via } = await descarregaBC3(url);
             const result = processBC3Data(text);
             if (result) {
-                startImportProcess(result);
+                // Sobre la pestanya del banc de preus, l'enllaç ha de fer el mateix que el
+                // fitxer: ampliar el catàleg i no tocar el pressupost.
+                if (nomesPreus) afegeixAlBanc(result.prices || {});
+                else startImportProcess(result);
                 console.log(`BC3 importat des de ${url} (via ${via})`);
             } else {
                 notify('Format BC3 no reconegut', 'error');
@@ -2544,23 +2604,29 @@ export default function App() {
 
         const url = candidates[0];
         if (url) {
-            importFromUrl(url);
+            importFromUrl(url, { nomesPreus: activeTab === 'prices' });
             return;
         }
 
         // Arrossegar un fitxer accepta tant un projecte com un BC3. El BC3 es fusiona amb el
         // que hi ha —és el comportament de sempre— i un projecte substitueix, que és l'únic
         // que té sentit per a un fitxer que ja és un projecte sencer.
+        //
+        // Sobre la pestanya del banc de preus, però, el que es vol és ampliar el catàleg i no
+        // tocar el pressupost: allà el fitxer només aporta conceptes.
         const file = e.dataTransfer.files[0];
-        if (file) obreFitxer(file, { replace: false });
+        if (file) obreFitxer(file, { replace: false, nomesPreus: activeTab === 'prices' });
     };
 
     const handlePaste = useCallback((e) => {
         const text = e.clipboardData.getData('text/plain')?.trim();
         if (text && (text.toLowerCase().includes('.bc3') || text.toLowerCase().includes('generadordepreus'))) {
-            importFromUrl(text);
+            importFromUrl(text, { nomesPreus: activeTab === 'prices' });
         }
-    }, [importFromUrl]);
+        // `activeTab` ha d'anar a les dependències: sense ell el callback es quedaria amb la
+        // pestanya que hi havia en muntar-se i enganxar un enllaç al banc de preus l'importaria
+        // igualment al pressupost.
+    }, [importFromUrl, activeTab]);
 
 
     const updateMeasurement = (itemId, mId, field, value) => {
@@ -2892,13 +2958,20 @@ export default function App() {
         setBudget(prev => ({ ...prev, chapters: updateInTree(prev.chapters) }));
     };
 
-    const addBreakdownLine = (itemId) => {
+    /**
+     * @param {string} itemId partida a la qual s'afegeix la línia
+     * @param {object} [concepte] concepte del banc de preus; sense ell, línia en blanc
+     */
+    const addBreakdownLine = (itemId, concepte = null) => {
+        const linia = concepte
+            ? { code: concepte.code, description: concepte.description, unit: concepte.unit || 'u', yield: 1, price: concepte.price || 0 }
+            : { code: '', description: 'Nova línia', unit: 'u', yield: 1, price: 0 };
         const updateInTree = (nodes) => {
             return nodes.map(node => {
                 if (node.id === itemId) {
                     return {
                         ...node,
-                        breakdown: [...(node.breakdown || []), { code: '', description: 'Nova línia', unit: 'u', yield: 1, price: 0 }]
+                        breakdown: [...(node.breakdown || []), linia]
                     };
                 }
                 return {
@@ -2987,6 +3060,17 @@ export default function App() {
                         <Tag size={12} className="text-blue-500" />
                         <span className="text-[11px] font-black uppercase tracking-widest text-slate-500">Justificació de Preu Unitari: {node.code}</span>
                     </div>
+                    <button
+                        onClick={() => setPicker({
+                            titol: 'Afegir al descomposat',
+                            subtitol: `${node.code} · ${node.description || ''}`.slice(0, 70),
+                            onPick: (c) => { addBreakdownLine(node.id, c); setPicker(null); },
+                            onCrearNou: () => { addBreakdownLine(node.id); setPicker(null); },
+                        })}
+                        className="text-[10px] bg-blue-600 text-white border border-blue-600 px-2 py-0.5 hover:bg-blue-500 flex items-center gap-1 uppercase font-bold"
+                    >
+                        <Database size={11} /> Del banc
+                    </button>
                     <button onClick={() => addBreakdownLine(node.id)} className="text-[10px] bg-white border border-slate-300 px-2 py-0.5 hover:bg-slate-50 flex items-center gap-1 uppercase font-bold">
                         <Plus size={10} /> Afegir Component
                     </button>
@@ -3738,6 +3822,18 @@ export default function App() {
             onPaste={handlePaste}
         >
             {/* 1. DRIVE SETTINGS MODAL */}
+            {picker && (
+                <PriceBankPicker
+                    priceDatabase={priceDatabase}
+                    titol={picker.titol}
+                    subtitol={picker.subtitol}
+                    filtre={picker.filtre}
+                    onPick={picker.onPick}
+                    onCrearNou={picker.onCrearNou}
+                    onClose={() => setPicker(null)}
+                />
+            )}
+
             {showWasteStudy && (
                 <WasteStudyModal
                     summary={wasteSummary}
@@ -3763,6 +3859,11 @@ export default function App() {
                 <ItemCreator
                     onClose={() => setShowCreator(false)}
                     onSave={handleSaveNewItem}
+                    onTriarDelBanc={(omple) => setPicker({
+                        titol: 'Crear una partida des del banc',
+                        subtitol: 'Se n\'omplen codi, descripció, unitat i preu',
+                        onPick: (c) => { omple(c); setPicker(null); },
+                    })}
                     parentId={selectedId}
                     parentCode={selectedId ? (
                         // Find code by ID - basic search for standard hierarchy
@@ -3775,8 +3876,14 @@ export default function App() {
                 <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-blue-600/10 backdrop-blur-sm pointer-events-none border-4 border-dashed border-blue-400 m-4">
                     <div className="bg-white p-12 border border-blue-200 flex flex-col items-center animate-in zoom-in duration-200">
                         <Upload size={48} className="text-blue-600 mb-4" />
-                        <h2 className="text-2xl font-bold text-slate-800 tracking-tight uppercase">Importació BC3</h2>
-                        <p className="text-slate-500 mt-2 text-center max-w-sm text-sm italic">Deixa anar per analitzar la jerarquia i descripcions.</p>
+                        <h2 className="text-2xl font-bold text-slate-800 tracking-tight uppercase">
+                            {activeTab === 'prices' ? 'Ampliar el banc de preus' : 'Importació BC3'}
+                        </h2>
+                        <p className="text-slate-500 mt-2 text-center max-w-sm text-sm italic">
+                            {activeTab === 'prices'
+                                ? 'Els conceptes del fitxer s\'afegiran al banc. El pressupost no es tocarà.'
+                                : 'Deixa anar per analitzar la jerarquia i descripcions.'}
+                        </p>
                     </div>
                 </div>
             )}
