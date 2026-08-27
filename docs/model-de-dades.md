@@ -78,6 +78,38 @@ Les línies amb `isIncrement: true` (creades per `addIncrementLine`) representen
 d'increment: `subtotal_línies_normals × units / 100`. S'apliquen sempre després de sumar
 totes les línies normals.
 
+### Línies vinculades
+
+Una línia pot prendre l'amidament d'una altra partida en comptes de tenir dimensions pròpies:
+
+```js
+{ id: "uuid", description: "Igual que la solera", refCode: "SOLERA", factor: 1 }
+```
+
+El seu parcial és `factor × quantitat(partida amb aquest codi)`. El cas típic és una terrassa,
+on solera, formació de pendents, impermeabilització, aïllant i paviment comparteixen superfície:
+s'entra un cop i les altres hi apunten. El `factor` cobreix les proporcions (dues capes = 2).
+
+Amb `refLineId` el vincle apunta a **una línia concreta** en comptes del total:
+
+```js
+{ id: "uuid", description: "Igual que SOLERA · terrassa A",
+  refCode: "SOLERA", refLineId: "tA", factor: 1 }
+```
+
+Serveix quan la partida d'origen amida dues terrasses i la de destí només en necessita una:
+canviar la terrassa B deixa la de destí intacta. Si s'apunta a una línia de percentatge, el
+valor és la seva aportació (el tant per cent del subtotal de les línies normals).
+
+De la línia d'origen només se'n desa l'**id**. La descripció que es veu (`refDescription`) la
+calcula `resolveMeasurementRefs` a cada resolució, de manera que reanomenar la línia d'origen
+es reflecteix tot sol; si s'esborra, la línia queda a 0 i es marca com a «línia esborrada».
+
+`node.measurements` desa el **vincle**, no el valor. La resolució la fa
+`utils/measurementRefs.js` abans de calcular res, i és el que fa que la resta de
+`calculations.js` no s'hagi d'assabentar de l'existència dels vincles. Veure
+`docs/arquitectura.md`.
+
 ## `BreakdownLine` — component del descomposat
 
 ```js
@@ -128,19 +160,29 @@ per sobre de `node.price`** quan existeix.
 {
   id: "1738972800000",     // Date.now() si es crea a la UI; crypto.randomUUID() si ve d'un ~F del BC3
   name: "Certificació 1",
-  date: "2026-02-08" | ISO string,
-  approved: false,         // true = bloquejada, la UI no permet editar-la
-  method: "origin" | "partial"
+  date: "2026-02-08",      // YYYY-MM-DD; encapçala el PDF i va al ~F del BC3
+  approved: false,         // true = bloquejada (comprovat al hook, no només a la UI)
+  method: "origin" | "partial"   // només preferència d'entrada
 }
 ```
 
-- **`origin`** (per defecte, estil Presto): la quantitat introduïda a cada fase és **l'acumulat
-  a origen**. La quantitat del període es dedueix restant la fase anterior.
-- **`partial`**: la quantitat introduïda és **la del període**. L'acumulat a origen es calcula
-  sumant totes les fases fins a l'actual (`calcItemCertifiedQty`).
+El projecte porta `schemaVersion` per saber quines migracions cal aplicar
+(`utils/migrateBudget.js`). S'hi passa qualsevol projecte que arribi de fora: `localStorage`,
+JSON de disc, Drive, biblioteca i importació BC3.
 
-Aquest flag es commuta des de `CertificationBar` i **canvia la interpretació de les dades ja
-introduïdes**, no les converteix. Canviar el mètode a mitja obra altera els imports.
+El valor desat a `node.certifications[certId]` és **sempre l'acumulat a origen**. El `method`
+només decideix **per quin camp s'introdueix** la xifra al panell, no què val:
+
+- **`origin`**: es destaca el camp «A origen».
+- **`partial`**: es destaca el camp «Del període»; en escriure-hi, es desa `anterior + període`.
+
+Tots dos camps són editables sempre, de manera que es pot passar d'un valor a l'altre sense
+cap risc, i **commutar el mètode no altera cap import**.
+
+> Fins a `schemaVersion: 2` no era així: el valor desat significava una cosa o una altra
+> segons el `method`, i commutar-lo reinterpretava les dades — 30 i 40 valien 700 € en parcial
+> i 400 € en origen, sense esborrar res i sense avisar. `utils/migrateBudget.js` converteix els
+> projectes antics una sola vegada, conservant els totals.
 
 ## Fitxer de projecte `.json`
 

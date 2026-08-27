@@ -282,13 +282,20 @@ export const useGoogleDrive = ({
 
     // ── Exportar BC3 a Drive ──────────────────────────────────────────────────
 
-    const exportBC3ToDrive = useCallback(async (bc3Content, budgetName) => {
+    /**
+     * @param {string}  bc3Content contingut ja generat
+     * @param {string}  fileName   nom sense extensió
+     * @param {boolean} sempreNou  no oferir mai de sobreescriure el fitxer obert. S'hi passa
+     *   `true` en exportar una certificació: el fitxer que es té obert és el del pressupost, i
+     *   proposar de sobreescriure'l amb una certificació és una manera fàcil de perdre'l.
+     */
+    const exportBC3ToDrive = useCallback(async (bc3Content, fileName, sempreNou = false) => {
         try {
             const token = await _ensureToken();
             const bytes = toWindows1252Bytes(bc3Content);
             const mimeType = 'text/plain';
 
-            if (currentFileId && currentFileType === 'bc3') {
+            if (!sempreNou && currentFileId && currentFileType === 'bc3') {
                 // Preguntar sobreescriure o còpia
                 const overwrite = window.confirm(
                     `Sobreescriure "${currentFileName}" a Drive?\n\n` +
@@ -298,7 +305,7 @@ export const useGoogleDrive = ({
                     await updateDriveFile(currentFileId, bytes, mimeType, token);
                     notify?.(`BC3 actualitzat a Drive: ${currentFileName} ✓`);
                 } else {
-                    const name = prompt('Nom de la còpia BC3 a Drive:', `${budgetName || 'projecte'}_còpia.bc3`);
+                    const name = prompt('Nom de la còpia BC3 a Drive:', `${fileName || 'projecte'}_còpia.bc3`);
                     if (!name) return;
                     const fileName = name.endsWith('.bc3') ? name : `${name}.bc3`;
                     const res = await createDriveFile(fileName, bytes, mimeType, token);
@@ -308,16 +315,19 @@ export const useGoogleDrive = ({
                     notify?.(`BC3 desat a Drive: ${fileName} ✓`);
                 }
             } else {
-                // No hi ha fitxer BC3 de referència → desa com a nou
-                const defaultName = `${budgetName || 'projecte'}.bc3`;
-                const name = prompt('Nom del fitxer BC3 a Drive:', defaultName);
+                // No hi ha fitxer BC3 de referència, o és una certificació → desa com a nou
+                const name = prompt('Nom del fitxer BC3 a Drive:', `${fileName || 'projecte'}.bc3`);
                 if (!name) return;
-                const fileName = name.endsWith('.bc3') ? name : `${name}.bc3`;
-                const res = await createDriveFile(fileName, bytes, mimeType, token);
-                setCurrentFileId(res.id);
-                setCurrentFileName(fileName);
-                setCurrentFileType('bc3');
-                notify?.(`BC3 exportat a Drive: ${fileName} ✓`);
+                const nomFinal = name.endsWith('.bc3') ? name : `${name}.bc3`;
+                const res = await createDriveFile(nomFinal, bytes, mimeType, token);
+                // Una certificació no passa a ser el fitxer de referència: el que s'està
+                // editant continua essent el pressupost.
+                if (!sempreNou) {
+                    setCurrentFileId(res.id);
+                    setCurrentFileName(nomFinal);
+                    setCurrentFileType('bc3');
+                }
+                notify?.(`BC3 exportat a Drive: ${nomFinal} ✓`);
             }
         } catch (err) {
             notify?.('Error exportant BC3 a Drive: ' + err.message, 'error');

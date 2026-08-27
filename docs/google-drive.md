@@ -52,7 +52,7 @@ autenticar-se.
 | `openFromDrive()` | Obre el Google Picker; accepta `.json` i `.bc3` (validat per extensió) |
 | `saveToDrive(budget, prices)` | Actualitza el JSON obert, o en crea un de nou demanant nom amb `prompt()` |
 | `saveAsToDrive(...)` | Sempre crea una còpia nova |
-| `exportBC3ToDrive(contingut, nom)` | Demana amb `confirm()` si sobreescriure el BC3 obert o fer-ne còpia |
+| `exportBC3ToDrive(contingut, nom, sempreNou)` | Demana amb `confirm()` si sobreescriure el BC3 obert o fer-ne còpia. Amb `sempreNou` (les certificacions) crea sempre un fitxer nou i no el pren com a fitxer de referència: el que s'edita continua essent el pressupost |
 
 Les pujades es fan amb `multipart/related` construït a mà (`_buildMultipartForm`), perquè el
 BC3 s'ha de pujar com a bytes Windows-1252 i no com a text UTF-8.

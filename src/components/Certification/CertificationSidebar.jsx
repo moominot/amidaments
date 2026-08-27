@@ -31,14 +31,14 @@ const CertificationSidebar = ({
     const method = activeCert?.method || 'origin';
     const isOriginMethod = method === 'origin';
 
-    const originQty = calcItemCertifiedQty(node, activeCertId, certifications);
+    const originQty = calcItemCertifiedQty(node, activeCertId);
     const prevCertId = getPreviousCertId(certifications, activeCertId);
-    const prevQty = prevCertId ? calcItemCertifiedQty(node, prevCertId, certifications) : 0;
+    const prevQty = prevCertId ? calcItemCertifiedQty(node, prevCertId) : 0;
     const actQty = round2(originQty - prevQty);
     const totalQty = calcItemTotalQty(node) || 1;
 
-    const originAmount = calcItemCertifiedAmount(node, activeCertId, priceDatabase, certifications);
-    const prevAmount = prevCertId ? calcItemCertifiedAmount(node, prevCertId, priceDatabase, certifications) : 0;
+    const originAmount = calcItemCertifiedAmount(node, activeCertId, priceDatabase);
+    const prevAmount = prevCertId ? calcItemCertifiedAmount(node, prevCertId, priceDatabase) : 0;
     const actAmount = round2(originAmount - prevAmount);
 
     useEffect(() => {
@@ -141,20 +141,47 @@ const CertificationSidebar = ({
                                 </div>
                             </div>
 
-                            {/* Manual Quantity Input */}
+                            {/* Quantitat certificada: els dos camps són editables i sempre
+                                coherents. Es pot entrar el que s'ha fet aquest període o
+                                l'acumulat a origen, indistintament; el que es desa és sempre
+                                l'acumulat, de manera que canviar de mètode no mou cap import.
+                                El mètode de la fase només decideix quin dels dos es destaca. */}
                             <div className="pt-2 border-t border-slate-100">
                                 <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">
-                                    Quantitat Certificada {isOriginMethod ? "(a Origen)" : "(Parcial Period)"}
+                                    Quantitat certificada ({node.unit})
                                 </label>
-                                <div className="flex items-center gap-3">
-                                    <NumberInput
-                                        className={`flex-1 ${isOriginMethod ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-amber-50 border-amber-200 text-amber-700'} p-3 text-lg font-mono font-bold focus:ring-1 outline-none`}
-                                        value={isOriginMethod ? originQty : actQty}
-                                        onChange={(v) => actions.updateCertificationQty(node.id, activeCertId, v)}
-                                    />
-                                    <span className="text-sm font-bold text-slate-400 uppercase">{node.unit}</span>
+
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className={`p-2 border ${isOriginMethod ? 'border-slate-200 bg-slate-50' : 'border-amber-300 bg-amber-50 ring-1 ring-amber-200'}`}>
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Del període</span>
+                                            {!isOriginMethod && <span className="text-[8px] font-bold uppercase text-amber-600">principal</span>}
+                                        </div>
+                                        <NumberInput
+                                            className="w-full bg-transparent text-lg font-mono font-bold text-amber-700 outline-none"
+                                            value={actQty}
+                                            onCommit={(v) => actions.updateCertificationQty(node.id, activeCertId, round2(prevQty + v))}
+                                        />
+                                    </div>
+
+                                    <div className={`p-2 border ${isOriginMethod ? 'border-emerald-300 bg-emerald-50 ring-1 ring-emerald-200' : 'border-slate-200 bg-slate-50'}`}>
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">A origen</span>
+                                            {isOriginMethod && <span className="text-[8px] font-bold uppercase text-emerald-600">principal</span>}
+                                        </div>
+                                        <NumberInput
+                                            className="w-full bg-transparent text-lg font-mono font-bold text-emerald-700 outline-none"
+                                            value={originQty}
+                                            onCommit={(v) => actions.updateCertificationQty(node.id, activeCertId, v)}
+                                        />
+                                    </div>
                                 </div>
-                                <p className="text-[9px] text-slate-400 mt-2 italic leading-tight">* El valor manual preval sobre el detall d'amidament.</p>
+
+                                <p className="text-[9px] text-slate-400 mt-2 italic leading-tight">
+                                    Escriu en qualsevol dels dos: l&apos;altre es recalcula. Anterior:
+                                    <span className="font-mono"> {formatNumber(prevQty, 2)}</span>. El valor manual
+                                    substitueix el detall d&apos;amidament.
+                                </p>
                             </div>
 
                             {/* Measurement Detail */}

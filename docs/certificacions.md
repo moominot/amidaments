@@ -13,16 +13,22 @@ En mode certificació la taula principal canvia de columnes i el capçal mostra
 Una **certificació** (o *fase*) és una foto de l'obra en una data. Cada partida hi té una
 quantitat executada. Dues maneres d'introduir-la, per fase:
 
-| `method` | Què s'introdueix | Com es calcula l'acumulat |
+El valor desat és **sempre l'acumulat a origen**. El mètode només tria quin dels dos camps
+del panell es destaca:
+
+| `method` | Camp destacat | Què es desa en escriure-hi |
 |---|---|---|
-| `origin` (per defecte) | L'**acumulat a origen** | és el valor introduït |
-| `partial` | La quantitat **del període** | suma de totes les fases anteriors + l'actual |
+| `origin` (per defecte) | «A origen» | el valor tal qual |
+| `partial` | «Del període» | `anterior + el que has escrit` |
+
+Tots dos camps són editables en qualsevol moment: escrius en el que et vagi bé i l'altre es
+recalcula. Com que el que es desa no canvia, **commutar el mètode no altera cap import**.
 
 La UI sempre mostra les tres xifres: **Anterior**, **Actual** (període) i **Origen** (acumulat),
 amb el percentatge sobre la quantitat pressupostada.
 
-> Commutar el mètode d'una fase **reinterpreta** les dades ja introduïdes, no les converteix.
-> Fer-ho a mitja obra canvia els imports certificats.
+> Abans de `schemaVersion: 2` el mètode canviava el significat del que hi havia desat i, en
+> commutar-lo, l'import certificat es movia sol. Ara ja no: veure `docs/estat-actual.md` §22.
 
 ## Recorregut per la UI
 
@@ -144,15 +150,27 @@ amb la nota "El valor manual preval sobre el detall d'amidament".
 
 ## Relació amb BC3
 
-Les certificacions viatgen en BC3 com a **fases**:
+**Cada certificació és un fitxer BC3 propi**, no una fase dins del fitxer del pressupost. És el
+que diu la norma FIEBDC-3/2020 (veure `docs/fiebdc-norma.md`) i el que fa que Presto o
+Arquímedes ho puguin llegir.
 
-- a l'exportació, cada certificació genera un `~F|<n>|<data>|<nom>`, i les seves línies
-  d'amidament s'escriuen dins del `~M` amb el número de fase al primer camp de cada bloc;
-- a la importació, cada `~F` es converteix en un objecte `Certification` dins de `phases`,
-  i les línies `~M` amb fase > 0 van a `node.certifications[<id de la fase>]`.
+- **A l'exportació**, el mateix parell de botons —disc i Drive— treu el pressupost o la
+  certificació activa, segons el mode en què s'estigui; el menú diu quin dels dos sortirà. El
+  fitxer de la certificació té la mateixa estructura que el del pressupost, es diu
+  `<projecte>#certification NNNN.bc3` i porta al `~V` el tipus 3, el número i la data. Els
+  amidaments de cada partida són els certificats **a origen**, que és el que hi ha desat a
+  `node.certifications[certId]`; les partides no certificades hi surten amb un zero escrit.
+- **A la importació**, un fitxer amb `~V` de tipus 3 sobre un projecte obert no es tracta com
+  un projecte nou: `importCertification` fa coincidir els codis i penja els amidaments a la
+  fase corresponent. Si ja existeix una certificació amb aquell número, es demana si se'n
+  substitueixen els amidaments.
 
-> **Bug conegut:** el pont entre `phases` (el que retorna el parser) i `budget.certifications`
-> (el que espera l'aplicació) no està connectat. Veure `docs/estat-actual.md` § 2.
+No cal exportar-les totes: la norma preveu explícitament importar «només les seleccionades».
+La convenció del nom és el que permet que un programa les trobi juntes a la mateixa carpeta.
+
+> **Compatibilitat.** Els fitxers exportats amb el format antic —fases declarades amb `~F` i el
+> número de fase al primer subcamp de cada línia de `~M`— es continuen llegint. Veure
+> `docs/estat-actual.md` §24.
 
 ## On és cada cosa
 

@@ -12,6 +12,9 @@ opcionalment, a Google Drive.
 **Pressupost**
 - Arbre de capítols, subcapítols i partides, amb reordenació per arrossegament.
 - Editor de línies d'amidament (Ud × Llargada × Amplada × Alçada) amb línies d'increment en %.
+- **Amidaments vinculats**: una partida pot prendre l'amidament d'una altra —el total o una
+  línia concreta— amb factor. En una terrassa, solera, pendents, impermeabilització, aïllant i
+  paviment s'entren un sol cop.
 - Justificació de preus: descomposat per mà d'obra, materials, maquinària i percentatges.
 - Banc de preus del projecte i llistat de recursos agregats de tota l'obra.
 - Ajust global de PEM per percentatge o per import objectiu.
@@ -36,7 +39,8 @@ opcionalment, a Google Drive.
 
 **Entrada i sortida**
 - Importació BC3 des de disc, URL, arrossegament, Google Drive o "Obrir amb…" (PWA).
-- Exportació BC3 en Windows-1252, amb fases de certificació.
+- Exportació BC3 en Windows-1252: el pressupost, o la certificació activa com a fitxer
+  independent `<projecte>#certification NNNN.bc3`, segons mana la norma FIEBDC-3.
 - PDF de pressupost i amidaments, i PDF de resum amb G.G. / B.I. / IVA i import en lletres.
 - Excel amb fórmules vives (els parcials i els totals es recalculen al full).
 - Projecte natiu en JSON.
@@ -75,6 +79,7 @@ Les credencials de Drive s'injecten des dels secrets del repositori.
 | [`docs/model-de-dades.md`](docs/model-de-dades.md) | Estructura de `budget`, nodes, amidaments, preus |
 | [`docs/calculs.md`](docs/calculs.md) | Com es calculen quantitats, preus, imports i certificats |
 | [`docs/bc3.md`](docs/bc3.md) | Registres BC3 suportats, parser i writer |
+| [`docs/fiebdc-norma.md`](docs/fiebdc-norma.md) | Extracte de l'especificació FIEBDC-3/2020: què diu de cada registre |
 | [`docs/certificacions.md`](docs/certificacions.md) | Model de fases, mètodes origen/parcial, aprovació |
 | [`docs/exportacions.md`](docs/exportacions.md) | Impressió, PDF, Excel i la seva configuració |
 | [`docs/google-drive.md`](docs/google-drive.md) | OAuth, Picker, desat i "Obrir amb…" |

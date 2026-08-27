@@ -2,9 +2,8 @@
 
 Inventari fet llegint el codi (agost 2026).
 
-**Estat: els vint-i-un defectes de les seccions següents estan corregits** a la branca
-`claude/correccions-defectes-detectats`. Es conserva la descripció de cadascun perquè
-expliquen decisions del codi actual i serveixen de referència si tornen a aparèixer.
+**Estat: els vint-i-sis defectes estan corregits.** Es conserva la descripció de cadascun
+perquè expliquen decisions del codi actual i serveixen de referència si tornen a aparèixer.
 El deute tècnic de la segona meitat del document continua obert.
 
 ---
@@ -305,6 +304,151 @@ importa: l'autodesat es dispara a cada pausa d'escriptura i, amb tots els projec
 entrada, cada desat obligaria a serialitzar-los tots — uns quants MB en un telèfon. Quan la
 quota de `localStorage` s'exhaureix, es descarten els més antics abans de rendir-se.
 
+### 22. Commutar entre PARCIAL i A ORIGEN movia els imports ✅
+
+El valor desat a `node.certifications[certId]` era **ambigu**: significava l'acumulat o el del
+període segons el `method` de la fase. Commutar el mètode no esborrava res, però reinterpretava
+les mateixes dades i l'import certificat canviava sol. Reproduït amb dues fases de 30 i 40 sobre
+una partida de 100 m² a 10 €/m²:
+
+| Mètode | Anterior | Període | Origen |
+|---|---|---|---|
+| `partial` | 300 € | 400 € | **700 €** |
+| `origin` | 300 € | 100 € | **400 €** |
+
+Des del punt de vista de qui certifica és indistingible de perdre amidaments.
+
+**Ara el valor desat sempre és l'acumulat a origen**, i el `method` només tria quin camp es
+destaca al panell. Els dos camps —«Del període» i «A origen»— són editables sempre: s'escriu
+en el que convingui i l'altre es recalcula. Commutar el mètode ja no altera cap xifra,
+comprovat al navegador amb tres commutacions seguides sobre el projecte de mostra.
+
+`calcItemCertifiedQty` deixa de dependre de la llista de fases, de manera que desapareix un dels
+paràmetres opcionals que fallaven en silenci (§9).
+
+**Migració.** `utils/migrateBudget.js` converteix una sola vegada els projectes amb fases en
+`partial`, de manera que els totals no es mouen, i marca `schemaVersion: 2`. S'aplica a tot
+projecte que arribi de fora: `localStorage`, JSON de disc, Drive, biblioteca i BC3. Quan una
+fase té detall d'amidament s'hi afegeix una línia «Certificat anterior (acumulat)» al davant,
+que conserva alhora el total i les línies introduïdes. La conversió arrossega uns cèntims de
+diferència en projectes grans (5 cèntims sobre 173.600 € en la prova), perquè `round2` s'aplica
+partida a partida com a la resta de l'aplicació.
+
+> **Limitació coneguda, no introduïda aquí:** en importar un BC3, les línies `~M` amb fase es
+> llegeixen com l'acumulat d'aquella fase. Si el fitxer d'origen les escriu com a mesurament
+> del període, la lectura serà incorrecta. Veure §23.
+
+### 23. L'exportació `~M` no tenia la forma de la norma ✅
+
+L'exportador escrivia `~M|codi|linies`: les línies queien al camp de la **POSICIO** i el
+**MEDICION_TOTAL** no s'escrivia. El nostre parser ho tolerava perquè escaneja els camps 1..4
+buscant les línies —de fet, la heurística existeix en part per llegir la nostra pròpia
+sortida—, però qualsevol altre programa ho llegia malament. Ara s'escriu
+`~M|codi||TOTAL|linies|`.
+
+També s'eliminen els registres **`~Q`** que escrivia l'exportador. Contrastat amb
+[l'especificació oficial](https://www.fiebdc.es/web2/datos/uploads/Standard-exchange-format-FIEBDC-3-2020v2_eng-.pdf):
+`~Q` existeix, però és el registre de **plecs de condicions**
+(`~Q | <CODI_CONCEPTE\> | {CODI_SECCIO_PLEC \ CODI_PARAGRAF \ {AMBIT;}\} |`), no de
+quantitats. Escriure-hi `~Q|codi|quantitat|fase` feia que un altre programa intentés llegir-ho
+com a assignació de plecs.
+
+En importar, el MEDICION_TOTAL passa a fer de **xarxa de seguretat**: si les línies llegides no
+en reprodueixen el valor (tolerància 0,02), es descarten i es deixa una sola línia amb el total
+del fitxer. Sobre el fitxer de mostra els 144 registres quadren, de manera que no salta; provat
+a part amb línies il·legibles, amb línies que no sumen el total i sense total declarat.
+
+### 24. Les certificacions en BC3 no eren conformes a la norma ✅
+
+Contrastat amb l'especificació oficial FIEBDC-3/2020 (extracte a `docs/fiebdc-norma.md`).
+**Segons la norma, una certificació és un fitxer BC3 sencer i independent**, idèntic en
+estructura a un pressupost, distingit pel registre `~V`:
+
+```
+~V | PROPIETAT | VERSIO\DATA | PROGRAMA | CAPÇALERA | JOC_CARÀCTERS | COMENTARI
+   | TIPUS_INFORMACIO | NUM_CERTIFICACIO | DATA_CERTIFICACIO | URL_BASE |
+```
+
+amb `TIPUS_INFORMACIO = 3` (*cost real*). El nom del fitxer és el del pressupost més
+`#certification NNNN`, de manera que un programa pot importar el pressupost i les
+certificacions que vulgui alhora.
+
+L'aplicació ho feia d'una altra manera —un sol fitxer amb les fases declarades a `~F` i el
+número de fase al primer subcamp de cada línia de `~M`— i **xocava amb dos usos reals**:
+
+| Ús nostre | Què diu la norma |
+|---|---|
+| `~F\|num\|data\|nom` com a declaració de fase | `~F` és **document adjunt**: `~F \| CODI_CONCEPTE \| {TIPUS\FITXER.EXT;}...` |
+| Primer subcamp de la línia `~M` = número de fase | És **TIPUS**: «1» subtotal parcial, «2» subtotal acumulat, «3» expressió |
+
+Un altre programa llegia les nostres línies de certificació com a files de subtotal, i les
+declaracions de fase com a adjunts d'un concepte inexistent. A més, el `~V` que escrivíem
+(`~V|FIEBDC-3/2016|PreuArq BIM|ANSI`) tenia els camps desplaçats una posició: la versió al
+camp de la propietat, el programa al de la versió i el joc de caràcters al del programa.
+
+**Correcció.** L'exportador s'ha extret a `src/utils/bc3Writer.js` i escriu **un fitxer per
+document**: `generateBC3({...})` sol fa el pressupost (`TIPUS_INFORMACIO = 2`) i amb
+`certification` fa aquella certificació (`= 3`, amb número i data). Els registres `~F` i el
+subcamp de fase desapareixen. En importar, un `~V` de tipus 3 sobre un projecte obert va a
+`importCertification`, que fa coincidir els codis i penja els amidaments a la fase.
+
+**Un botó, el document actiu.** No cal exportar-les totes: la norma preveu explícitament
+importar «només les seleccionades», i el que ha de ser correcte és el nom del fitxer i el `~V`.
+El mateix parell de botons (disc i Drive) exporta el pressupost o la certificació activa segons
+el mode, i el menú diu quin dels dos sortirà.
+
+Els fitxers exportats amb el format antic es continuen llegint: el cas `~F` del parser només
+els accepta com a fase quan el registre en té la forma exacta (número curt de fase i data de
+vuit xifres), cosa que un adjunt de veritat no té mai.
+
+### 25. L'exportació perdia el rendiment del descomposat ✅
+
+En importar una partida amb descomposat, el parser en penja els components a `breakdown` (amb
+el seu rendiment) i **també** a `items`, perquè tots dos surten del mateix registre `~D`.
+L'exportador mirava primer els fills:
+
+```js
+if (hasChildren)      { /* fills, tots amb rendiment 1 */ }
+else if (hasBreakdown) { /* descomposat, amb el rendiment bo */ }
+```
+
+Com que una partida importada amb descomposat sempre té les dues coses, sempre queia a la
+primera branca i escrivia tots els rendiments a 1. En reimportar, `getItemUnitPrice` calcula el
+preu com la suma de `preu × rendiment` dels components: amb tots els rendiments a 1, una
+partida de 15,01 €/m² en tornava **201,72**.
+
+Sobre el fitxer de mostra, el cicle exportar → reimportar donava un PEM de **394.955,33 €** en
+comptes de 135.202,54 €. Les quantitats es conservaven —que és el que es comprovava— i per això
+havia passat desapercebut: el que es movia eren els preus.
+
+Ara s'escriu primer el descomposat, amb el seu rendiment, i després els fills que no hi siguin.
+
+### 26. El registre arrel `~D|##|` es perdia en reimportar ✅
+
+`normalizeCode` treu els coixinets finals d'un codi, de manera que `##` (el concepte arrel del
+pressupost) queda com a cadena buida. El parser feia:
+
+```js
+const pCode = normalizeCode(fields[0]);
+if (pCode && rawChildren) { ... }
+```
+
+i descartava el registre com si no tingués codi. Amb ell es perdia la llista de capítols del
+projecte: els capítols es quedaven sense pare, passaven a ser arrels i sortien en l'ordre en què
+`Object.keys` retorna les claus —les que semblen índexs primer— de manera que reimportar un
+fitxer propi els reordenava a `10#`, `11#`… `23#`, `00#`, `01#`…
+
+Del mateix cicle sortien dos residus més, que ara també es filtren:
+
+- el concepte arrel entrava a la base de preus amb la clau buida, i la següent exportació
+  n'escrivia un `~C` sense codi que desmuntava el fitxer sencer (al tercer cicle el projecte
+  es quedava en un sol capítol amb el codi `#`);
+- l'arrel d'un projecte anterior que s'hagués quedat a la base de preus s'afegia com a capítol
+  buit a cada cicle.
+
+Comprovat encadenant tres cicles sobre el fitxer de mostra: PEM, nombre de capítols i ordre es
+conserven.
+
 ---
 
 ## Deute tècnic
@@ -388,7 +532,7 @@ ESLint ≥ 9, i amb un ESLint global més nou instal·lat `npm run lint` falla.
 
 Per ordre de relació valor/esforç:
 
-1. ~~Arreglar els punts 1–21.~~ ✅ Fet.
+1. ~~Arreglar els punts 1–23.~~ ✅ Fet.
 2. ~~Activar el lint sobre `.jsx`.~~ ✅ Fet (queda la migració a flat config).
 3. **Vitest + tests de `calculations.js` i `bc3Parser.js`**, amb el BC3 de mostra com a
    fixture. És ara la prioritat: les correccions 2, 3 i 8 es van validar amb scripts d'un sol

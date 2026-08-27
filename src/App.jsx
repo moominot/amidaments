@@ -31,6 +31,7 @@ import {
     User,
     FileSpreadsheet,
     Percent,
+    Link as LinkIcon,
     Menu,
     Cloud,
     Undo2,
@@ -72,8 +73,12 @@ import CertificationSummaryModal from './components/Certification/CertificationS
 import DriveSettingsModal from './components/DriveSettingsModal';
 import NumberInput from './components/NumberInput';
 import ProjectLibraryModal from './components/ProjectLibraryModal';
+import LinkItemModal from './components/LinkItemModal';
 import { listProjects, getProject, saveProject, deleteProject } from './utils/projectLibrary';
+import { migrateBudget } from './utils/migrateBudget';
+import { resolveMeasurementRefs, isRefLine, refLabel } from './utils/measurementRefs';
 import { processBC3Data } from './utils/bc3Parser';
+import { generateBC3, nomFitxerCertificacio } from './utils/bc3Writer';
 import { numberToTextCatalan } from './utils/numberToText';
 import { exportCertificationPDF } from './utils/certificationPdf';
 import { safeFileName } from './utils/fileName';
@@ -831,7 +836,7 @@ export default function App() {
         try {
             const data = saved ? JSON.parse(saved) : { id: '1', name: 'Projecte BC3', chapters: [] };
             if (!data.certifications) data.certifications = [];
-            return data;
+            return migrateBudget(data).budget;
         } catch (e) {
             console.error("Error parsing saved budget", e);
             return { id: '1', name: 'Projecte BC3', chapters: [], certifications: [] };
@@ -859,7 +864,7 @@ export default function App() {
 
             // I una còpia a la biblioteca, perquè obrir-ne un altre no destrueixi aquest.
             if (budget.chapters?.length > 0) {
-                const total = budget.chapters.reduce((acc, ch) => acc + calcChapterTotal(ch, priceDatabase), 0);
+                const total = budgetTotal;
                 const res = saveProject({ id: budget.id, budget, priceDatabase, total });
                 if (res.ok) setLibrary(listProjects());
                 else notify('No hi ha prou espai al navegador per desar la còpia de seguretat', 'error');
@@ -963,7 +968,7 @@ export default function App() {
         apiKey: driveConfig.apiKey,
         appId: driveConfig.appId,
         onProjectLoaded: ({ budget: b, priceDatabase: pd }) => {
-            setBudget(b);
+            adoptaProjecte(b);
             setPriceDatabase(pd);
         },
         onBC3Loaded: handleBC3FromDrive,
@@ -1013,6 +1018,7 @@ export default function App() {
     const [showNewCertInput, setShowNewCertInput] = useState(false);
     const [showCertSummary, setShowCertSummary] = useState(false);
     const [showLibrary, setShowLibrary] = useState(false);
+    const [linkTarget, setLinkTarget] = useState(null); // id de la partida que rep el vincle
     const [library, setLibrary] = useState(() => listProjects());
     const [newCertName, setNewCertName] = useState('');
 
@@ -1064,10 +1070,24 @@ export default function App() {
         return () => window.removeEventListener('keydown', onKeyDown);
     }, [historial]);
 
+    /**
+     * Punt d'entrada únic per a qualsevol projecte que arribi de fora (disc, Drive,
+     * biblioteca). Hi aplica les migracions d'esquema pendents i avisa si ha convertit
+     * dades, perquè el canvi no passi desapercebut.
+     */
+    const adoptaProjecte = useCallback((entrant) => {
+        const { budget: migrat, migrat: haCanviat } = migrateBudget(entrant);
+        setBudget(migrat);
+        if (haCanviat) {
+            notify('Certificacions convertides al format nou: els imports es conserven igual');
+        }
+        return migrat;
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
     const handleOpenFromLibrary = useCallback((id) => {
         const projecte = getProject(id);
         if (!projecte) { notify('Aquest projecte ja no hi és', 'error'); return; }
-        setBudget(projecte.budget);
+        adoptaProjecte(projecte.budget);
         setPriceDatabase(projecte.priceDatabase || {});
         setSelectedId(null);
         setActiveCertId(null);
@@ -1093,15 +1113,26 @@ export default function App() {
         if (activeCertId === certId) setActiveCertId(restants.length ? restants[restants.length - 1].id : null);
     }, [budget.certifications, activeCertId, certActions]);
 
+    /**
+     * Arbre amb les línies d'amidament vinculades ja resoltes.
+     *
+     * `budget.chapters` continua essent el que s'edita i el que es desa —amb els vincles
+     * intactes— i aquest és el que es mostra, es calcula i s'exporta. Resoldre-ho aquí, un
+     * sol cop, evita haver d'ensenyar a resoldre vincles a la dotzena de funcions de
+     * `calculations.js`.
+     */
+    const resolt = useMemo(() => resolveMeasurementRefs(budget.chapters), [budget.chapters]);
+    const resolvedChapters = resolt.chapters;
+
     const budgetTotal = useMemo(() => {
-        return budget.chapters.reduce((acc, ch) => acc + calcChapterTotal(ch, priceDatabase), 0);
-    }, [budget.chapters, priceDatabase]);
+        return resolvedChapters.reduce((acc, ch) => acc + calcChapterTotal(ch, priceDatabase), 0);
+    }, [resolvedChapters, priceDatabase]);
 
     // Resum de la certificació activa. Es recalcula a cada canvi de l'arbre, de manera
     // que el percentatge certificat s'actualitza mentre s'edita.
     const certificationSummary = useMemo(
-        () => buildCertificationSummary(budget.chapters, activeCertId, priceDatabase, budget.certifications || []),
-        [budget.chapters, budget.certifications, activeCertId, priceDatabase]
+        () => buildCertificationSummary(resolvedChapters, activeCertId, priceDatabase, budget.certifications || []),
+        [resolvedChapters, budget.certifications, activeCertId, priceDatabase]
     );
 
     // Sense passar budget.certifications, una fase amb mètode 'partial' no acumulava
@@ -1136,10 +1167,10 @@ export default function App() {
         const certs = budget.certifications || [];
         const cert = certs.find(c => c.id === activeCertId);
         exportCertificationPDF({
-            budget,
+            budget: { ...budget, chapters: resolvedChapters },
             summary: certificationSummary,
             detail: printConfig.certItemDetail
-                ? buildCertificationDetail(budget.chapters, activeCertId, priceDatabase, certs)
+                ? buildCertificationDetail(resolvedChapters, activeCertId, priceDatabase, certs)
                 : [],
             cert,
             certIndex: certs.findIndex(c => c.id === activeCertId) + 1,
@@ -1254,12 +1285,12 @@ export default function App() {
         };
 
         if (config.chaptersOnNewPage) {
-            budget.chapters.forEach((ch, idx) => {
+            resolvedChapters.forEach((ch, idx) => {
                 if (idx > 0) doc.addPage();
                 generateTableForNodes([ch], idx === 0, counter);
             });
         } else {
-            generateTableForNodes(budget.chapters, true, counter);
+            generateTableForNodes(resolvedChapters, true, counter);
         }
 
         let finalY = doc.lastAutoTable.finalY + 10;
@@ -1283,7 +1314,7 @@ export default function App() {
         doc.text('LA DIRECCIÓ FACULTATIVA', 155, finalY, { align: 'center' });
 
         doc.save(`Amidaments_${safeFileName(budget.name, 'projecte')}.pdf`);
-    }, [budget, priceDatabase, budgetTotal]);
+    }, [budget, resolvedChapters, priceDatabase, budgetTotal]);
 
     const handleExportSummaryPDF = useCallback((config) => {
         const doc = new jsPDF('p', 'mm', 'a4');
@@ -1296,7 +1327,7 @@ export default function App() {
         const VAT = config.iva.enabled ? PECValue * (config.iva.percentage / 100) : 0;
         const PVValue = PECValue + VAT;
 
-        const rows = budget.chapters.map((ch, index) => {
+        const rows = resolvedChapters.map((ch, index) => {
             const total = calcChapterTotal(ch, priceDatabase);
             const percentage = (total / PEMValue) * 100;
             return [
@@ -1386,7 +1417,7 @@ export default function App() {
         doc.text(`, a ${date}`, 120, finalY);
 
         doc.save(`${safeFileName(budget.name, 'projecte')}_resum.pdf`);
-    }, [budget, priceDatabase, budgetTotal]);
+    }, [budget, resolvedChapters, priceDatabase, budgetTotal]);
 
     const handleExportXLSX = useCallback(() => {
         const wb = XLSX.utils.book_new();
@@ -1450,7 +1481,7 @@ export default function App() {
         if (printConfig.chaptersOnNewPage) {
             // 1. Create Summary Sheet
             const summaryData = [['CODI', 'DESCRIPCIÓ', 'IMPORT']];
-            budget.chapters.forEach(ch => {
+            resolvedChapters.forEach(ch => {
                 summaryData.push([ch.code, ch.description.toUpperCase(), calcChapterTotal(ch, priceDatabase)]);
             });
             const wsResum = XLSX.utils.aoa_to_sheet(summaryData);
@@ -1458,23 +1489,23 @@ export default function App() {
             XLSX.utils.book_append_sheet(wb, wsResum, "Resum");
 
             // 2. Create Sheet for each Top Chapter
-            budget.chapters.forEach((ch, idx) => {
+            resolvedChapters.forEach((ch, idx) => {
                 const ws = createWorksheetData([ch]);
                 // Sheet name derived from code or Index to be safe
                 const name = (ch.code || `Cap ${idx + 1}`).substring(0, 31).replace(/[[\]*?/\\]/g, '');
                 XLSX.utils.book_append_sheet(wb, ws, name);
             });
         } else {
-            const ws = createWorksheetData(budget.chapters);
+            const ws = createWorksheetData(resolvedChapters);
             XLSX.utils.book_append_sheet(wb, ws, "Pressupost");
         }
 
         XLSX.writeFile(wb, `${safeFileName(budget.name, 'projecte')}.xlsx`);
-    }, [budget, priceDatabase, printConfig.chaptersOnNewPage, printConfig.showLongDesc]);
+    }, [budget, resolvedChapters, priceDatabase, printConfig.chaptersOnNewPage, printConfig.showLongDesc]);
 
     // --- Search Filtering ---
     const filteredChapters = useMemo(() => {
-        if (!searchTerm.trim()) return budget.chapters;
+        if (!searchTerm.trim()) return resolvedChapters;
 
         const searchLower = searchTerm.toLowerCase().trim();
 
@@ -1501,8 +1532,8 @@ export default function App() {
             }).filter(Boolean);
         };
 
-        return filterNodes(budget.chapters);
-    }, [budget.chapters, searchTerm]);
+        return filterNodes(resolvedChapters);
+    }, [resolvedChapters, searchTerm]);
 
     // --- Filtered Prices ---
     const filteredPrices = useMemo(() => {
@@ -1659,8 +1690,8 @@ export default function App() {
             });
         };
 
-        if (budget.chapters) {
-            traverse(budget.chapters);
+        if (resolvedChapters) {
+            traverse(resolvedChapters);
         }
 
         const sortedResources = Object.values(resources).sort((a, b) => a.code.localeCompare(b.code));
@@ -1686,7 +1717,7 @@ export default function App() {
         });
 
         return grouped;
-    }, [budget, priceDatabase]);
+    }, [resolvedChapters, priceDatabase]);
 
     // --- Filtered Resources ---
     const filteredResources = useMemo(() => {
@@ -1958,225 +1989,58 @@ export default function App() {
 
 
     // --- Exportació BC3 ---
-    const generateBC3 = useCallback(() => {
-        const concepts = new Map(); // normCode -> { data, isDecomposed }
-        const measurementsByCode = new Map(); // normCode -> Array of { phase, ...measurementObject }
-        const relationships = new Map(); // normCode -> Array of { childNormCode, factor, yield }
-        const certificationsByCode = new Map(); // normCode -> { certId: certData }
+    //
+    // La norma vol un fitxer per document: el pressupost per una banda i cada certificació per
+    // una altra, amb el seu registre ~V. L'escriptor viu a `utils/bc3Writer.js`; aquí només es
+    // decideix QUÈ s'exporta, que és el que està actiu a la interfície.
+    const seleccioBC3 = useMemo(() => {
+        const certs = budget.certifications || [];
+        const idx = certs.findIndex(c => c.id === activeCertId);
+        if (appMode !== 'certification' || idx === -1) return null;
+        return { cert: certs[idx], numero: idx + 1 };
+    }, [appMode, activeCertId, budget.certifications]);
 
-        const getExportCode = (normCode) => {
-            const concept = concepts.get(normCode);
-            return (concept && concept.isDecomposed) ? `${normCode}#` : normCode;
-        };
+    /** Què diu el menú que s'exportarà, perquè no sigui una sorpresa en clicar. */
+    const etiquetaBC3 = seleccioBC3
+        ? `Certificació ${seleccioBC3.numero} · ${seleccioBC3.cert.name}`
+        : 'Pressupost i amidaments';
 
-        const fNum = (n) => (n || 0).toString().replace('.', ',');
-
-        // Map certifications to phase numbers (Budget is 0, Certs are 1, 2, 3...)
-        const phaseMap = new Map();
-        (budget.certifications || []).forEach((c, i) => {
-            phaseMap.set(c.id, i + 1);
-        });
-
-        // 1. First Pass: Collect all data and determine decomposition
-        const processNode = (node) => {
-            const norm = normalizeCode(node.code);
-            const hasChildren = (node.subChapters?.length > 0 || node.items?.length > 0);
-            const hasBreakdown = (node.breakdown?.length > 0);
-
-            if (!concepts.has(norm)) {
-                concepts.set(norm, {
-                    unit: node.unit || '',
-                    description: node.description || '',
-                    fullDescription: node.fullDescription || '',
-                    price: node.price || 0,
-                    isDecomposed: false
-                });
-            }
-
-            const concept = concepts.get(norm);
-            if (hasChildren || hasBreakdown) {
-                concept.isDecomposed = true;
-            }
-
-            // Relationship data
-            if (hasChildren) {
-                if (!relationships.has(norm)) relationships.set(norm, []);
-                const rels = relationships.get(norm);
-                const children = [...(node.subChapters || []), ...(node.items || [])];
-                children.forEach(child => {
-                    const childNorm = normalizeCode(child.code);
-                    if (!rels.some(r => r.child === childNorm)) {
-                        rels.push({ child: childNorm, factor: 1, yield: 1 });
-                    }
-                });
-            } else if (hasBreakdown) {
-                if (!relationships.has(norm)) relationships.set(norm, []);
-                const rels = relationships.get(norm);
-                node.breakdown.forEach(b => {
-                    const bNorm = normalizeCode(b.code);
-                    if (!rels.some(r => r.child === bNorm)) {
-                        rels.push({ child: bNorm, factor: 1, yield: b.yield || 1 });
-                    }
-                    if (!concepts.has(bNorm)) {
-                        concepts.set(bNorm, {
-                            unit: b.unit || '',
-                            description: b.description || '',
-                            price: b.price || 0,
-                            isDecomposed: false
-                        });
-                    }
-                });
-            }
-
-            // Measurement aggregation (Phase 0: Budget)
-            if (node.measurements?.length > 0) {
-                if (!measurementsByCode.has(norm)) measurementsByCode.set(norm, []);
-                node.measurements.forEach(m => {
-                    measurementsByCode.get(norm).push({ phase: 0, ...m });
-                });
-            }
-
-            // Measurements for each certification phase
-            if (node.certifications) {
-                // Conservem el mapa { certId: certData } per poder calcular després els ~Q
-                // acumulats per fase: calcItemCertifiedQty espera un NODE, no la llista de fases.
-                certificationsByCode.set(norm, { ...(certificationsByCode.get(norm) || {}), ...node.certifications });
-
-                Object.entries(node.certifications).forEach(([certId, certData]) => {
-                    const phaseNum = phaseMap.get(certId);
-                    if (phaseNum !== undefined && certData.measurements?.length > 0) {
-                        if (!measurementsByCode.has(norm)) measurementsByCode.set(norm, []);
-                        certData.measurements.forEach(m => {
-                            measurementsByCode.get(norm).push({ phase: phaseNum, ...m });
-                        });
-                    }
-                });
-            }
-
-            if (node.subChapters) node.subChapters.forEach(processNode);
-            if (node.items) node.items.forEach(processNode);
-        };
-
-        budget.chapters.forEach(processNode);
-
-        // Ensure price database entries are present as concepts
-        Object.entries(priceDatabase).forEach(([code, data]) => {
-            const norm = normalizeCode(code);
-            if (!concepts.has(norm)) {
-                concepts.set(norm, {
-                    unit: data.unit || '',
-                    description: data.summary || '',
-                    price: data.price || 0,
-                    isDecomposed: false
-                });
-            }
-        });
-
-        let lines = [];
-        lines.push('~V|FIEBDC-3/2016|PreuArq BIM|ANSI');
-        lines.push('~K|\\0\\0\\0\\2\\2\\2\\2\\');
-
-        // Phase Records (~F)
-        (budget.certifications || []).forEach((cert, i) => {
-            const phaseNum = i + 1;
-            const dateStr = cert.date ? cert.date.substring(0, 10).replace(/-/g, '') : '';
-            lines.push(`~F|${phaseNum}|${dateStr}|${cert.name}`);
-        });
-
-        // Root Concept
-        if (budget.chapters.length > 0) {
-            lines.push(`~C|##|u|${budget.name || 'PROJECTE'}|0|0|0|0\\0\\0`);
-            const rootChildren = budget.chapters.map(ch => {
-                const childNorm = normalizeCode(ch.code);
-                return `${getExportCode(childNorm)}\\1\\1`;
-            }).join('\\');
-            lines.push(`~D|##|${rootChildren}`);
-        }
-
-        // Concepts records (~C, ~T)
-        concepts.forEach((data, norm) => {
-            const exportCode = getExportCode(norm);
-            const isPercent = data.unit === '%';
-            const price = isPercent ? (data.price / 100) : data.price;
-            lines.push(`~C|${exportCode}|${data.unit}|${data.description}|${fNum(price)}|0|0|0\\0\\0`);
-            if (data.fullDescription) {
-                lines.push(`~T|${exportCode}|${data.fullDescription}`);
-            }
-        });
-
-        // Decomposition records (~D)
-        relationships.forEach((rels, norm) => {
-            const exportCode = getExportCode(norm);
-            const childStr = rels.map(r => {
-                const childConcept = concepts.get(r.child);
-                const isPercent = childConcept?.unit === '%';
-                const yld = isPercent ? (r.yield / 100) : r.yield;
-                return `${getExportCode(r.child)}\\${fNum(r.factor)}\\${fNum(yld)}`;
-            }).join('\\');
-            if (childStr) {
-                lines.push(`~D|${exportCode}|${childStr}`);
-            }
-        });
-
-        // Quantity (~Q) and Measurement (~M) records
-        measurementsByCode.forEach((measurements, norm) => {
-            const exportCode = getExportCode(norm);
-
-            // Generate ~Q for budget (Phase 0)
-            const budgetMeasurements = measurements.filter(m => m.phase === 0);
-            if (budgetMeasurements.length > 0) {
-                const totalQty = budgetMeasurements.reduce((acc, m) => acc + (m.units || 0) * (m.length || 1) * (m.width || 1) * (m.height || 1), 0);
-                lines.push(`~Q|${exportCode}|${fNum(totalQty)}|0`);
-            }
-
-            // Generate ~Q for each certification phase (Accumulated)
-            (budget.certifications || []).forEach((cert, i) => {
-                const phaseNum = i + 1;
-                // El ~Q amb FASE espera l'acumulat a origen. calcItemCertifiedQty ja el
-                // calcula segons el mètode de la fase ('origin' o 'partial').
-                const certNode = { code: norm, certifications: certificationsByCode.get(norm) || {} };
-                const accumulatedQty = calcItemCertifiedQty(certNode, cert.id, budget.certifications);
-                if (accumulatedQty > 0) {
-                    lines.push(`~Q|${exportCode}|${fNum(accumulatedQty)}|${phaseNum}`);
-                }
-            });
-
-            // Generate ~M with all phases
-            if (measurements.length > 0) {
-                const mLines = measurements.map(m => {
-                    // Blocs de 7 camps: FASE \ DESC \ U \ L \ A \ H \ (separador buit).
-                    // És el que espera processBC3Data quan detecta step=7, de manera que
-                    // un fitxer exportat es pot tornar a importar sense perdre amidaments.
-                    return `${m.phase}\\${m.description || ''}\\${fNum(m.units)}\\${fNum(m.length)}\\${fNum(m.width)}\\${fNum(m.height)}\\`;
-                }).join('\\');
-                lines.push(`~M|${exportCode}|${mLines}`);
-            }
-        });
-
-        return lines.join('\n');
-    }, [budget, priceDatabase]);
+    const documentBC3 = useCallback(() => ({
+        contingut: generateBC3({ budget, chapters: resolvedChapters, priceDatabase, certification: seleccioBC3 }),
+        // Convenció de nom de la norma: el del pressupost més «#certification NNNN», que és el
+        // que permet que un programa importi el pressupost i les certificacions que vulgui
+        // d'una tacada.
+        nom: seleccioBC3
+            ? nomFitxerCertificacio(budget.name, seleccioBC3.numero)
+            : (budget.name || 'projecte'),
+        etiqueta: seleccioBC3 ? `Certificació ${seleccioBC3.numero}` : 'Pressupost',
+    }), [budget, resolvedChapters, priceDatabase, seleccioBC3]);
 
     const handleExportBC3ToDrive = useCallback(() => {
-        requireDrive(() => drive.exportBC3ToDrive(generateBC3(), budget.name));
-    }, [drive, requireDrive, generateBC3, budget.name]); // eslint-disable-line react-hooks/exhaustive-deps
+        const doc = documentBC3();
+        // Una certificació sempre va a un fitxer nou: el que es té obert a Drive és el del
+        // pressupost i no s'hi ha de proposar de sobreescriure'l.
+        requireDrive(() => drive.exportBC3ToDrive(doc.contingut, doc.nom, !!seleccioBC3));
+    }, [drive, requireDrive, documentBC3, seleccioBC3]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleExportBC3 = () => {
-        const content = generateBC3();
+        const doc = documentBC3();
 
         // El BC3 s'escriu en Windows-1252 (ANSI): és el que esperen Presto i Arquímedes.
         // La conversió viu a utils/googleDrive.js perquè l'exportació a Drive la necessita igual.
-        const win1252Array = toWindows1252Bytes(content);
+        const win1252Array = toWindows1252Bytes(doc.contingut);
         const blob = new Blob([win1252Array], { type: 'text/plain;charset=windows-1252' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${safeFileName(budget.name, 'projecte')}.bc3`;
+        a.download = `${safeFileName(doc.nom, 'projecte')}.bc3`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        notify("Fitxer BC3 exportat correctament (Windows-1252)");
+        notify(`${doc.etiqueta} exportada en BC3 (Windows-1252)`);
     };
+
 
     // --- Project Management Handlers ---
     const fileInputRef = React.useRef(null);
@@ -2218,7 +2082,7 @@ export default function App() {
                 try {
                     const projectData = JSON.parse(event.target.result);
                     if (projectData.budget && projectData.priceDatabase) {
-                        setBudget(projectData.budget);
+                        adoptaProjecte(projectData.budget);
                         setPriceDatabase(projectData.priceDatabase);
                         notify("Projecte carregat correctament");
                     } else {
@@ -2263,8 +2127,118 @@ export default function App() {
         notify("Nou projecte creat");
     };
 
+    /** Cerca una partida per codi normalitzat a tot l'arbre. */
+    const buscaPerCodi = (nodes, codi) => {
+        for (const n of nodes || []) {
+            if (n.unit && normalizeCode(n.code) === codi) return n;
+            const dins = buscaPerCodi([...(n.subChapters || []), ...(n.items || [])], codi);
+            if (dins) return dins;
+        }
+        return null;
+    };
+
+    /**
+     * Incorpora un fitxer de certificació (`~V` amb TIPUS_INFORMACIO = 3) al projecte obert.
+     *
+     * La norma diu que el fitxer d'una certificació té la mateixa estructura que el del
+     * pressupost i que els seus amidaments són els executats **a origen**, que és exactament
+     * el que aquesta aplicació desa a `node.certifications[certId]`. Per tant no cal
+     * reconstruir res: només fer coincidir els codis i penjar-hi les línies.
+     *
+     * El número de certificació és la posició de la fase (la primera és la 1). Si ja n'hi ha
+     * una amb aquest número, es demana si es vol substituir; si no, s'afegeix al final.
+     */
+    const importCertification = (result) => {
+        const num = result.info?.certNumber || (budget.certifications?.length || 0) + 1;
+        const certs = budget.certifications || [];
+        const existent = num >= 1 && num <= certs.length ? certs[num - 1] : null;
+
+        if (existent) {
+            const ok = window.confirm(
+                `El fitxer és la certificació ${num} i el projecte ja en té una en aquesta posició ` +
+                `("${existent.name}").\n\n[Accepta] Substituir-ne els amidaments\n[Cancel·la] No importar`
+            );
+            if (!ok) return;
+            if (existent.approved) {
+                notify(`"${existent.name}" està aprovada. Reobre-la abans d'importar-hi res.`, 'error');
+                return;
+            }
+        }
+
+        // Amidaments certificats del fitxer, indexats per codi.
+        const perCodi = new Map();
+        const recull = (nodes) => nodes.forEach(n => {
+            if (n.unit && (n.measurements || []).length > 0) {
+                perCodi.set(normalizeCode(n.code), n.measurements);
+            }
+            recull([...(n.subChapters || []), ...(n.items || [])]);
+        });
+        recull(result.chapters || []);
+
+        const certId = existent ? existent.id : crypto.randomUUID();
+        let trobades = 0;
+        const desconegudes = [];
+
+        const aplica = (nodes) => nodes.map(n => {
+            const seguent = {
+                ...n,
+                subChapters: aplica(n.subChapters || []),
+                items: aplica(n.items || []),
+            };
+            if (!n.unit) return seguent;
+
+            const linies = perCodi.get(normalizeCode(n.code));
+            const certifications = { ...(n.certifications || {}) };
+            if (linies) {
+                trobades++;
+                certifications[certId] = {
+                    quantity: linies.reduce((acc, m) => acc + (m.units || 0) * (m.length || 1) * (m.width || 1) * (m.height || 1), 0),
+                    measurements: linies.map(m => ({ ...m, id: crypto.randomUUID() })),
+                };
+            } else if (existent) {
+                // Substituir una certificació vol dir substituir-la sencera: el que el fitxer
+                // no porta, no està certificat.
+                delete certifications[certId];
+            }
+            return { ...seguent, certifications };
+        });
+
+        perCodi.forEach((_, codi) => { if (!buscaPerCodi(budget.chapters, codi)) desconegudes.push(codi); });
+
+        // L'arbre es calcula aquí i no dins de l'updater: `aplica` compta les partides
+        // trobades i el missatge de sota les ha de poder llegir.
+        const nousChapters = aplica(budget.chapters);
+
+        const fase = existent || {
+            id: certId,
+            name: result.info?.comment?.trim() || `Certificació ${num}`,
+            date: result.info?.certDate || new Date().toISOString().split('T')[0],
+            approved: false,
+            method: 'origin',
+        };
+
+        setBudget(prev => ({
+            ...prev,
+            chapters: nousChapters,
+            certifications: existent ? prev.certifications : [...(prev.certifications || []), fase],
+        }));
+        setAppMode('certification');
+        setActiveCertId(certId);
+
+        const avis = desconegudes.length > 0 ? ` (${desconegudes.length} codis del fitxer no són al pressupost)` : '';
+        notify(`Certificació ${num} importada: ${trobades} partides${avis}`);
+    };
+
     const startImportProcess = (result, options = {}) => {
         const { replace = false } = options;
+
+        // Un fitxer de certificació sobre un projecte obert no és un projecte nou: són els
+        // amidaments executats d'aquest mateix pressupost. Sense projecte obert s'importa com
+        // qualsevol altre fitxer, que és el que es pot fer amb el que hi ha.
+        if (result.info?.type === 3 && (budget.chapters || []).length > 0) {
+            importCertification(result);
+            return;
+        }
 
         if (replace) {
             finalizeImport(result, { replace: true });
@@ -2414,12 +2388,12 @@ export default function App() {
 
         if (replace) {
             setPriceDatabase(result.prices || {});
-            setBudget({
+            setBudget(migrateBudget({
                 id: crypto.randomUUID(),
                 name: result.name || 'Projecte Importat',
                 chapters: result.chapters,
                 certifications: importedPhases
-            });
+            }).budget);
             notify("Projecte obert correctament");
         } else {
             setPriceDatabase(prev => ({ ...prev, ...result.prices }));
@@ -2470,7 +2444,7 @@ export default function App() {
                             try {
                                 const projectData = JSON.parse(text);
                                 if (projectData.budget && projectData.projectMetadata) {
-                                    setBudget(projectData.budget);
+                                    adoptaProjecte(projectData.budget);
                                     if (projectData.priceDatabase) setPriceDatabase(projectData.priceDatabase);
                                     notify("Projecte carregat correctament");
                                 }
@@ -2669,6 +2643,62 @@ export default function App() {
         setBudget(prev => ({ ...prev, chapters: updateInTree(prev.chapters) }));
     };
 
+    const findNodeById = (nodes, id) => {
+        for (const n of nodes) {
+            if (n.id === id) return n;
+            const trobat = findNodeById([...(n.subChapters || []), ...(n.items || [])], id);
+            if (trobat) return trobat;
+        }
+        return null;
+    };
+
+    const addLinkedLine = (itemId, refCode, refLineId = null) => {
+        // De la línia d'origen només se'n desa l'id: la descripció es resol a cada càlcul,
+        // de manera que reanomenar-la a l'origen es reflecteix aquí.
+        const origen = refLineId
+            ? findNodeById(resolvedChapters, itemId) && buscaLinia(refCode, refLineId)
+            : null;
+
+        const updateInTree = (nodes) => nodes.map(node => {
+            if (node.id === itemId) {
+                return {
+                    ...node,
+                    measurements: [...(node.measurements || []), {
+                        id: crypto.randomUUID(),
+                        description: refLineId
+                            ? `Igual que ${refCode} · ${origen?.description || 'una línia'}`
+                            : `Igual que ${refCode}`,
+                        refCode,
+                        ...(refLineId ? { refLineId } : {}),
+                        factor: 1,
+                    }]
+                };
+            }
+            return {
+                ...node,
+                subChapters: updateInTree(node.subChapters || []),
+                items: updateInTree(node.items || [])
+            };
+        });
+        setBudget(prev => ({ ...prev, chapters: updateInTree(prev.chapters) }));
+        notify(refLineId ? `Amidament vinculat a una línia de ${refCode}` : `Amidament vinculat a ${refCode}`);
+    };
+
+    /** Troba una línia d'amidament dins de la partida amb aquest codi. */
+    const buscaLinia = (code, lineId) => {
+        const norm = normalizeCode(code);
+        let trobada = null;
+        const walk = (nodes) => nodes.forEach(n => {
+            if (n.unit && normalizeCode(n.code) === norm) {
+                const m = (n.measurements || []).find(x => x.id === lineId);
+                if (m && !trobada) trobada = m;
+            }
+            walk([...(n.subChapters || []), ...(n.items || [])]);
+        });
+        walk(resolvedChapters);
+        return trobada;
+    };
+
     const addIncrementLine = (itemId) => {
         const updateInTree = (nodes) => {
             return nodes.map(node => {
@@ -2700,6 +2730,15 @@ export default function App() {
 
         const node = findNode(budget.chapters);
         if (!node) return;
+
+        // Si altres partides prenen l'amidament d'aquesta, avisar-ne abans: es quedarien a zero.
+        const refs = resolt.refsPerCode.get(normalizeCode(node.code)) || 0;
+        if (refs > 0) {
+            const plural = refs === 1 ? 'línia d\'amidament vinculada' : 'línies d\'amidament vinculades';
+            if (!confirm(`"${node.description}" té ${refs} ${plural} que hi apunten.\n\nSi l'elimines, aquelles línies es quedaran a zero. Pots desfer-ho amb Ctrl+Z.`)) {
+                return;
+            }
+        }
 
         const hasChildren = (node.subChapters?.length > 0 || node.items?.length > 0);
         if (hasChildren) {
@@ -3149,9 +3188,9 @@ export default function App() {
                                 ) : (
                                     <div className="md:hidden flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-[10px] text-slate-500">
                                         {node.unit && (() => {
-                                            const originQty = calcItemCertifiedQty(node, activeCertId, budget.certifications);
+                                            const originQty = calcItemCertifiedQty(node, activeCertId);
                                             const prevCertId = getPreviousCertId(budget.certifications, activeCertId);
-                                            const prevQty = prevCertId ? calcItemCertifiedQty(node, prevCertId, budget.certifications) : 0;
+                                            const prevQty = prevCertId ? calcItemCertifiedQty(node, prevCertId) : 0;
                                             const actQty = round2(originQty - prevQty);
                                             return (
                                                 <>
@@ -3200,9 +3239,9 @@ export default function App() {
 
                             if (isChapter) {
                                 const chBudget = calcChapterTotal(node, priceDatabase);
-                                const chOrigin = calcChapterCertifiedTotal(node, activeCertId, priceDatabase, budget.certifications);
+                                const chOrigin = calcChapterCertifiedTotal(node, activeCertId, priceDatabase);
                                 const chPrev = prevCertId
-                                    ? calcChapterCertifiedTotal(node, prevCertId, priceDatabase, budget.certifications)
+                                    ? calcChapterCertifiedTotal(node, prevCertId, priceDatabase)
                                     : 0;
                                 prevQty = chPrev;
                                 actQty = round2(chOrigin - chPrev);
@@ -3210,8 +3249,8 @@ export default function App() {
                                 actPct = safePct(actQty, chBudget);
                                 originPct = safePct(chOrigin, chBudget);
                             } else {
-                                originQty = calcItemCertifiedQty(node, activeCertId, budget.certifications);
-                                prevQty = prevCertId ? calcItemCertifiedQty(node, prevCertId, budget.certifications) : 0;
+                                originQty = calcItemCertifiedQty(node, activeCertId);
+                                prevQty = prevCertId ? calcItemCertifiedQty(node, prevCertId) : 0;
                                 actQty = round2(originQty - prevQty);
                                 totalQty = calcItemTotalQty(node);
                                 antPct = safePct(prevQty, totalQty);
@@ -3243,7 +3282,7 @@ export default function App() {
                             <div className="flex items-center justify-end gap-2">
                                 {appMode === 'budget'
                                     ? (node.unit ? formatCurrency(calcItemTotalAmount(node, priceDatabase)) : formatCurrency(calcChapterTotal(node, priceDatabase)))
-                                    : (node.unit ? formatCurrency(calcItemCertifiedAmount(node, activeCertId, priceDatabase, budget.certifications)) : formatCurrency(calcChapterCertifiedTotal(node, activeCertId, priceDatabase, budget.certifications)))
+                                    : (node.unit ? formatCurrency(calcItemCertifiedAmount(node, activeCertId, priceDatabase)) : formatCurrency(calcChapterCertifiedTotal(node, activeCertId, priceDatabase)))
                                 }
                                 <button
                                     onClick={(e) => {
@@ -3685,7 +3724,10 @@ export default function App() {
                                         </button>
                                     )}
 
-                                    <div className="px-3 py-1 text-[8px] font-bold text-slate-500 uppercase tracking-widest border-b border-t border-slate-800 mt-1">FIEBDC-3 (BC3)</div>
+                                    <div className="px-3 py-1 border-b border-t border-slate-800 mt-1">
+                                        <div className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">FIEBDC-3 (BC3)</div>
+                                        <div className="text-[9px] text-emerald-400/80 truncate normal-case">{etiquetaBC3}</div>
+                                    </div>
                                     <button
                                         onClick={() => { handleExportBC3(); setShowSaveDropdown(false); }}
                                         className="w-full text-left px-4 py-2 text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-colors flex items-center gap-2"
@@ -3796,7 +3838,10 @@ export default function App() {
                                         <span className="font-medium">A Google Drive</span>
                                     </button>
 
-                                    <div className="px-4 py-2 text-xs font-bold text-slate-500 border-b border-slate-800 bg-slate-800/50 mt-1">EXPORTAR BC3</div>
+                                    <div className="px-4 py-2 border-b border-slate-800 bg-slate-800/50 mt-1">
+                                        <div className="text-xs font-bold text-slate-500">EXPORTAR BC3</div>
+                                        <div className="text-[11px] text-emerald-400/80 truncate">{etiquetaBC3}</div>
+                                    </div>
                                     <button
                                         onClick={() => { handleExportBC3(); setShowMobileMenu(false); }}
                                         className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 transition-colors flex items-center gap-3 border-b border-slate-800"
@@ -4123,7 +4168,7 @@ export default function App() {
                                 }
                                 return null;
                             };
-                            const node = findNode(budget.chapters);
+                            const node = findNode(resolvedChapters);
                             if (!node) return <div className="p-8 text-center text-slate-400 text-xs italic">Element no trobat</div>;
 
                             return (
@@ -4263,8 +4308,40 @@ export default function App() {
                                                                 </tr>
                                                             </thead>
                                                             <tbody className="divide-y divide-slate-100">
+                                                                {/* Línies vinculades: l'amidament ve d'una altra partida, així que
+                                                                    no s'editen Ud/Ll/Am/Al sinó el factor. */}
+                                                                {(node.measurements || []).filter(m => !m.isIncrement && isRefLine(m)).map(m => (
+                                                                    <tr key={m.id} className="group bg-blue-50/40">
+                                                                        <td className="p-1.5">
+                                                                            <input type="text" value={m.description} onChange={(e) => updateMeasurement(node.id, m.id, 'description', e.target.value)} className="w-full bg-transparent border-none text-slate-600 outline-none p-0" />
+                                                                            <span className="flex items-center gap-1 text-[9px] font-mono text-blue-600 mt-0.5">
+                                                                                <LinkIcon size={9} /> {refLabel(m)}
+                                                                            </span>
+                                                                        </td>
+                                                                        <td colSpan={3} className="p-1.5 text-right text-[9px] text-slate-400 uppercase tracking-widest">Factor</td>
+                                                                        <td className="p-1.5">
+                                                                            <NumberInput
+                                                                                value={m.factor ?? 1}
+                                                                                onChange={(v) => updateMeasurement(node.id, m.id, 'factor', v)}
+                                                                                className="w-full text-right bg-transparent border-none font-mono text-blue-700 font-bold outline-none p-0"
+                                                                            />
+                                                                        </td>
+                                                                        <td className="p-1.5 text-right font-bold text-blue-900">
+                                                                            <div className="flex items-center justify-end gap-1">
+                                                                                {formatNumber(calcMeasureTotal(m), 2)}
+                                                                                <button
+                                                                                    onClick={() => deleteMeasurementLine(node.id, m.id)}
+                                                                                    className="opacity-60 md:opacity-0 md:group-hover:opacity-100 text-slate-400 hover:text-red-500 p-2 -m-1 ml-1 touch-manipulation"
+                                                                                >
+                                                                                    <X size={10} />
+                                                                                </button>
+                                                                            </div>
+                                                                        </td>
+                                                                    </tr>
+                                                                ))}
+
                                                                 {/* Normal Lines */}
-                                                                {(node.measurements || []).filter(m => !m.isIncrement).map(m => (
+                                                                {(node.measurements || []).filter(m => !m.isIncrement && !isRefLine(m)).map(m => (
                                                                     <tr key={m.id} className="group">
                                                                         <td className="p-1.5"><input type="text" value={m.description} onChange={(e) => updateMeasurement(node.id, m.id, 'description', e.target.value)} className="w-full bg-transparent border-none text-slate-600 outline-none p-0" /></td>
                                                                         <td className="p-1.5"><NumberInput value={m.units} onChange={(v) => updateMeasurement(node.id, m.id, 'units', v)} className="w-full text-right bg-transparent border-none font-mono outline-none p-0" /></td>
@@ -4316,6 +4393,9 @@ export default function App() {
                                                             <div className="flex gap-2">
                                                                 <button onClick={() => addMeasurementLine(node.id)} className="text-[10px] md:text-[9px] bg-white border border-slate-200 px-2 py-1 flex items-center gap-1 hover:bg-slate-100 transition-colors uppercase font-bold text-slate-600">
                                                                     <Plus size={10} /> Afegir línia
+                                                                </button>
+                                                                <button onClick={() => setLinkTarget(node.id)} className="text-[10px] md:text-[9px] bg-white border border-blue-200 text-blue-700 px-2 py-1 flex items-center gap-1 hover:bg-blue-50 transition-colors uppercase font-bold" title="Prendre l'amidament d'una altra partida">
+                                                                    <LinkIcon size={10} /> Vincular
                                                                 </button>
                                                                 <button onClick={() => addIncrementLine(node.id)} className="text-[10px] md:text-[9px] bg-white border border-slate-200 px-2 py-1 flex items-center gap-1 hover:bg-slate-100 transition-colors uppercase font-bold text-slate-600">
                                                                     <Percent size={10} /> Afegir %
@@ -4382,6 +4462,15 @@ export default function App() {
                 />
             )}
 
+            {linkTarget && (
+                <LinkItemModal
+                    chapters={resolvedChapters}
+                    excludeCode={findNodeById(budget.chapters, linkTarget)?.code}
+                    onPick={(code, lineId) => { addLinkedLine(linkTarget, code, lineId); setLinkTarget(null); }}
+                    onClose={() => setLinkTarget(null)}
+                />
+            )}
+
             {showLibrary && (
                 <ProjectLibraryModal
                     projects={library}
@@ -4422,7 +4511,7 @@ export default function App() {
 
             {showPrint && (
                 <PrintView
-                    budget={budget}
+                    budget={{ ...budget, chapters: resolvedChapters }}
                     priceDatabase={priceDatabase}
                     budgetTotal={budgetTotal}
                     config={printConfig}
