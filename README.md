@@ -37,6 +37,10 @@ opcionalment, a Google Drive.
 - **Desfer i refer** (Ctrl+Z / Ctrl+Maj+Z) sobre tot el projecte.
 - **Projectes recents**: crear-ne un de nou ja no destrueix l'anterior.
 
+**Residus**
+- Estimació de residus de construcció i demolició agregada per codi LER, a partir dels
+  registres `~R` i `~X` del BC3. És la xifra de partida de l'estudi del RD 105/2008.
+
 **Entrada i sortida**
 - Importació BC3 des de disc, URL, arrossegament, Google Drive o "Obrir amb…" (PWA).
 - Exportació BC3 en Windows-1252: el pressupost, o la certificació activa com a fitxer
@@ -81,6 +85,7 @@ Les credencials de Drive s'injecten des dels secrets del repositori.
 | [`docs/model-de-dades.md`](docs/model-de-dades.md) | Estructura de `budget`, nodes, amidaments, preus |
 | [`docs/calculs.md`](docs/calculs.md) | Com es calculen quantitats, preus, imports i certificats |
 | [`docs/bc3.md`](docs/bc3.md) | Registres BC3 suportats, parser i writer |
+| [`docs/residus.md`](docs/residus.md) | Estimació de residus: registres `~R` i `~X`, model i càlcul |
 | [`worker/README.md`](worker/README.md) | Proxy CORS propi a Cloudflare per importar del Generador de Preus |
 | [`docs/fiebdc-norma.md`](docs/fiebdc-norma.md) | Extracte de l'especificació FIEBDC-3/2020: què diu de cada registre |
 | [`docs/certificacions.md`](docs/certificacions.md) | Model de fases, mètodes origen/parcial, aprovació |

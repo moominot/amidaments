@@ -37,6 +37,7 @@ import {
     Undo2,
     Redo2,
     LogOut,
+    Recycle,
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -83,6 +84,7 @@ import { numberToTextCatalan } from './utils/numberToText';
 import { exportCertificationPDF } from './utils/certificationPdf';
 import { safeFileName } from './utils/fileName';
 import { descarregaBC3 } from './utils/corsProxy';
+import { buildWasteSummary, formatMassa, nomTipus, TIPUS_RESIDU } from './utils/waste';
 import {
     EXTENSIO_PROJECTE, MIME_PROJECTE, esFitxerProjecte, esFitxerBC3,
     serialitzaProjecte, llegeixProjecte,
@@ -1143,6 +1145,10 @@ export default function App() {
     // Sense passar budget.certifications, una fase amb mètode 'partial' no acumulava
     // i el total del capçal no coincidia amb el de les partides.
     const certifiedTotal = activeCertId ? certificationSummary.totals.origin : 0;
+
+    // Residus. Sobre `resolvedChapters`: si es fes sobre `budget.chapters`, les partides amb
+    // amidament vinculat comptarien zero.
+    const wasteSummary = useMemo(() => buildWasteSummary(resolvedChapters), [resolvedChapters]);
 
     const activeCert = (budget.certifications || []).find(c => c.id === activeCertId) || null;
     const previousCert = certificationSummary.prevCertId
@@ -3291,6 +3297,176 @@ export default function App() {
 
 
 
+    /**
+     * Residus de construcció i demolició, agregats per codi LER.
+     *
+     * Les dades vénen dels registres `~R` i `~X` del BC3 (els del Generador de Preus de CYPE
+     * en porten) i són l'estimació que demana el RD 105/2008. Si el projecte no en porta cap,
+     * val més dir-ho i explicar d'on surten que ensenyar una taula buida.
+     */
+    const renderWasteTable = () => {
+        const { perLer, perTipus, partides, totals, ambDades, sense } = wasteSummary;
+
+        if (ambDades === 0) {
+            return (
+                <div className="p-6 md:p-12">
+                    <div className="bg-white border border-slate-200 p-8 md:p-12 text-center max-w-2xl mx-auto">
+                        <Recycle size={44} className="mx-auto text-slate-200 mb-4" />
+                        <p className="text-sm font-bold text-slate-600 uppercase tracking-widest mb-3">
+                            Cap partida no porta dades de residus
+                        </p>
+                        <p className="text-[11px] text-slate-500 leading-relaxed">
+                            L&apos;estimació surt dels registres <span className="font-mono">~R</span> i{' '}
+                            <span className="font-mono">~X</span> del fitxer BC3, que declaren quins components
+                            generen residu, amb quin codi LER i amb quina massa i volum. Els porten els fitxers
+                            del Generador de Preus de CYPE; les partides creades a mà, no.
+                        </p>
+                        {sense > 0 && (
+                            <p className="text-[10px] text-slate-400 mt-4 italic">
+                                {sense} {sense === 1 ? 'partida al projecte' : 'partides al projecte'}, cap amb dades.
+                            </p>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        const maxima = perLer[0]?.mass || 1;
+
+        return (
+            <div className="p-0 md:p-6 space-y-0 md:space-y-6">
+                {/* Totals */}
+                <div className="bg-slate-900 text-white p-4 md:p-5">
+                    <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
+                        <div>
+                            <div className="text-[9px] uppercase tracking-widest text-slate-400 mb-1">Massa total</div>
+                            <div className="text-2xl md:text-3xl font-black font-mono text-emerald-400">{formatMassa(totals.mass)}</div>
+                        </div>
+                        <div>
+                            <div className="text-[9px] uppercase tracking-widest text-slate-400 mb-1">Volum total</div>
+                            <div className="text-2xl md:text-3xl font-black font-mono text-blue-400">
+                                {formatNumber(totals.volume, 2)} <span className="text-base">m³</span>
+                            </div>
+                        </div>
+                        <div className="ml-auto text-right">
+                            <div className="text-[9px] uppercase tracking-widest text-slate-400 mb-1">Amb dades</div>
+                            <div className="text-[11px] font-mono text-slate-300">
+                                {ambDades} de {ambDades + sense} partides
+                            </div>
+                        </div>
+                    </div>
+                    {perTipus.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-white/10">
+                            {perTipus.map(t => (
+                                <span key={t.type} className="text-[10px] bg-white/10 px-2 py-1 rounded" title={TIPUS_RESIDU[String(t.type)]?.descripcio || ''}>
+                                    {t.nom} <span className="font-mono text-emerald-300 ml-1">{formatMassa(t.mass)}</span>
+                                </span>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Per codi LER */}
+                <div className="bg-white border border-slate-200">
+                    <div className="bg-slate-800 p-3 text-white flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Recycle size={16} className="text-emerald-400" />
+                            <span className="text-xs font-bold uppercase tracking-widest">Per codi LER</span>
+                        </div>
+                        <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded text-slate-300">{perLer.length} codis</span>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead className="bg-slate-50 border-b border-slate-200 text-[8px] md:text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                                <tr>
+                                    <th className="p-2 md:p-3 w-20 md:w-24 border-r border-slate-200">LER</th>
+                                    <th className="p-2 md:p-3">Residu</th>
+                                    <th className="hidden md:table-cell p-3 w-28">Origen</th>
+                                    <th className="p-2 md:p-3 w-24 md:w-32 text-right">Massa</th>
+                                    <th className="p-2 md:p-3 w-20 md:w-28 text-right bg-blue-50/50">Volum m³</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {perLer.map(f => (
+                                    <tr key={f.ler || f.codis[0]} className="hover:bg-slate-50/70">
+                                        <td className="p-2 md:p-3 border-r border-slate-100 font-mono text-[10px] md:text-[11px] text-slate-500 whitespace-nowrap">
+                                            {f.ler || <span className="italic text-slate-300">sense</span>}
+                                        </td>
+                                        <td className="p-2 md:p-3">
+                                            <div className="text-[11px] text-slate-700 leading-tight">{f.description}</div>
+                                            {/* La barra dona la proporció d'un cop d'ull, que és el que es mira primer. */}
+                                            <div className="h-1 bg-slate-100 mt-1.5 max-w-[220px]">
+                                                <div className="h-full bg-emerald-500" style={{ width: `${Math.max(2, (f.mass / maxima) * 100)}%` }} />
+                                            </div>
+                                            <div className="md:hidden text-[9px] text-slate-400 uppercase mt-1">{nomTipus(f.type)}</div>
+                                        </td>
+                                        <td className="hidden md:table-cell p-3 text-[10px] text-slate-400 uppercase">{nomTipus(f.type)}</td>
+                                        <td className="p-2 md:p-3 text-right font-mono text-[11px] text-slate-700 whitespace-nowrap">{formatMassa(f.mass)}</td>
+                                        <td className="p-2 md:p-3 text-right font-mono text-[11px] text-slate-600 bg-blue-50/30 whitespace-nowrap">{formatNumber(f.volume, 2)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                            <tfoot className="bg-slate-100 border-t-2 border-slate-300 font-bold">
+                                <tr>
+                                    <td className="p-2 md:p-3 text-[10px] uppercase tracking-widest text-slate-600" colSpan={2}>Total</td>
+                                    <td className="hidden md:table-cell" />
+                                    <td className="p-2 md:p-3 text-right font-mono text-[11px]">{formatMassa(totals.mass)}</td>
+                                    <td className="p-2 md:p-3 text-right font-mono text-[11px]">{formatNumber(totals.volume, 2)}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+
+                {/* Per partida */}
+                <div className="bg-white border border-slate-200">
+                    <div className="bg-slate-800 p-3 text-white flex items-center gap-2">
+                        <Layers size={16} className="text-blue-400" />
+                        <span className="text-xs font-bold uppercase tracking-widest">Per partida</span>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead className="bg-slate-50 border-b border-slate-200 text-[8px] md:text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                                <tr>
+                                    <th className="p-2 md:p-3 w-20 md:w-32 border-r border-slate-200">Codi</th>
+                                    <th className="p-2 md:p-3">Partida</th>
+                                    <th className="hidden md:table-cell p-3 w-28 text-right">Amidament</th>
+                                    <th className="p-2 md:p-3 w-24 md:w-32 text-right">Massa</th>
+                                    <th className="p-2 md:p-3 w-20 md:w-28 text-right bg-blue-50/50">Volum m³</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {partides.map(x => (
+                                    <tr key={x.id} className="hover:bg-slate-50/70">
+                                        <td className="p-2 md:p-3 border-r border-slate-100 font-mono text-[10px] text-slate-500 truncate">{x.code}</td>
+                                        <td className="p-2 md:p-3">
+                                            <div className="text-[11px] text-slate-700 leading-tight line-clamp-2">{x.description}</div>
+                                            {x.capitol && <div className="text-[9px] text-slate-400 uppercase truncate">{x.capitol}</div>}
+                                            <div className="md:hidden text-[9px] text-slate-400 font-mono mt-0.5">{formatNumber(x.quantity, 2)} {x.unit}</div>
+                                        </td>
+                                        <td className="hidden md:table-cell p-3 text-right font-mono text-[11px] text-slate-600">
+                                            {formatNumber(x.quantity, 2)} <span className="text-slate-400">{x.unit}</span>
+                                        </td>
+                                        <td className="p-2 md:p-3 text-right font-mono text-[11px] text-slate-700 whitespace-nowrap">{formatMassa(x.mass)}</td>
+                                        <td className="p-2 md:p-3 text-right font-mono text-[11px] text-slate-600 bg-blue-50/30 whitespace-nowrap">{formatNumber(x.volume, 2)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {sense > 0 && (
+                    <p className="text-[10px] text-slate-400 italic px-4 py-3 md:px-0 md:py-0 leading-relaxed">
+                        Hi ha {sense} {sense === 1 ? 'partida' : 'partides'} sense dades de residus al fitxer d&apos;origen:
+                        no compten a l&apos;estimació. Les partides creades a mà i els BC3 que no porten els
+                        registres <span className="font-mono">~R</span> i <span className="font-mono">~X</span> no en tenen.
+                    </p>
+                )}
+            </div>
+        );
+    };
+
     const renderResourcesTable = () => {
         const resources = filteredResources;
         const groups = [
@@ -3957,6 +4133,12 @@ export default function App() {
                                     <span className="hidden md:inline">Llistat de Recursos</span>
                                     <span className="md:hidden">Recursos</span>
                                 </button>
+                                <button
+                                    onClick={() => setActiveTab('residus')}
+                                    className={`flex-1 md:flex-initial px-3 md:px-4 py-3.5 md:py-1.5 text-[10px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-widest transition-colors ${activeTab === 'residus' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
+                                >
+                                    Residus
+                                </button>
                             </div>
 
                             {/* Search */}
@@ -4084,6 +4266,7 @@ export default function App() {
                         )}
                         {activeTab === 'prices' && renderPricesTable()}
                         {activeTab === 'recursos' && renderResourcesTable()}
+                        {activeTab === 'residus' && renderWasteTable()}
 
                         {budget.chapters.length === 0 && activeTab === 'editor' && (
                             <div className="p-24 text-center">

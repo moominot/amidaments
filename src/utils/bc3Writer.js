@@ -62,6 +62,8 @@ export const generateBC3 = ({ budget, chapters, priceDatabase = {}, certificatio
     const concepts = new Map();          // normCode -> { unit, description, price, isDecomposed }
     const measurementsByCode = new Map();// normCode -> { total, lines }
     const relationships = new Map();     // normCode -> [{ child, factor, yield }]
+    const residus = new Map();           // normCode del pare -> [component de residu]
+    const propietatsResidu = new Map();  // normCode del component -> { ler, m, v }
 
     const certId = certification?.cert?.id || null;
 
@@ -132,6 +134,20 @@ export const generateBC3 = ({ budget, chapters, priceDatabase = {}, certificatio
                 }
             });
             [...(node.subChapters || []), ...(node.items || [])].forEach(child => afegeix(normalizeCode(child.code), 1));
+        }
+
+        // Residus: el `~R` del pare i un `~X` per component. Sense això, exportar i
+        // reimportar es menjava l'estimació de residus sencera.
+        if (node.waste?.length > 0 && !residus.has(norm)) {
+            residus.set(norm, node.waste);
+            node.waste.forEach(w => {
+                const codi = normalizeCode(w.code);
+                if (!codi || propietatsResidu.has(codi)) return;
+                propietatsResidu.set(codi, { ler: w.ler || '', m: w.massPerUnit ?? 1, v: w.volumePerUnit ?? 0 });
+                if (!concepts.has(codi)) {
+                    concepts.set(codi, { unit: w.unit || 'kg', description: w.description || '', price: 0, isDecomposed: false });
+                }
+            });
         }
 
         // Només les partides porten amidament; els capítols el tenen pels seus fills.
@@ -205,6 +221,26 @@ export const generateBC3 = ({ budget, chapters, priceDatabase = {}, certificatio
             return `${getExportCode(r.child)}\\${fNum(r.factor)}\\${fNum(yld)}`;
         }).join('\\');
         if (childStr) lines.push(`~D|${exportCode}|${childStr}`);
+    });
+
+    // Residus (~X i ~R)
+    //
+    //   ~X | [CODI] | {PROPIETAT\VALOR\}          propietats del concepte
+    //   ~R | PARE   | {TIPUS\FILL\{PROP\VALOR\[UM]\}|}   components que generen residu
+    //
+    // El primer `~X`, amb el codi buit, declara què vol dir cada propietat: és la capçalera
+    // que la norma demana i sense la qual un altre programa no sap què són `ler`, `m` i `v`.
+    if (propietatsResidu.size > 0) {
+        lines.push('~X||ler\\Codi LER\\\\m\\Massa de l\'element\\kg\\v\\Volum\\m3\\|');
+        propietatsResidu.forEach((p, codi) => {
+            lines.push(`~X|${codi}|ler\\${p.ler}\\m\\${fNum(p.m)}\\v\\${fNum(p.v)}\\|`);
+        });
+    }
+    residus.forEach((components, norm) => {
+        const blocs = components
+            .map(w => `${w.type ?? ''}\\${normalizeCode(w.code)}\\r\\${fNum(w.quantity)}\\\\`)
+            .join('|');
+        if (blocs) lines.push(`~R|${getExportCode(norm)}|${blocs}|`);
     });
 
     // Amidaments (~M)

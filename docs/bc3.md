@@ -16,6 +16,8 @@ subllistes es separen per `\`.
 | `~M` | Línies d'amidament | ✔ (amb heurística) | ✔ |
 | `~F` | **Document adjunt** | llegit com a fase només si en té la forma antiga | ja no s'escriu |
 | `~Q` | — | — | ja no s'escriu (veure avís) |
+| `~R` | Descomposició de residus | ✔ | ✔ |
+| `~X` | Propietats del concepte (codi LER, massa, volum) | ✔ | ✔ |
 | `~L`, `~P`, `~W`, `~A`, `~G`, `~E`, `~O` | plecs, paramètrics, entitats… | no suportats | no s'escriuen |
 
 > **El `~Q` existeix, però és el registre de PLECS DE CONDICIONS**, no de quantitats:
@@ -141,7 +143,8 @@ El mateix parell de botons —disc i Drive— serveix per als dos documents.
    - `measurementsByCode` (línies i total per concepte).
    També s'hi afegeixen com a conceptes les entrades de `priceDatabase` que no hi siguin ja.
 
-2. **Escriptura** de `~V`, `~K`, el concepte arrel `##`, els `~C` i `~T`, els `~D` i els `~M`.
+2. **Escriptura** de `~V`, `~K`, el concepte arrel `##`, els `~C` i `~T`, els `~D`, els `~X` i
+   `~R` de residus, i els `~M`.
 
 Detalls a tenir en compte:
 
@@ -163,6 +166,8 @@ Detalls a tenir en compte:
   la comparteixen l'exportació a disc i la de Drive: si hi afegeixes caràcters, n'hi ha prou
   amb tocar-la en un lloc.
 - **Noms de fitxer**: tot passa per `safeFileName`, que conserva el `#` de la convenció.
+- **Residus**: els `~X` i `~R` es reescriuen tal com van entrar, inclosos els components amb
+  quantitat zero. Veure `docs/residus.md`.
 
 ### Importar una certificació
 

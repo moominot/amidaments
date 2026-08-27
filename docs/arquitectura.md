@@ -28,6 +28,8 @@ Navegador
 | `src/utils/bc3Parser.js` | 380 | Parser FIEBDC-3 (importació). Llegeix el `~V` per saber si el fitxer és un pressupost o una certificació. |
 | `src/utils/bc3Writer.js` | 215 | Escriptor FIEBDC-3. Un fitxer per document: pressupost o certificació. |
 | `src/utils/projectFile.js` | 68 | Identitat del fitxer natiu `.amid`: extensions, MIME, serialització i lectura. |
+| `src/utils/waste.js` | 145 | Agregació dels residus per codi LER, per tipus i per partida. |
+| `src/utils/corsProxy.js` | 95 | Descàrrega d'un BC3 des d'una URL, amb la cadena de proxys CORS. |
 | `src/utils/googleDrive.js` | 260 | Wrapper de Drive API + Picker + codificació Windows-1252. |
 | `src/hooks/useCertification.js` | 163 | Mutacions d'estat de certificacions. |
 | `src/hooks/useGoogleDrive.js` | 347 | Cicle de vida OAuth, obrir/desar a Drive, "Open with…". |
