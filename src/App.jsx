@@ -85,6 +85,9 @@ import { exportCertificationPDF } from './utils/certificationPdf';
 import { safeFileName } from './utils/fileName';
 import { descarregaBC3 } from './utils/corsProxy';
 import { buildWasteSummary, formatMassa, nomTipus, TIPUS_RESIDU } from './utils/waste';
+import { buildWasteStudy } from './utils/wasteStudy';
+import { exportWasteStudyPDF } from './utils/wasteStudyPdf';
+import WasteStudyModal from './components/WasteStudyModal';
 import {
     EXTENSIO_PROJECTE, MIME_PROJECTE, esFitxerProjecte, esFitxerBC3,
     serialitzaProjecte, llegeixProjecte,
@@ -918,6 +921,7 @@ export default function App() {
         iva: { enabled: false, percentage: 21 }
     });
     const [showPrint, setShowPrint] = useState(false);
+    const [showWasteStudy, setShowWasteStudy] = useState(false);
     const [showPemModal, setShowPemModal] = useState(false);
     const [importPending, setImportPending] = useState(null);
     const [notification, setNotification] = useState(null);
@@ -1189,6 +1193,18 @@ export default function App() {
         });
         notify(`Certificació "${cert?.name}" exportada en PDF`);
     }, [budget, priceDatabase, activeCertId, certificationSummary, printConfig]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    /** Genera l'estudi de gestió de residus del RD 105/2008 amb els paràmetres del modal. */
+    const handleWasteStudy = useCallback(({ dades, tarifes }) => {
+        exportWasteStudyPDF({
+            budget,
+            summary: wasteSummary,
+            study: buildWasteStudy(wasteSummary, tarifes),
+            dades,
+        });
+        setShowWasteStudy(false);
+        notify('Estudi de gestió de residus generat');
+    }, [budget, wasteSummary]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleExportPDF = useCallback((config) => {
         const doc = new jsPDF('p', 'mm', 'a4');
@@ -3348,11 +3364,20 @@ export default function App() {
                                 {formatNumber(totals.volume, 2)} <span className="text-base">m³</span>
                             </div>
                         </div>
-                        <div className="ml-auto text-right">
-                            <div className="text-[9px] uppercase tracking-widest text-slate-400 mb-1">Amb dades</div>
-                            <div className="text-[11px] font-mono text-slate-300">
-                                {ambDades} de {ambDades + sense} partides
+                        <div className="ml-auto flex items-end gap-4">
+                            <div className="text-right">
+                                <div className="text-[9px] uppercase tracking-widest text-slate-400 mb-1">Amb dades</div>
+                                <div className="text-[11px] font-mono text-slate-300">
+                                    {ambDades} de {ambDades + sense} partides
+                                </div>
                             </div>
+                            <button
+                                onClick={() => setShowWasteStudy(true)}
+                                className="bg-emerald-600 hover:bg-emerald-500 px-3.5 py-2.5 text-[10px] font-bold uppercase tracking-widest transition-colors flex items-center gap-2 touch-manipulation"
+                                title="Estudi de gestió de residus (RD 105/2008)"
+                            >
+                                <FileDown size={13} /> <span className="hidden sm:inline">Estudi</span> PDF
+                            </button>
                         </div>
                     </div>
                     {perTipus.length > 0 && (
@@ -3669,6 +3694,14 @@ export default function App() {
             onPaste={handlePaste}
         >
             {/* 1. DRIVE SETTINGS MODAL */}
+            {showWasteStudy && (
+                <WasteStudyModal
+                    summary={wasteSummary}
+                    onGenerate={handleWasteStudy}
+                    onClose={() => setShowWasteStudy(false)}
+                />
+            )}
+
             {showDriveSettings && (
                 <DriveSettingsModal
                     config={driveConfig}

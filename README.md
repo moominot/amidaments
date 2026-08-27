@@ -39,7 +39,10 @@ opcionalment, a Google Drive.
 
 **Residus**
 - Estimació de residus de construcció i demolició agregada per codi LER, a partir dels
-  registres `~R` i `~X` del BC3. És la xifra de partida de l'estudi del RD 105/2008.
+  registres `~R` i `~X` del BC3.
+- **Estudi de gestió de residus** en PDF amb els set apartats de l'article 4.1.a) del
+  RD 105/2008, amb els llindars de separació de l'article 5.5 calculats i la valoració del
+  cost segons les tarifes que s'hi introdueixin.
 
 **Entrada i sortida**
 - Importació BC3 des de disc, URL, arrossegament, Google Drive o "Obrir amb…" (PWA).
