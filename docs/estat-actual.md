@@ -587,11 +587,14 @@ suggerit, de menys a més arriscat:
 5. **Importació** (`startImportProcess` / `finalizeImport` / `mergeTreeBranches` /
    `handleDrop` / `importFromUrl`) → `useProjectImport`.
 
-### Sense tests
+### Tests ✅ (fet)
 
-No hi ha cap test ni cap runner. Les funcions de `calculations.js` i `bc3Parser.js` són pures
-i deterministes: és el lloc evident per començar (Vitest s'integra directament amb Vite).
-Casos que val la pena fixar abans de tocar res:
+Hi ha **113 tests amb Vitest** (`npm test`), contra fitxers BC3 de veritat i no maquetes, i el
+desplegament els passa abans de construir. Detall a [`docs/tests.md`](tests.md).
+
+Es van escriure després de tot el que hi ha en aquest registre, i per això cada test fixa un
+comportament que s'havia trencat de veritat: els comentaris remeten al § corresponent. Els
+casos que hi havia apuntats com a pendents, i que ara hi són:
 
 - `calcItemTotalQty` amb línies d'increment;
 - `getItemUnitPrice` amb línies `%` i amb preferència de `priceDatabase`;

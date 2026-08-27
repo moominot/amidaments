@@ -171,13 +171,16 @@ export const resolveMeasurementRefs = (chapters = []) => {
         if (!nodes || nodes.length === 0) return nodes;
         let canviat = false;
         const seguents = nodes.map(n => {
-            const subChapters = resol(n.subChapters || []);
-            const items = resol(n.items || []);
+            // Es conserva l'`undefined` en comptes de convertir-lo en `[]`: amb `|| []` es
+            // creava una llista nova a cada passada, la comparació per identitat de sota
+            // fallava i el node es recreava encara que no hagués canviat res.
+            const subChapters = n.subChapters ? resol(n.subChapters) : n.subChapters;
+            const items = n.items ? resol(n.items) : n.items;
             const propis = teVincles(n);
             if (!propis && subChapters === n.subChapters && items === n.items) return n;
 
             canviat = true;
-            const seguent = { ...n, subChapters, items };
+            const seguent = { ...n, subChapters: subChapters || [], items: items || [] };
             if (propis) seguent.measurements = liniesResoltes(n);
             return seguent;
         });

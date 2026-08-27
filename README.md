@@ -104,6 +104,7 @@ Les credencials de Drive s'injecten des dels secrets del repositori.
 | [`docs/certificacions.md`](docs/certificacions.md) | Model de fases, mètodes origen/parcial, aprovació |
 | [`docs/exportacions.md`](docs/exportacions.md) | Impressió, PDF, Excel i la seva configuració |
 | [`docs/google-drive.md`](docs/google-drive.md) | OAuth, Picker, desat i "Obrir amb…" |
+| [`docs/tests.md`](docs/tests.md) | Què cobreix cada test i per què |
 | [`docs/estat-actual.md`](docs/estat-actual.md) | **Bugs coneguts, deute tècnic i properes passes** |
 
 Si comences a treballar en el projecte, llegeix primer
