@@ -1,0 +1,231 @@
+~V|CYPE Ingenieros S.A.|FIEBDC-3/2016\02062026|Generador de preus de la construcció. CYPE Ingenieros, S.A.||ANSI||2||||
+~K|2\3\3\3\3\2\2\2\EUR\|3\0\0\0\21\|3\2\\3\3\\2\3\2\2\3\3\3\2\EUR\||
+~L||MS\Mesures per a assegurar la compatibilitat entre els diferents productes, elements i sistemes constructius que componen la unitat d'obra.
+\CT\Característiques tècniques
+\NA\Normativa d'aplicació
+\CMP\Criteri d'amidament en Projecte
+\CPS\Condicions que ha de complir el suport abans de començar l'execució de la unitat d'obra
+\CPA\Condicions ambientals que s'han de complir durant l'execució de la unitat d'obra
+\CPC\Condicions a exigir al contractista abans de començar l'execució de la unitat d'obra
+\PEF\Fases del procés d'execució
+\PEC\Condicions de terminació del procés d'execució
+\PS\Proves de servei
+\EN\Assajos
+\CM\Conservació i manteniment
+\CMO\Criteri d'amidament en obra i condicions d'abonament
+\CVE\Criteri de valoració econòmica
+\|
+~X||ce\Cost energètic\MJ
+\eCO2\Emissió de CO2\kg
+\ler\Codi LER\
+\m\Massa de l'element\kg
+\v\Volum\m3
+\|
+~C|root##|||||0|
+~D|root##|
+E\1\1\
+|
+~C|E#||Estructures|||0|
+~D|E#|
+EH\1\1\
+|
+~C|EH#||Formigó armat|||0|
+~D|EH#|
+EHS\1\1\
+|
+~C|EHS#||Pilars|||0|
+~D|EHS#|
+EHS010\1\1\
+|
+~M|EHS#\EHS010|1\1\1\1\|1||
+|
+~C|EHS010|m³|Pilar rectangular o quadrat de formigó armat.|0\||0|
+~T|EHS010|Pilar de secció rectangular o quadrada de formigó armat, de 30x30 cm de secció mitja, realitzat amb formigó HA-25/F/20/XC2 fabricat en central, i abocament amb cubilot, i acer UNE-EN 10080 B 500 S, amb una quantia aproximada de 120 kg/m³; muntatge i desmuntatge de sistema d'encofrat, amb acabat tipus industrial per revestir, en planta de fins a 3 m d'altura lliure, format per: superfície encofrant de xapes metàl·liques, amortitzables en 50 usos i estructura suport vertical de puntals metàl·lics, amortitzables en 150 usos. Inclús matavius, filferro de lligar, separadors i líquid desencofrant per evitar l'adherència del formigó a l'encofrat.
+Criteri de valoració econòmica: El preu inclou l'elaboració de la ferralla (tall, doblegat i conformat d'elements) en taller industrial i el muntatge en el lloc definitiu de la seva col·locació en obra.
+Inclou: Replanteig. Col·locació de les armadures amb separadors homologats. Muntatge del sistema d'encofrat. Abocament i compactació del formigó. Desmuntatge del sistema d'encofrat. Curat del formigó.
+Criteri d'amidament de projecte: Volum mesurat segons documentació gràfica de Projecte.
+Criteri de mesura d'obra: Es mesurarà el volum realment executat segons especificacions de Projecte.
+|
+~D|EHS010|
+mt07sep010ac\1\12\
+mt07aco010c\1\120\
+mt08var050\1\0.6\
+mt08eup010b\1\0.32\
+mt50spa081a\1\0.099\
+mt08var040a\1\17.8\
+mt08dba010b\1\0.4\
+mt10haf010ctms\1\1.05\
+mo044\1\5.849\
+mo091\1\6.685\
+mo043\1\0.826\
+mo090\1\0.826\
+mo045\1\0.442\
+mo092\1\1.782\
+%\1\0.02\
+|
+~R|EHS010|3\re150101\r\0\\|
+3\re150104\r\0\\|
+3\re170201\r\0\\|
+3\re170203\r\0\\|
+3\re170604\r\0\\|
+0\mt07aco010c\rp\0.0075\\|
+0\mt08var050\rp\0.0038\\|
+0\mt08eup010b\rp\1\\|
+0\mt50spa081a\rp\1\\|
+0\mt08var040a\rp\1\\|
+0\mt08dba010b\rp\0.07\\|
+0\mt10haf010ctms\rp\0.00129528\\|
+|
+~C|re150101|kg|Envasos de paper i cartró.|0\||4|
+~T|re150101|Envasos de paper i cartró.|
+~X|re150101|ler\15 01 01
+\m\1.000000
+\v\0.001333
+\|
+~C|re150104|kg|Envasos metàl·lics.|0\||4|
+~T|re150104|Envasos metàl·lics.|
+~X|re150104|ler\15 01 04
+\m\1.000000
+\v\0.001667
+\|
+~C|re170201|kg|Fusta.|0\||4|
+~T|re170201|Fusta.|
+~X|re170201|ler\17 02 01
+\m\1.000000
+\v\0.000909
+\|
+~C|re170203|kg|Plàstic.|0\||4|
+~T|re170203|Plàstic.|
+~X|re170203|ler\17 02 03
+\m\1.000000
+\v\0.001667
+\|
+~C|re170604|kg|Materials d'aïllament diferents dels especificats en els codis 17 06 01 i 17 06 03.|0\||4|
+~T|re170604|Materials d'aïllament diferents dels especificats en els codis 17 06 01 i 17 06 03.|
+~X|re170604|ler\17 06 04
+\m\1.000000
+\v\0.001667
+\|
+~C|mt07aco010c|kg|Ferralla elaborada en taller industrial amb acer en barres corrugades, UNE-EN 10080 B 500 S, de varis diàmetres.|1.6\||3|
+~T|mt07aco010c|Ferralla elaborada en taller industrial amb acer en barres corrugades, UNE-EN 10080 B 500 S, de varis diàmetres.|
+~X|mt07aco010c|ce\12.720
+\eCO2\0.530
+\ler\17 04 05
+\m\1.000000
+\v\0.000476
+\|
+~R|mt07aco010c|3\re150101\r\0\\|
+3\re150104\r\0\\|
+3\re170201\r\0\\|
+3\re170203\r\0\\|
+3\re170604\r\0\\|
+|
+~C|mt07sep010ac|U|Separador homologat de plàstic, per a armadures de pilars de varis diàmetres.|0.08\||3|
+~T|mt07sep010ac|Separador homologat de plàstic, per a armadures de pilars de varis diàmetres.|
+~X|mt07sep010ac|ce\1.117
+\eCO2\0.114
+\|
+~R|mt07sep010ac|3\re150101\r\0.072\\|
+3\re150104\r\0\\|
+3\re170201\r\0\\|
+3\re170203\r\0\\|
+3\re170604\r\0\\|
+|
+~C|mt08dba010b|l|Agent desemmotllant, a base d'olis especials, emulsionant en aigua, per a encofrats metàl·lics, fenòlics o de fusta.|1.8\||3|
+~T|mt08dba010b|Agent desemmotllant, a base d'olis especials, emulsionant en aigua, per a encofrats metàl·lics, fenòlics o de fusta.|
+~X|mt08dba010b|ce\82.820
+\eCO2\4.477
+\ler\17 09 04
+\m\0.932000
+\v\0.000621
+\|
+~R|mt08dba010b|3\re150101\r\0\\|
+3\re150104\r\0.042\\|
+3\re170201\r\0\\|
+3\re170203\r\0\\|
+3\re170604\r\0\\|
+|
+~C|mt08eup010b|m²|Xapa metàl·lica de 50x50 cm, per a encofrat de pilars de formigó armat de secció rectangular o quadrada, de fins a 3 m d'altura, inclús accessoris de muntatge.|48\||3|
+~T|mt08eup010b|Xapa metàl·lica de 50x50 cm, per a encofrat de pilars de formigó armat de secció rectangular o quadrada, de fins a 3 m d'altura, inclús accessoris de muntatge.|
+~X|mt08eup010b|ce\449.920
+\eCO2\18.240
+\ler\17 04 05
+\m\32.000000
+\v\0.015238
+\|
+~R|mt08eup010b|3\re150101\r\0\\|
+3\re150104\r\0\\|
+3\re170201\r\0\\|
+3\re170203\r\0\\|
+3\re170604\r\0\\|
+|
+~C|mt08var040a|U|Matavius de PVC, de varies dimensions i 2500 mm de longitud.|0.55\||3|
+~T|mt08var040a|Matavius de PVC, de varies dimensions i 2500 mm de longitud.|
+~X|mt08var040a|ce\7.989
+\eCO2\0.906
+\ler\17 02 03
+\m\0.180000
+\v\0.000300
+\|
+~R|mt08var040a|3\re150101\r\0.032\\|
+3\re150104\r\0\\|
+3\re170201\r\0\\|
+3\re170203\r\0\\|
+3\re170604\r\0\\|
+|
+~C|mt08var050|kg|Filferro galvanitzat per a lligar, de 1,30 mm de diàmetre.|1.5\||3|
+~T|mt08var050|Filferro galvanitzat per a lligar, de 1,30 mm de diàmetre.|
+~X|mt08var050|ce\25.100
+\eCO2\2.560
+\ler\17 04 05
+\m\1.000000
+\v\0.000476
+\|
+~R|mt08var050|3\re150101\r\0\\|
+3\re150104\r\0\\|
+3\re170201\r\0\\|
+3\re170203\r\0\\|
+3\re170604\r\0\\|
+|
+~C|mt10haf010ctms|m³|Formigó HA-25/F/20/XC2, fabricat en central.|92.2\||3|
+~T|mt10haf010ctms|Formigó HA-25/F/20/XC2, fabricat en central.|
+~X|mt10haf010ctms|ce\1876.000
+\eCO2\234.500
+\ler\17 01 01
+\m\2345.000000
+\v\1.563333
+\|
+~R|mt10haf010ctms|3\re150101\r\0\\|
+3\re150104\r\0\\|
+3\re170201\r\0\\|
+3\re170203\r\0\\|
+3\re170604\r\0\\|
+|
+~C|mt50spa081a|U|Puntal metàl·lic telescòpic, de fins a 3 m d'altura.|19.25\||3|
+~T|mt50spa081a|Puntal metàl·lic telescòpic, de fins a 3 m d'altura.|
+~X|mt50spa081a|ce\139.194
+\eCO2\5.643
+\ler\17 04 05
+\m\9.900000
+\v\0.004714
+\|
+~R|mt50spa081a|3\re150101\r\0\\|
+3\re150104\r\0\\|
+3\re170201\r\0\\|
+3\re170203\r\0\\|
+3\re170604\r\0\\|
+|
+~C|mo043|h|Oficial 1ª ferrallista.|31.86\||1|
+~T|mo043|Oficial 1ª ferrallista.|
+~C|mo044|h|Oficial 1ª encofrador.|31.86\||1|
+~T|mo044|Oficial 1ª encofrador.|
+~C|mo045|h|Oficial 1ª estructurista, en treballs de posada en obra del formigó.|31.86\||1|
+~T|mo045|Oficial 1ª estructurista, en treballs de posada en obra del formigó.|
+~C|mo090|h|Ajudant ferrallista.|28.34\||1|
+~T|mo090|Ajudant ferrallista.|
+~C|mo091|h|Ajudant encofrador.|28.34\||1|
+~T|mo091|Ajudant encofrador.|
+~C|mo092|h|Ajudant estructurista, en treballs de posada en obra del formigó.|28.34\||1|
+~T|mo092|Ajudant estructurista, en treballs de posada en obra del formigó.|
+~C|%|%|Costos directes complementaris|0\||0|
+~T|%|Costos directes complementaris|

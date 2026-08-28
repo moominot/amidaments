@@ -21,8 +21,10 @@ export const processBC3Data = (text) => {
     const longTexts = {};
     const phases = []; // [{ id, code, name, date }]
 
-    // Residus. `~X` són les propietats de cada concepte (codi LER, massa, volum) i `~R` la
-    // relació entre una partida i els components que en generen. Veure `docs/residus.md`.
+    // `~X` són les propietats de cada concepte i `~R` la relació entre una partida i els
+    // components que en generen residu. Del `~X` se'n treuen dues coses ben diferents: el codi
+    // LER, la massa i el volum, que van als residus (`docs/residus.md`), i el cost energètic i
+    // les emissions de CO₂, que van a la base de preus (`docs/petjada.md`).
     const wasteProperties = {};   // id de propietat -> { label, unit }
     const propietatsPerCodi = {}; // normCode -> { ler, m, v, ... }
     const residusPerCodi = {};    // normCode del pare -> [{ type, child, props }]
@@ -368,31 +370,84 @@ export const processBC3Data = (text) => {
             }
         });
 
-        // Residus de la partida.
+        // ── Residus de la partida ───────────────────────────────────────────────
         //
-        // Es desen les tres magnituds primitives i no la massa ja multiplicada: `quantity` és
-        // quant component surt per unitat de partida, i `massPerUnit`/`volumePerUnit` són la
-        // massa i el volum per unitat de component, que és el que diu el `~X`. Guardant només
-        // el producte es perdrien els components declarats amb quantitat zero —els envasos
-        // ho són sovint— i en exportar no es podria refer el `~X`.
+        // La norma (apartat «Compound-element waste») en distingeix dues menes, i una partida
+        // de construcció fa servir totes dues mentre que una de demolició només la primera.
+        // Llegint-ne només una, les partides de construcció donaven zero residus.
+        //
+        //  · **Components addicionals** (tipus 1 demolició, 2 excavació, 3 embalatge). No són
+        //    al `~D`. La quantitat és directament el seu rendiment al `~R`.
+        //
+        //  · **Components de col·locació** (tipus 0): el material que es llença en executar.
+        //    Sí que són al `~D`, i la quantitat és `rendiment × factor de residu`, on el
+        //    factor surt del `~R`. La norma l'anomena `wf`; CYPE hi escriu `rp`.
+        //
+        // I encara n'hi ha un tercer camí: l'embalatge sol penjar del **material**, no de la
+        // partida (`~R|mt07sep010ac|3\re150101\r\0.072`), de manera que cal multiplicar-lo
+        // per la quantitat d'aquell material a la partida.
+        //
+        // Es desen les magnituds primitives i no la massa ja multiplicada: veure `docs/residus.md`.
         const numero = (valor, defecte) => {
             const n = parseFloat(String(valor ?? '').replace(',', '.'));
             return Number.isFinite(n) ? n : defecte;
         };
-        const waste = (residusPerCodi[normCode] || []).map(rel => {
-            const x = propietatsPerCodi[rel.child] || {};
-            const fill = concepts[rel.child];
+        // La norma diu `o` (rendiment) i `wf` (factor de residu); CYPE hi escriu `r` i `rp`.
+        const rendimentDe = (props) => numero(props.r ?? props.o, 0);
+        const factorDe = (props) => numero(props.rp ?? props.wf, 0);
+
+        const component = (codiFill, dades) => {
+            const x = propietatsPerCodi[codiFill] || {};
+            const fill = concepts[codiFill];
             return {
-                code: fill?.originalCode || rel.child,
+                code: fill?.originalCode || codiFill,
                 description: fill?.summary || '',
                 unit: fill?.unit || 'kg',
-                type: rel.type,
                 ler: (x.ler || '').replace(/\s+/g, ' ').trim(),
-                // La norma diu `o` (rendiment); CYPE hi escriu `r`. S'accepten tots dos.
-                quantity: numero(rel.props.r ?? rel.props.o, 0),
                 massPerUnit: numero(x.m, 1),
                 volumePerUnit: numero(x.v, 0),
+                ...dades,
             };
+        };
+
+        const waste = [];
+        const propis = residusPerCodi[normCode] || [];
+        const fillsDelDescomposat = relations[normCode] || [];
+        const quantitatDelFill = (codi) => {
+            const rel = fillsDelDescomposat.find(r => r.child === codi);
+            return rel ? (rel.factor || 1) * (rel.yield || 0) : null;
+        };
+
+        propis.forEach(rel => {
+            if (rel.type === '0') {
+                // Col·locació: cal el rendiment del descomposat. Sense ell no es pot calcular
+                // i val més no inventar-se'l.
+                const q = quantitatDelFill(rel.child);
+                const factor = factorDe(rel.props);
+                if (q === null) return;
+                waste.push(component(rel.child, {
+                    type: rel.type, origin: 'placement', wasteFactor: factor,
+                    quantity: q * factor,
+                }));
+            } else {
+                waste.push(component(rel.child, {
+                    type: rel.type, origin: 'direct', quantity: rendimentDe(rel.props),
+                }));
+            }
+        });
+
+        // Embalatge que penja de cada material del descomposat.
+        fillsDelDescomposat.forEach(rel => {
+            const q = (rel.factor || 1) * (rel.yield || 0);
+            (residusPerCodi[rel.child] || []).forEach(sub => {
+                if (sub.type === '0') return; // el de col·locació d'un material no és nostre
+                const rendiment = rendimentDe(sub.props);
+                if (rendiment === 0) return;  // declarat sense aportació: no cal arrossegar-lo
+                waste.push(component(sub.child, {
+                    type: sub.type, origin: 'packaging', via: concepts[rel.child]?.originalCode || rel.child,
+                    quantity: rendiment * q,
+                }));
+            });
         });
 
         const node = {
@@ -469,16 +524,28 @@ export const processBC3Data = (text) => {
 
     // Construïm la base de dades de preus, excloent els conceptes de %
     const prices = {};
+    const aNumero = (valor) => {
+        const n = parseFloat(String(valor ?? '').replace(',', '.'));
+        return Number.isFinite(n) ? n : null;
+    };
     Object.keys(concepts).forEach(c => {
         const concept = concepts[c];
         // El concepte arrel («##», que normalitzat queda buit) no és un preu: si entrava a la
         // base, la següent exportació escrivia un ~C sense codi i el fitxer es desmuntava.
         if (c && concept.unit !== '%') {
+            const x = propietatsPerCodi[c] || {};
+            // Cost energètic (MJ) i emissions (kg CO₂) per unitat del concepte. Són propietats
+            // del concepte, com el preu, i per això viuen a la base de preus i no al node: un
+            // mateix material surt a moltes partides i el valor no hi canvia.
+            const energy = aNumero(x.ce);
+            const co2 = aNumero(x.eCO2);
             prices[c] = {
                 code: concept.originalCode,
                 price: concept.price,
                 summary: concept.summary,
-                unit: concept.unit
+                unit: concept.unit,
+                ...(energy !== null ? { energy } : {}),
+                ...(co2 !== null ? { co2 } : {}),
             };
         }
     });

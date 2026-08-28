@@ -223,22 +223,63 @@ export const generateBC3 = ({ budget, chapters, priceDatabase = {}, certificatio
         if (childStr) lines.push(`~D|${exportCode}|${childStr}`);
     });
 
-    // Residus (~X i ~R)
+    // Propietats dels conceptes i residus (~X i ~R)
     //
     //   ~X | [CODI] | {PROPIETAT\VALOR\}          propietats del concepte
     //   ~R | PARE   | {TIPUS\FILL\{PROP\VALOR\[UM]\}|}   components que generen residu
     //
-    // El primer `~X`, amb el codi buit, declara què vol dir cada propietat: és la capçalera
-    // que la norma demana i sense la qual un altre programa no sap què són `ler`, `m` i `v`.
-    if (propietatsResidu.size > 0) {
-        lines.push('~X||ler\\Codi LER\\\\m\\Massa de l\'element\\kg\\v\\Volum\\m3\\|');
-        propietatsResidu.forEach((p, codi) => {
-            lines.push(`~X|${codi}|ler\\${p.ler}\\m\\${fNum(p.m)}\\v\\${fNum(p.v)}\\|`);
+    // Del `~X` en surten dues coses diferents: el codi LER, la massa i el volum dels components
+    // de residu, i el cost energètic i les emissions de CO₂ dels materials, que viuen a la base
+    // de preus. Un mateix concepte pot tenir-les totes dues, i llavors van al mateix registre.
+    const propietatsX = new Map();
+    const posa = (codi, dades) => {
+        if (!codi) return;
+        propietatsX.set(codi, { ...(propietatsX.get(codi) || {}), ...dades });
+    };
+    propietatsResidu.forEach((p, codi) => posa(codi, { ler: p.ler, m: p.m, v: p.v }));
+    Object.entries(priceDatabase).forEach(([codi, dades]) => {
+        const norm = normalizeCode(codi);
+        const ce = Number(dades?.energy);
+        const co2 = Number(dades?.co2);
+        if (Number.isFinite(ce)) posa(norm, { ce });
+        if (Number.isFinite(co2)) posa(norm, { eCO2: co2 });
+    });
+
+    if (propietatsX.size > 0) {
+        // El primer `~X`, amb el codi buit, declara què vol dir cada propietat: és la capçalera
+        // que la norma demana i sense la qual un altre programa no sap què són `ce`, `ler` o `v`.
+        lines.push('~X||ce\\Cost energètic\\MJ\\eCO2\\Emissió de CO2\\kg\\ler\\Codi LER\\\\m\\Massa de l\'element\\kg\\v\\Volum\\m3\\|');
+        propietatsX.forEach((p, codi) => {
+            // Només s'escriuen les propietats que el concepte té de veritat: un zero escrit
+            // voldria dir «zero MJ», que no és el mateix que «no se'n sap res».
+            const trossos = [];
+            if (p.ce !== undefined) trossos.push(`ce\\${fNum(p.ce)}`);
+            if (p.eCO2 !== undefined) trossos.push(`eCO2\\${fNum(p.eCO2)}`);
+            if (p.ler !== undefined) trossos.push(`ler\\${p.ler}`);
+            if (p.m !== undefined) trossos.push(`m\\${fNum(p.m)}`);
+            if (p.v !== undefined) trossos.push(`v\\${fNum(p.v)}`);
+            if (trossos.length > 0) lines.push(`~X|${codi}|${trossos.join('\\')}\\|`);
         });
     }
     residus.forEach((components, norm) => {
         const blocs = components
-            .map(w => `${w.type ?? ''}\\${normalizeCode(w.code)}\\r\\${fNum(w.quantity)}\\\\`)
+            // L'embalatge que ve d'un material NO es reescriu aquí: el material també és un
+            // node de l'arbre —el parser el crea a partir del `~D`— i ja porta el seu propi
+            // `~R`. Escrivint-lo a totes dues bandes, cada cicle d'exportació hi sumava una
+            // altra vegada l'embalatge: 19,99 kg passaven a 21,44, a 22,89…
+            .filter(w => w.origin !== 'packaging')
+            .map(w => {
+                const codi = normalizeCode(w.code);
+                // El residu de col·locació es declara amb el FACTOR, no amb la quantitat: la
+                // norma el calcula com a rendiment del descomposat × factor, i escrivint-hi la
+                // quantitat ja resolta un altre programa la tornaria a multiplicar.
+                if (w.origin === 'placement') return `0\\${codi}\\wf\\${fNum(w.wasteFactor ?? 0)}\\\\`;
+                // L'embalatge d'un material es reescriu com a component addicional de la
+                // partida, amb la quantitat ja multiplicada. Es perd de quin material venia
+                // —no és un node de l'arbre i no en tenim registre propi— però la xifra i el
+                // codi LER es conserven, que és el que compta per a l'estimació.
+                return `${w.type ?? '3'}\\${codi}\\r\\${fNum(w.quantity)}\\\\`;
+            })
             .join('|');
         if (blocs) lines.push(`~R|${getExportCode(norm)}|${blocs}|`);
     });

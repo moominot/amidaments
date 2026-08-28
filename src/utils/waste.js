@@ -55,13 +55,19 @@ export const calcItemWaste = (item) => {
  *   d'estar resolts o les partides que en depenen comptarien zero.
  * @returns {{
  *   perLer: Array, perTipus: Array, partides: Array,
- *   totals: {mass: number, volume: number}, ambDades: number, sense: number
+ *   totals: {mass: number, volume: number},
+ *   ambDades: number, ambAportacio: number, senseAmidament: Array, sense: number
  * }}
+ *   Es distingeix la partida que **no porta dades** de la que **en porta però té l'amidament
+ *   a zero**: totes dues donen zero kg, però la primera és un fitxer sense residus i la segona
+ *   és un amidament per omplir. Sense separar-les, la pestanya ensenyava «1 de 1 partides» amb
+ *   la taula buida i no hi havia manera de saber quin dels dos casos era.
  */
 export const buildWasteSummary = (chapters = []) => {
     const perLer = new Map();     // codi LER -> { ler, description, type, mass, volume, codis:Set }
     const perTipus = new Map();   // tipus -> { type, nom, mass, volume }
     const partides = [];
+    const senseAmidament = [];
     let ambDades = 0;
     let sense = 0;
 
@@ -105,13 +111,20 @@ export const buildWasteSummary = (chapters = []) => {
                         unit: node.unit, capitol, quantity: quantitat,
                         mass: round2(propi.mass), volume: round2(propi.volume),
                     });
+                } else if (quantitat === 0) {
+                    senseAmidament.push({ id: node.id, code: node.code, description: node.description, unit: node.unit });
                 }
             } else {
                 sense++;
             }
+            // Aquí s'atura: els fills d'una partida són els components del seu descomposat, no
+            // subpartides. Baixant-hi, els materials d'una partida de construcció es comptaven
+            // com a partides pròpies —«9 de 15» quan només n'hi havia una— i la nota del peu
+            // llistava codis de material com si els faltés l'amidament.
+            return;
         }
         [...(node.subChapters || []), ...(node.items || [])]
-            .forEach(fill => visita(fill, node.unit ? capitol : (node.description || capitol)));
+            .forEach(fill => visita(fill, node.description || capitol));
     };
 
     chapters.forEach(node => visita(node, ''));
@@ -130,8 +143,39 @@ export const buildWasteSummary = (chapters = []) => {
             volume: round2(files.reduce((a, f) => a + f.volume, 0)),
         },
         ambDades,
+        ambAportacio: partides.length,
+        senseAmidament,
         sense,
     };
+};
+
+/**
+ * Catàleg de components de residu que ja hi ha al projecte.
+ *
+ * No cal desar-lo: es dedueix de les partides importades. Un cop entra una partida del
+ * Generador de Preus, el projecte ja té els seus disset components amb codi LER, massa i
+ * volum, i una partida feta a mà els pot reaprofitar sense tornar-los a teclejar.
+ */
+export const catalegResidus = (chapters = []) => {
+    const cataleg = new Map();
+    const visita = (node) => {
+        (node.waste || []).forEach(w => {
+            const codi = normalizeCode(w.code);
+            if (!codi || cataleg.has(codi)) return;
+            cataleg.set(codi, {
+                code: w.code,
+                description: w.description || '',
+                unit: w.unit || 'kg',
+                type: w.type ?? '1',
+                ler: w.ler || '',
+                massPerUnit: w.massPerUnit ?? 1,
+                volumePerUnit: w.volumePerUnit ?? 0,
+            });
+        });
+        [...(node.subChapters || []), ...(node.items || [])].forEach(visita);
+    };
+    chapters.forEach(visita);
+    return [...cataleg.values()].sort((a, b) => (a.ler || a.code).localeCompare(b.ler || b.code));
 };
 
 /** Massa en la unitat que toca: els kg es fan inllegibles a partir del miler. */

@@ -2,7 +2,7 @@
 
 Inventari fet llegint el codi (agost 2026).
 
-**Estat: els vint-i-nou defectes estan corregits.** Es conserva la descripció de cadascun
+**Estat: els trenta-un defectes estan corregits.** Es conserva la descripció de cadascun
 perquè expliquen decisions del codi actual i serveixen de referència si tornen a aparèixer.
 El deute tècnic de la segona meitat del document continua obert.
 
@@ -516,6 +516,53 @@ cadascuna porta el seu amidament. Comprovat: el fitxer de mostra segueix a 135.2
 24 capítols, i arrossegar l'enllaç de CYPE deixa un sol capítol, `D# DEMOLICIONS`, amb la
 partida `DCE010` a dins.
 
+### 30. Un zero de residus podia voler dir dues coses ✅
+
+La pestanya comptava com a «amb dades» qualsevol partida que portés registres de residus,
+encara que el seu amidament fos zero. El resultat era una capçalera que deia «1 de 1 partides»
+amb la taula buida i 0,00 kg de total: exactament el mateix que si el fitxer no portés residus,
+però per un motiu completament diferent.
+
+Els dos casos ara es distingeixen. `buildWasteSummary` retorna `ambDades` (partides que porten
+registres) i `ambAportacio` (les que aporten massa) per separat, més la llista de les que
+porten dades amb l'amidament a zero, i la pestanya té un missatge per a cada cas: en el primer
+explica d'on surten les dades i **quin dels dos enllaços del Generador de Preus les porta**; en
+el segon diu que el fitxer és correcte i que el que falta és entrar l'amidament, amb la llista
+de les partides afectades.
+
+Va sortir d'una pregunta que no es podia respondre des de dins de l'aplicació: «o bé els valors
+són zero al BC3 o bé no els calcula bé». Ara ho diu.
+
+### 31. Els residus d'una partida de construcció sortien a zero ✅
+
+L'estimació funcionava amb les demolicions i donava zero amb tot el que fos construir. El motiu
+és que el `~R` té **dues menes de component** i només en llegíem una:
+
+- **Components addicionals** (demolició, excavació, embalatge): no són al `~D` i la quantitat és
+  directament el seu rendiment. Això sí que ho llegíem.
+- **Components de col·locació** (tipus 0): el material que es llença en executar. Sí que són al
+  `~D`, i la quantitat és `rendiment del descomposat × factor de residu`. Ni miràvem el tipus,
+  ni buscàvem el rendiment, ni coneixíem la propietat: la norma l'anomena `wf` i CYPE hi escriu
+  `rp`, i nosaltres només acceptàvem `r`.
+
+I encara hi havia un tercer camí que se'ns escapava: l'**embalatge penja del material**, no de
+la partida, de manera que s'ha de multiplicar per la quantitat d'aquell material a la partida.
+
+Amb els tres camins, `EHS010` (pilar de formigó armat) passa de 0 a **19,99 kg i 0,0152 m³ per
+m³**, repartits en col·locació (18,54 kg) i embalatge (1,45 kg), que són dues de les fraccions
+que el RD 105/2008 separa. Contrastat a mà contra el fitxer abans d'escriure el codi.
+
+Del mateix arreglo n'han sortit dos més:
+
+- **L'exportació duplicava l'embalatge a cada cicle.** El material també és un node de l'arbre
+  —el parser el crea a partir del `~D`— i ja porta el seu propi `~R`; escrivint-lo també a la
+  partida, cada volta hi sumava una altra vegada: 19,99 kg passaven a 21,44, a 22,89, a 24,34.
+  Ara el component `packaging` no es reescriu a la partida, i el de col·locació s'escriu amb el
+  **factor** i no amb la quantitat resolta, que un altre programa tornaria a multiplicar.
+- **El resum comptava els materials com si fossin partides.** `buildWasteSummary` baixava als
+  fills d'una partida, que són els components del descomposat: sortia «9 de 15 partides» quan
+  només n'hi havia una. `buildCarbonSummary` ja s'aturava; ara les dues fan igual.
+
 ---
 
 ## Deute tècnic
@@ -540,11 +587,14 @@ suggerit, de menys a més arriscat:
 5. **Importació** (`startImportProcess` / `finalizeImport` / `mergeTreeBranches` /
    `handleDrop` / `importFromUrl`) → `useProjectImport`.
 
-### Sense tests
+### Tests ✅ (fet)
 
-No hi ha cap test ni cap runner. Les funcions de `calculations.js` i `bc3Parser.js` són pures
-i deterministes: és el lloc evident per començar (Vitest s'integra directament amb Vite).
-Casos que val la pena fixar abans de tocar res:
+Hi ha **113 tests amb Vitest** (`npm test`), contra fitxers BC3 de veritat i no maquetes, i el
+desplegament els passa abans de construir. Detall a [`docs/tests.md`](tests.md).
+
+Es van escriure després de tot el que hi ha en aquest registre, i per això cada test fixa un
+comportament que s'havia trencat de veritat: els comentaris remeten al § corresponent. Els
+casos que hi havia apuntats com a pendents, i que ara hi són:
 
 - `calcItemTotalQty` amb línies d'increment;
 - `getItemUnitPrice` amb línies `%` i amb preferència de `priceDatabase`;
@@ -586,10 +636,11 @@ ESLint ≥ 9, i amb un ESLint global més nou instal·lat `npm run lint` falla.
 - **`lastSaved`** es calcula i no es mostra: seria un indicador útil al capçal.
 - **`expandedSidebarSections`** no inclou la clau `unit` a l'estat inicial (`App.jsx:960`),
   així que la secció "Unitat" del sidebar arrenca plegada mentre les altres surten obertes.
-- **`node_modules/` i `dist/` estan versionats** (5.724 i 3 fitxers) tot i figurar al
-  `.gitignore`: es van afegir abans que les regles d'ignorar, i el `.gitignore` no desindexa
-  el que ja està seguit. Cada `npm install` embruta el `git status` amb centenars de fitxers.
-  Cal `git rm -r --cached node_modules dist` en un commit dedicat.
+- ~~**`node_modules/` i `dist/` estaven versionats**~~ ✅ Trets de l'índex (5.724 i 3 fitxers).
+  S'hi havien afegit abans que les regles d'ignorar, i el `.gitignore` no desindexa el que ja
+  està seguit: cada `npm install` embrutava el `git status` amb centenars de fitxers. El
+  desplegament ja construïa el `dist` ell mateix i instal·la del `package-lock.json`, o sigui
+  que cap dels dos feia falta. Els fitxers segueixen al disc; només han sortit del seguiment.
 - **Fitxers a l'arrel que no hi haurien de ser**: dues captures de pantalla `.jpg` i el BC3 de
   mostra. El BC3 val la pena conservar-lo com a *fixture* — moure'l a `test/fixtures/`.
 
@@ -601,12 +652,11 @@ Per ordre de relació valor/esforç:
 
 1. ~~Arreglar els punts 1–23.~~ ✅ Fet.
 2. ~~Activar el lint sobre `.jsx`.~~ ✅ Fet (queda la migració a flat config).
-3. **Vitest + tests de `calculations.js` i `bc3Parser.js`**, amb el BC3 de mostra com a
-   fixture. És ara la prioritat: les correccions 2, 3 i 8 es van validar amb scripts d'un sol
-   ús que no han quedat al repositori, i el cicle exportar → reimportar hauria de ser una
-   prova automàtica, no un ritual manual.
+3. ~~**Vitest + tests de `calculations.js` i `bc3Parser.js`**~~ ✅ Fet: 113 tests contra
+   fitxers BC3 de veritat, i el cicle exportar → reimportar ja és una prova automàtica i no un
+   ritual manual. Veure [`docs/tests.md`](tests.md).
 4. **Extreure els exportadors i el writer BC3** d'`App.jsx` (passes 2 i 3 del refactor).
 5. **Bloqueig real de fases aprovades** al hook `useCertification`.
 6. ~~Informe de certificació en PDF.~~ ✅ Fet.
 7. **Code-splitting** de jsPDF / SheetJS.
-8. **`git rm -r --cached node_modules dist`** en un commit dedicat.
+8. ~~**`git rm -r --cached node_modules dist`**~~ ✅ Fet.

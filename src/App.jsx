@@ -38,6 +38,7 @@ import {
     Redo2,
     LogOut,
     Recycle,
+    Leaf,
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -84,10 +85,12 @@ import { numberToTextCatalan } from './utils/numberToText';
 import { exportCertificationPDF } from './utils/certificationPdf';
 import { safeFileName } from './utils/fileName';
 import { descarregaBC3 } from './utils/corsProxy';
-import { buildWasteSummary, formatMassa, nomTipus, TIPUS_RESIDU } from './utils/waste';
+import { buildWasteSummary, formatMassa, nomTipus, catalegResidus, magnitudsDe, TIPUS_RESIDU } from './utils/waste';
+import { buildCarbonSummary, formatEnergia, formatCO2 } from './utils/carbon';
 import { buildWasteStudy } from './utils/wasteStudy';
 import { exportWasteStudyPDF } from './utils/wasteStudyPdf';
 import WasteStudyModal from './components/WasteStudyModal';
+import PriceBankPicker from './components/PriceBankPicker';
 import {
     EXTENSIO_PROJECTE, MIME_PROJECTE, esFitxerProjecte, esFitxerBC3,
     serialitzaProjecte, llegeixProjecte,
@@ -728,7 +731,7 @@ const PrintConfigModal = ({ config, setConfig, onClose }) => {
 };
 
 // --- Modal Creador de Partides ---
-const ItemCreator = ({ onClose, onSave, parentId, parentCode }) => {
+const ItemCreator = ({ onClose, onSave, parentId, parentCode, onTriarDelBanc }) => {
     const [mode, setMode] = useState('item'); // 'item' | 'chapter'
     const [target, setTarget] = useState(parentId ? 'child' : 'root'); // 'root' | 'child'
     const [data, setData] = useState({
@@ -766,6 +769,18 @@ const ItemCreator = ({ onClose, onSave, parentId, parentCode }) => {
                                 A l'Arrel del Projecte
                             </label>
                         </div>
+                    )}
+
+                    {mode === 'item' && onTriarDelBanc && (
+                        <button
+                            type="button"
+                            onClick={() => onTriarDelBanc((c) => setData({
+                                code: c.code, description: c.description, unit: c.unit || 'u', price: c.price || 0,
+                            }))}
+                            className="flex items-center justify-center gap-2 bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 p-2.5 text-[10px] font-bold uppercase tracking-widest transition-colors"
+                        >
+                            <Database size={13} /> Omplir des del banc de preus
+                        </button>
                     )}
 
                     <div className="flex gap-4 p-1 bg-slate-100 border border-slate-200 w-fit">
@@ -922,6 +937,9 @@ export default function App() {
     });
     const [showPrint, setShowPrint] = useState(false);
     const [showWasteStudy, setShowWasteStudy] = useState(false);
+    // Selector del banc de preus. `picker.onPick` decideix què se'n fa: una línia de
+    // descomposat, una partida nova… Amb un sol estat n'hi ha prou per a tots els casos.
+    const [picker, setPicker] = useState(null);
     const [showPemModal, setShowPemModal] = useState(false);
     const [importPending, setImportPending] = useState(null);
     const [notification, setNotification] = useState(null);
@@ -1153,6 +1171,13 @@ export default function App() {
     // Residus. Sobre `resolvedChapters`: si es fes sobre `budget.chapters`, les partides amb
     // amidament vinculat comptarien zero.
     const wasteSummary = useMemo(() => buildWasteSummary(resolvedChapters), [resolvedChapters]);
+
+    // Petjada de carboni. `energy` i `co2` viuen a la base de preus, no al node: són propietats
+    // del concepte, com el preu. Veure `docs/petjada.md`.
+    const carbonSummary = useMemo(
+        () => buildCarbonSummary(resolvedChapters, priceDatabase),
+        [resolvedChapters, priceDatabase]
+    );
 
     const activeCert = (budget.certifications || []).find(c => c.id === activeCertId) || null;
     const previousCert = certificationSummary.prevCertId
@@ -2094,8 +2119,22 @@ export default function App() {
      * compartir del sistema. Els tres camins feien la seva pròpia comprovació —i la de la File
      * Handling API mirava un camp que no s'escrivia enlloc— així que ara passen tots per aquí.
      */
-    const obreFitxer = useCallback(async (file, { replace = true } = {}) => {
+    const obreFitxer = useCallback(async (file, { replace = true, nomesPreus = false } = {}) => {
         if (!file) return;
+
+        // Deixar anar un fitxer sobre el banc de preus no ha de tocar el pressupost: el que
+        // s'hi vol és ampliar el catàleg de conceptes per poder-los fer servir després.
+        if (nomesPreus) {
+            if (!esFitxerBC3(file.name)) {
+                notify('Al banc de preus només s\'hi poden deixar anar fitxers .bc3', 'error');
+                return;
+            }
+            const text = new TextDecoder('windows-1252').decode(await file.arrayBuffer());
+            const result = processBC3Data(text);
+            if (!result) { notify('Format BC3 no reconegut', 'error'); return; }
+            afegeixAlBanc(result.prices || {});
+            return;
+        }
 
         if (esFitxerProjecte(file.name)) {
             const projecte = llegeixProjecte(await file.text());
@@ -2120,6 +2159,33 @@ export default function App() {
 
         notify(`Format no suportat. Fes servir ${EXTENSIO_PROJECTE} o .bc3`, 'error');
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    /**
+     * Afegeix conceptes al banc de preus sense tocar l'arbre.
+     *
+     * Els que ja hi són **no es trepitgen**: el preu del projecte mana sobre el del fitxer que
+     * arriba, que és el que espera qui ja ha ajustat un preu a mà.
+     */
+    const afegeixAlBanc = useCallback((nous) => {
+        const entrades = Object.entries(nous || {}).filter(([codi]) => codi);
+        if (entrades.length === 0) { notify('El fitxer no porta cap concepte amb preu', 'error'); return; }
+
+        // El recompte es fa fora de l'updater: React el crida durant el render, no en
+        // despatxar, de manera que llegir-lo tot seguit donava sempre zero (i amb StrictMode,
+        // el doble). El mateix parany que ja hi havia a `importCertification`.
+        let afegits = 0;
+        let existents = 0;
+        const seguent = { ...priceDatabase };
+        entrades.forEach(([codi, dades]) => {
+            if (seguent[codi]) { existents++; return; }
+            seguent[codi] = dades;
+            afegits++;
+        });
+        setPriceDatabase(seguent);
+        notify(afegits > 0
+            ? `${afegits} conceptes afegits al banc de preus${existents ? ` (${existents} ja hi eren)` : ''}`
+            : `Tots els conceptes ja hi eren (${existents})`);
+    }, [priceDatabase]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleFileSelect = (e) => {
         const file = e.target.files[0];
@@ -2424,14 +2490,17 @@ export default function App() {
      * Importa un BC3 des d'una URL: el cas de l'enllaç arrossegat del Generador de Preus.
      * La descàrrega i els proxys CORS viuen a `utils/corsProxy.js`.
      */
-    const importFromUrl = useCallback(async (url) => {
+    const importFromUrl = useCallback(async (url, { nomesPreus = false } = {}) => {
         if (!url) return;
         try {
             notify('Descarregant la partida...');
             const { text, via } = await descarregaBC3(url);
             const result = processBC3Data(text);
             if (result) {
-                startImportProcess(result);
+                // Sobre la pestanya del banc de preus, l'enllaç ha de fer el mateix que el
+                // fitxer: ampliar el catàleg i no tocar el pressupost.
+                if (nomesPreus) afegeixAlBanc(result.prices || {});
+                else startImportProcess(result);
                 console.log(`BC3 importat des de ${url} (via ${via})`);
             } else {
                 notify('Format BC3 no reconegut', 'error');
@@ -2544,23 +2613,29 @@ export default function App() {
 
         const url = candidates[0];
         if (url) {
-            importFromUrl(url);
+            importFromUrl(url, { nomesPreus: activeTab === 'prices' });
             return;
         }
 
         // Arrossegar un fitxer accepta tant un projecte com un BC3. El BC3 es fusiona amb el
         // que hi ha —és el comportament de sempre— i un projecte substitueix, que és l'únic
         // que té sentit per a un fitxer que ja és un projecte sencer.
+        //
+        // Sobre la pestanya del banc de preus, però, el que es vol és ampliar el catàleg i no
+        // tocar el pressupost: allà el fitxer només aporta conceptes.
         const file = e.dataTransfer.files[0];
-        if (file) obreFitxer(file, { replace: false });
+        if (file) obreFitxer(file, { replace: false, nomesPreus: activeTab === 'prices' });
     };
 
     const handlePaste = useCallback((e) => {
         const text = e.clipboardData.getData('text/plain')?.trim();
         if (text && (text.toLowerCase().includes('.bc3') || text.toLowerCase().includes('generadordepreus'))) {
-            importFromUrl(text);
+            importFromUrl(text, { nomesPreus: activeTab === 'prices' });
         }
-    }, [importFromUrl]);
+        // `activeTab` ha d'anar a les dependències: sense ell el callback es quedaria amb la
+        // pestanya que hi havia en muntar-se i enganxar un enllaç al banc de preus l'importaria
+        // igualment al pressupost.
+    }, [importFromUrl, activeTab]);
 
 
     const updateMeasurement = (itemId, mId, field, value) => {
@@ -2892,13 +2967,20 @@ export default function App() {
         setBudget(prev => ({ ...prev, chapters: updateInTree(prev.chapters) }));
     };
 
-    const addBreakdownLine = (itemId) => {
+    /**
+     * @param {string} itemId partida a la qual s'afegeix la línia
+     * @param {object} [concepte] concepte del banc de preus; sense ell, línia en blanc
+     */
+    const addBreakdownLine = (itemId, concepte = null) => {
+        const linia = concepte
+            ? { code: concepte.code, description: concepte.description, unit: concepte.unit || 'u', yield: 1, price: concepte.price || 0 }
+            : { code: '', description: 'Nova línia', unit: 'u', yield: 1, price: 0 };
         const updateInTree = (nodes) => {
             return nodes.map(node => {
                 if (node.id === itemId) {
                     return {
                         ...node,
-                        breakdown: [...(node.breakdown || []), { code: '', description: 'Nova línia', unit: 'u', yield: 1, price: 0 }]
+                        breakdown: [...(node.breakdown || []), linia]
                     };
                 }
                 return {
@@ -2909,6 +2991,49 @@ export default function App() {
             });
         };
         setBudget(prev => ({ ...prev, chapters: updateInTree(prev.chapters) }));
+    };
+
+    // ── Residus d'una partida ───────────────────────────────────────────────────
+    //
+    // Les partides importades d'un BC3 amb `~R` i `~X` ja en porten; les creades a mà, no, i
+    // fins ara no hi havia manera d'afegir-los-en. Es guarden les magnituds primitives
+    // (`quantity`, `massPerUnit`, `volumePerUnit`), com les importades: veure `docs/residus.md`.
+
+    const mapaPartida = (itemId, fn) => {
+        const updateInTree = (nodes) => nodes.map(node => {
+            if (node.id === itemId) return fn(node);
+            return { ...node, subChapters: updateInTree(node.subChapters || []), items: updateInTree(node.items || []) };
+        });
+        setBudget(prev => ({ ...prev, chapters: updateInTree(prev.chapters) }));
+    };
+
+    const addWasteLine = (itemId, component = null) => {
+        const linia = component
+            ? { ...component }
+            : { code: '', description: 'Nou residu', unit: 'kg', type: '1', ler: '', quantity: 0, massPerUnit: 1, volumePerUnit: 0 };
+        mapaPartida(itemId, node => ({ ...node, waste: [...(node.waste || []), linia] }));
+    };
+
+    const updateWasteLine = (itemId, idx, field, value) => {
+        const numeric = ['quantity', 'massPerUnit', 'volumePerUnit'].includes(field);
+        const valor = numeric ? (parseFloat(value) || 0) : value;
+        mapaPartida(itemId, node => {
+            const waste = [...(node.waste || [])];
+            waste[idx] = { ...waste[idx], [field]: valor };
+            return { ...node, waste };
+        });
+    };
+
+    const removeWasteLine = (itemId, idx) => {
+        mapaPartida(itemId, node => {
+            const waste = (node.waste || []).filter((_, i) => i !== idx);
+            // Sense components, val més treure el camp que deixar-hi una llista buida: així
+            // la partida torna a comptar com a «sense dades» i no com a «dades a zero».
+            const seguent = { ...node };
+            if (waste.length > 0) seguent.waste = waste;
+            else delete seguent.waste;
+            return seguent;
+        });
     };
 
     const removeBreakdownLine = (itemId, idx) => {
@@ -2987,6 +3112,17 @@ export default function App() {
                         <Tag size={12} className="text-blue-500" />
                         <span className="text-[11px] font-black uppercase tracking-widest text-slate-500">Justificació de Preu Unitari: {node.code}</span>
                     </div>
+                    <button
+                        onClick={() => setPicker({
+                            titol: 'Afegir al descomposat',
+                            subtitol: `${node.code} · ${node.description || ''}`.slice(0, 70),
+                            onPick: (c) => { addBreakdownLine(node.id, c); setPicker(null); },
+                            onCrearNou: () => { addBreakdownLine(node.id); setPicker(null); },
+                        })}
+                        className="text-[10px] bg-blue-600 text-white border border-blue-600 px-2.5 py-2 md:py-0.5 hover:bg-blue-500 flex items-center gap-1 uppercase font-bold"
+                    >
+                        <Database size={11} /> Del banc
+                    </button>
                     <button onClick={() => addBreakdownLine(node.id)} className="text-[10px] bg-white border border-slate-300 px-2 py-0.5 hover:bg-slate-50 flex items-center gap-1 uppercase font-bold">
                         <Plus size={10} /> Afegir Component
                     </button>
@@ -3071,6 +3207,166 @@ export default function App() {
                         <span className="font-mono font-bold text-blue-700">{formatCurrency(totalCost)}</span>
                     </div>
                 </div>
+
+                {renderWasteEditor(node)}
+            </div>
+        );
+    };
+
+    /**
+     * Residus de la partida, editables.
+     *
+     * Les magnituds que es demanen són les primitives del `~X`: quant component surt per unitat
+     * de partida, i quina massa i volum té cada unitat de component. La massa resultant es
+     * calcula i es mostra al costat perquè es vegi si el número té sentit —una densitat
+     * absurda salta a la vista de seguida.
+     */
+    const renderWasteEditor = (node) => {
+        const residus = node.waste || [];
+        const cataleg = catalegResidus(resolvedChapters);
+        const jaHi = new Set(residus.map(w => normalizeCode(w.code)));
+
+        const afegirDelCataleg = () => setPicker({
+            titol: 'Afegir un component de residu',
+            subtitol: 'Del que ja hi ha al projecte',
+            onPick: (c) => {
+                const original = cataleg.find(x => normalizeCode(x.code) === c.norm);
+                addWasteLine(node.id, original || {
+                    code: c.code, description: c.description, unit: c.unit || 'kg',
+                    type: '1', ler: '', quantity: 0, massPerUnit: 1, volumePerUnit: 0,
+                });
+                setPicker(null);
+            },
+            onCrearNou: () => { addWasteLine(node.id); setPicker(null); },
+            // Al selector només hi surten els components que ja tenen dades de residu i que
+            // aquesta partida encara no porta: oferir-li tot el banc seria soroll.
+            filtre: (c) => cataleg.some(x => normalizeCode(x.code) === c.norm) && !jaHi.has(c.norm),
+        });
+
+        return (
+            <div className="border-t-2 border-slate-200 mt-2">
+                <div className="flex items-center justify-between p-2 px-4 bg-emerald-50/60">
+                    <span className="text-[11px] uppercase font-black text-emerald-700 tracking-widest flex items-center gap-2">
+                        <Recycle size={13} /> Residus
+                    </span>
+                    <div className="flex gap-1.5">
+                        <button
+                            onClick={afegirDelCataleg}
+                            disabled={cataleg.length === 0}
+                            className="text-[10px] bg-emerald-600 text-white px-2.5 py-2 md:py-0.5 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 uppercase font-bold touch-manipulation"
+                            title={cataleg.length === 0 ? 'Encara no hi ha cap component de residu al projecte' : 'Triar-ne un dels que ja hi ha'}
+                        >
+                            <Database size={11} /> Del projecte
+                        </button>
+                        <button
+                            onClick={() => addWasteLine(node.id)}
+                            className="text-[10px] bg-white border border-slate-300 px-2.5 py-2 md:py-0.5 hover:bg-slate-50 flex items-center gap-1 uppercase font-bold touch-manipulation"
+                        >
+                            <Plus size={11} /> Nou
+                        </button>
+                    </div>
+                </div>
+
+                {residus.length === 0 ? (
+                    <p className="px-4 py-3 text-[10px] text-slate-400 italic leading-relaxed">
+                        Aquesta partida no genera residus, o encara no s&apos;hi han declarat. Els que
+                        s&apos;hi posin compten a la pestanya Residus i a l&apos;estudi del RD 105/2008.
+                    </p>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead className="bg-slate-50 text-[8px] md:text-[9px] text-slate-500 font-bold uppercase tracking-widest border-b border-slate-200">
+                                <tr>
+                                    <th className="p-1.5 px-2 w-24">Codi</th>
+                                    <th className="p-1.5 px-2">Residu</th>
+                                    <th className="p-1.5 px-2 w-20">LER</th>
+                                    <th className="p-1.5 px-2 w-20 text-right">Quant.</th>
+                                    <th className="p-1.5 px-2 w-16 text-right">kg/ud</th>
+                                    <th className="p-1.5 px-2 w-20 text-right">m³/ud</th>
+                                    <th className="p-1.5 px-2 w-24 text-right bg-emerald-50/60">Massa</th>
+                                    <th className="w-6"></th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {residus.map((w, idx) => {
+                                    const unitari = magnitudsDe(w);
+                                    return (
+                                        <tr key={`${w.code}-${idx}`} className="hover:bg-slate-50/70">
+                                            <td className="p-1 px-2">
+                                                <input
+                                                    className="w-full bg-transparent font-mono text-[10px] border-b border-transparent hover:border-slate-300 focus:border-emerald-500 outline-none"
+                                                    value={w.code || ''}
+                                                    onChange={e => updateWasteLine(node.id, idx, 'code', e.target.value)}
+                                                />
+                                            </td>
+                                            <td className="p-1 px-2">
+                                                <input
+                                                    className="w-full bg-transparent text-[10px] border-b border-transparent hover:border-slate-300 focus:border-emerald-500 outline-none"
+                                                    value={w.description || ''}
+                                                    onChange={e => updateWasteLine(node.id, idx, 'description', e.target.value)}
+                                                />
+                                                {/* El tipus decideix a quina fracció de l'article 5.5 va el residu, i per
+                                                    tant si en surt una obligació de separació. Va sota la descripció i no
+                                                    a una columna pròpia: al panell de detall no hi cap una vuitena. */}
+                                                <select
+                                                    value={String(w.type ?? '1')}
+                                                    onChange={e => updateWasteLine(node.id, idx, 'type', e.target.value)}
+                                                    className="mt-0.5 bg-transparent text-[9px] text-slate-400 uppercase tracking-wide border-none outline-none cursor-pointer hover:text-slate-600"
+                                                >
+                                                    {Object.entries(TIPUS_RESIDU).map(([id, t]) => (
+                                                        <option key={id} value={id}>{t.nom}</option>
+                                                    ))}
+                                                </select>
+                                                {w.via && (
+                                                    <span className="block text-[9px] text-slate-300 italic truncate" title={`Embalatge de ${w.via}`}>
+                                                        de {w.via}
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="p-1 px-2">
+                                                <input
+                                                    className="w-full bg-transparent font-mono text-[10px] border-b border-transparent hover:border-slate-300 focus:border-emerald-500 outline-none"
+                                                    value={w.ler || ''}
+                                                    placeholder="17 01 01"
+                                                    onChange={e => updateWasteLine(node.id, idx, 'ler', e.target.value)}
+                                                />
+                                            </td>
+                                            <td className="p-1 px-2">
+                                                <NumberInput
+                                                    className="w-full bg-transparent text-right font-mono text-[10px] border-b border-transparent hover:border-slate-300 focus:border-emerald-500 outline-none"
+                                                    value={w.quantity}
+                                                    onChange={v => updateWasteLine(node.id, idx, 'quantity', v)}
+                                                />
+                                            </td>
+                                            <td className="p-1 px-2">
+                                                <NumberInput
+                                                    className="w-full bg-transparent text-right font-mono text-[10px] border-b border-transparent hover:border-slate-300 focus:border-emerald-500 outline-none"
+                                                    value={w.massPerUnit}
+                                                    onChange={v => updateWasteLine(node.id, idx, 'massPerUnit', v)}
+                                                />
+                                            </td>
+                                            <td className="p-1 px-2">
+                                                <NumberInput
+                                                    className="w-full bg-transparent text-right font-mono text-[10px] border-b border-transparent hover:border-slate-300 focus:border-emerald-500 outline-none"
+                                                    value={w.volumePerUnit}
+                                                    onChange={v => updateWasteLine(node.id, idx, 'volumePerUnit', v)}
+                                                />
+                                            </td>
+                                            <td className="p-1 px-2 text-right font-mono text-[10px] text-emerald-800 bg-emerald-50/40 whitespace-nowrap">
+                                                {formatMassa(unitari.mass * calcItemTotalQty(node))}
+                                            </td>
+                                            <td className="p-1 text-center">
+                                                <button onClick={() => removeWasteLine(node.id, idx)} className="text-red-400 hover:text-red-600 p-1 touch-manipulation">
+                                                    <Trash2 size={11} />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
             </div>
         );
     };
@@ -3320,30 +3616,267 @@ export default function App() {
      * en porten) i són l'estimació que demana el RD 105/2008. Si el projecte no en porta cap,
      * val més dir-ho i explicar d'on surten que ensenyar una taula buida.
      */
-    const renderWasteTable = () => {
-        const { perLer, perTipus, partides, totals, ambDades, sense } = wasteSummary;
+    /**
+     * Petjada de carboni i cost energètic, per material i per partida.
+     *
+     * És l'energia **incorporada als materials**: ni transport, ni maquinària, ni la fase d'ús
+     * de l'edifici. Val més dir-ho a la mateixa pantalla que deixar que algú se n'endugui una
+     * xifra que no vol dir el que sembla.
+     */
+    const renderCarbonTable = () => {
+        const { perMaterial, partides, capitols, totals, ambDades, ambAportacio, senseAmidament, sense } = carbonSummary;
+
+        const buit = (titol, cos, peu) => (
+            <div className="p-6 md:p-12">
+                <div className="bg-white border border-slate-200 p-8 md:p-12 text-center max-w-2xl mx-auto">
+                    <Leaf size={44} className="mx-auto text-slate-200 mb-4" />
+                    <p className="text-sm font-bold text-slate-600 uppercase tracking-widest mb-3">{titol}</p>
+                    <div className="text-[11px] text-slate-500 leading-relaxed space-y-2">{cos}</div>
+                    {peu && <p className="text-[10px] text-slate-400 mt-4 italic">{peu}</p>}
+                </div>
+            </div>
+        );
 
         if (ambDades === 0) {
-            return (
-                <div className="p-6 md:p-12">
-                    <div className="bg-white border border-slate-200 p-8 md:p-12 text-center max-w-2xl mx-auto">
-                        <Recycle size={44} className="mx-auto text-slate-200 mb-4" />
-                        <p className="text-sm font-bold text-slate-600 uppercase tracking-widest mb-3">
-                            Cap partida no porta dades de residus
-                        </p>
-                        <p className="text-[11px] text-slate-500 leading-relaxed">
-                            L&apos;estimació surt dels registres <span className="font-mono">~R</span> i{' '}
-                            <span className="font-mono">~X</span> del fitxer BC3, que declaren quins components
-                            generen residu, amb quin codi LER i amb quina massa i volum. Els porten els fitxers
-                            del Generador de Preus de CYPE; les partides creades a mà, no.
-                        </p>
+            return buit(
+                'Cap material no porta dades de petjada',
+                <>
+                    <p>
+                        El cost energètic i les emissions surten de les propietats{' '}
+                        <span className="font-mono">ce</span> i <span className="font-mono">eCO2</span> del
+                        registre <span className="font-mono">~X</span> del BC3, que els declara per unitat de
+                        cada material del descomposat.
+                    </p>
+                    <p className="bg-amber-50 border border-amber-200 text-amber-800 p-2.5 text-left">
+                        Els porten les partides de <b>construcció</b> del Generador de Preus (enllaç
+                        <b> BC3 estàndard</b>). Les de <b>demolició</b> no en tenen: el que generen són
+                        residus, no energia incorporada.
+                    </p>
+                </>,
+                sense > 0 ? `${sense} ${sense === 1 ? 'partida al projecte' : 'partides al projecte'}, cap amb dades.` : null
+            );
+        }
+
+        if (ambAportacio === 0) {
+            return buit(
+                'Les partides amb dades tenen l\'amidament a zero',
+                <p>
+                    {ambDades === 1 ? 'Hi ha una partida' : `Hi ha ${ambDades} partides`} amb materials que
+                    declaren petjada, però {ambDades === 1 ? 'el seu amidament és' : 'els seus amidaments són'} zero.
+                    Les dades són correctes: el que falta és entrar l&apos;amidament.
+                </p>
+            );
+        }
+
+        const maxim = perMaterial[0]?.co2 || 1;
+
+        return (
+            <div className="p-0 md:p-6 space-y-0 md:space-y-6">
+                <div className="bg-slate-900 text-white p-4 md:p-5">
+                    <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
+                        <div>
+                            <div className="text-[9px] uppercase tracking-widest text-slate-400 mb-1">Emissions</div>
+                            <div className="text-2xl md:text-3xl font-black font-mono text-emerald-400">{formatCO2(totals.co2)}</div>
+                            <div className="text-[9px] text-slate-500 mt-0.5">CO₂ equivalent</div>
+                        </div>
+                        <div>
+                            <div className="text-[9px] uppercase tracking-widest text-slate-400 mb-1">Cost energètic</div>
+                            <div className="text-2xl md:text-3xl font-black font-mono text-amber-400">{formatEnergia(totals.energy)}</div>
+                            <div className="text-[9px] text-slate-500 mt-0.5">
+                                {formatNumber(totals.energy / 3.6, 0)} kWh
+                            </div>
+                        </div>
+                        <div className="ml-auto text-right">
+                            <div className="text-[9px] uppercase tracking-widest text-slate-400 mb-1">Amb dades</div>
+                            <div className="text-[11px] font-mono text-slate-300">{ambDades} de {ambDades + sense} partides</div>
+                        </div>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-4 pt-3 border-t border-white/10 leading-relaxed">
+                        Energia <b className="text-slate-300">incorporada als materials</b> del descomposat. No hi ha
+                        el transport a obra, ni la maquinària, ni la fase d&apos;ús de l&apos;edifici.
+                    </p>
+                </div>
+
+                <div className="bg-white border border-slate-200">
+                    <div className="bg-slate-800 p-3 text-white flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Leaf size={16} className="text-emerald-400" />
+                            <span className="text-xs font-bold uppercase tracking-widest">Per material</span>
+                        </div>
+                        <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded text-slate-300">{perMaterial.length} materials</span>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead className="bg-slate-50 border-b border-slate-200 text-[8px] md:text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                                <tr>
+                                    <th className="p-2 md:p-3 w-24 md:w-32 border-r border-slate-200">Codi</th>
+                                    <th className="p-2 md:p-3">Material</th>
+                                    <th className="p-2 md:p-3 w-24 md:w-32 text-right">Energia</th>
+                                    <th className="p-2 md:p-3 w-24 md:w-32 text-right bg-emerald-50/50">CO₂</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {perMaterial.map(m => (
+                                    <tr key={m.code} className="hover:bg-slate-50/70">
+                                        <td className="p-2 md:p-3 border-r border-slate-100 font-mono text-[10px] text-slate-500 truncate">{m.code}</td>
+                                        <td className="p-2 md:p-3">
+                                            <div className="text-[11px] text-slate-700 leading-tight line-clamp-2">{m.description}</div>
+                                            <div className="h-1 bg-slate-100 mt-1.5 max-w-[220px]">
+                                                <div className="h-full bg-emerald-500" style={{ width: `${Math.max(2, (m.co2 / maxim) * 100)}%` }} />
+                                            </div>
+                                        </td>
+                                        <td className="p-2 md:p-3 text-right font-mono text-[11px] text-amber-700 whitespace-nowrap">{formatEnergia(m.energy)}</td>
+                                        <td className="p-2 md:p-3 text-right font-mono text-[11px] text-emerald-800 bg-emerald-50/30 whitespace-nowrap">{formatCO2(m.co2)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                            <tfoot className="bg-slate-100 border-t-2 border-slate-300 font-bold">
+                                <tr>
+                                    <td className="p-2 md:p-3 text-[10px] uppercase tracking-widest text-slate-600" colSpan={2}>Total</td>
+                                    <td className="p-2 md:p-3 text-right font-mono text-[11px]">{formatEnergia(totals.energy)}</td>
+                                    <td className="p-2 md:p-3 text-right font-mono text-[11px]">{formatCO2(totals.co2)}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+
+                {capitols.length > 1 && (
+                    <div className="bg-white border border-slate-200">
+                        <div className="bg-slate-800 p-3 text-white flex items-center gap-2">
+                            <Layers size={16} className="text-blue-400" />
+                            <span className="text-xs font-bold uppercase tracking-widest">Per capítol</span>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <tbody className="divide-y divide-slate-100">
+                                    {capitols.map(c => (
+                                        <tr key={c.id} className="hover:bg-slate-50/70">
+                                            <td className="p-2 md:p-3 font-mono text-[10px] text-slate-500 w-24 md:w-32 border-r border-slate-100 truncate">{c.code}</td>
+                                            <td className="p-2 md:p-3 text-[11px] text-slate-700">{c.description}</td>
+                                            <td className="p-2 md:p-3 text-right font-mono text-[11px] text-amber-700 w-24 md:w-32 whitespace-nowrap">{formatEnergia(c.energy)}</td>
+                                            <td className="p-2 md:p-3 text-right font-mono text-[11px] text-emerald-800 bg-emerald-50/30 w-24 md:w-32 whitespace-nowrap">{formatCO2(c.co2)}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+
+                <div className="bg-white border border-slate-200">
+                    <div className="bg-slate-800 p-3 text-white flex items-center gap-2">
+                        <FileText size={16} className="text-blue-400" />
+                        <span className="text-xs font-bold uppercase tracking-widest">Per partida</span>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead className="bg-slate-50 border-b border-slate-200 text-[8px] md:text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                                <tr>
+                                    <th className="p-2 md:p-3 w-20 md:w-32 border-r border-slate-200">Codi</th>
+                                    <th className="p-2 md:p-3">Partida</th>
+                                    <th className="hidden md:table-cell p-3 w-28 text-right">Amidament</th>
+                                    <th className="p-2 md:p-3 w-24 md:w-32 text-right">Energia</th>
+                                    <th className="p-2 md:p-3 w-24 md:w-32 text-right bg-emerald-50/50">CO₂</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {partides.map(x => (
+                                    <tr key={x.id} className="hover:bg-slate-50/70">
+                                        <td className="p-2 md:p-3 border-r border-slate-100 font-mono text-[10px] text-slate-500 truncate">{x.code}</td>
+                                        <td className="p-2 md:p-3">
+                                            <div className="text-[11px] text-slate-700 leading-tight line-clamp-2">{x.description}</div>
+                                            {x.capitol && <div className="text-[9px] text-slate-400 uppercase truncate">{x.capitol}</div>}
+                                            <div className="md:hidden text-[9px] text-slate-400 font-mono mt-0.5">{formatNumber(x.quantity, 2)} {x.unit}</div>
+                                        </td>
+                                        <td className="hidden md:table-cell p-3 text-right font-mono text-[11px] text-slate-600">
+                                            {formatNumber(x.quantity, 2)} <span className="text-slate-400">{x.unit}</span>
+                                        </td>
+                                        <td className="p-2 md:p-3 text-right font-mono text-[11px] text-amber-700 whitespace-nowrap">{formatEnergia(x.energy)}</td>
+                                        <td className="p-2 md:p-3 text-right font-mono text-[11px] text-emerald-800 bg-emerald-50/30 whitespace-nowrap">{formatCO2(x.co2)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {(sense > 0 || senseAmidament.length > 0) && (
+                    <div className="text-[10px] text-slate-400 italic px-4 py-3 md:px-0 md:py-0 leading-relaxed space-y-1">
                         {sense > 0 && (
-                            <p className="text-[10px] text-slate-400 mt-4 italic">
-                                {sense} {sense === 1 ? 'partida al projecte' : 'partides al projecte'}, cap amb dades.
+                            <p>
+                                {sense} {sense === 1 ? 'partida no té' : 'partides no tenen'} cap material amb dades de
+                                petjada: no {sense === 1 ? 'compta' : 'compten'} al total. Les partides de demolició i les
+                                creades a mà no en tenen.
+                            </p>
+                        )}
+                        {senseAmidament.length > 0 && (
+                            <p>
+                                {senseAmidament.length === 1 ? 'Una partida té' : `${senseAmidament.length} partides tenen`} materials
+                                amb petjada i l&apos;amidament a zero ({senseAmidament.slice(0, 3).map(x => x.code).join(', ')}
+                                {senseAmidament.length > 3 ? '…' : ''}).
                             </p>
                         )}
                     </div>
+                )}
+            </div>
+        );
+    };
+
+    const renderWasteTable = () => {
+        const { perLer, perTipus, partides, totals, ambDades, ambAportacio, senseAmidament, sense } = wasteSummary;
+
+        // Un zero pot voler dir dues coses molt diferents —el fitxer no porta residus, o els
+        // porta però l'amidament és zero— i des de fora no es distingeixen. Per això cada cas
+        // té el seu missatge en comptes d'una taula buida.
+        const buit = (titol, cos, peu) => (
+            <div className="p-6 md:p-12">
+                <div className="bg-white border border-slate-200 p-8 md:p-12 text-center max-w-2xl mx-auto">
+                    <Recycle size={44} className="mx-auto text-slate-200 mb-4" />
+                    <p className="text-sm font-bold text-slate-600 uppercase tracking-widest mb-3">{titol}</p>
+                    <div className="text-[11px] text-slate-500 leading-relaxed space-y-2">{cos}</div>
+                    {peu && <p className="text-[10px] text-slate-400 mt-4 italic">{peu}</p>}
                 </div>
+            </div>
+        );
+
+        if (ambDades === 0) {
+            return buit(
+                'Cap partida no porta dades de residus',
+                <>
+                    <p>
+                        L&apos;estimació surt dels registres <span className="font-mono">~R</span> i{' '}
+                        <span className="font-mono">~X</span> del fitxer BC3, que declaren quins components
+                        generen residu, amb quin codi LER i amb quina massa i volum. Les partides creades a
+                        mà no en tenen.
+                    </p>
+                    <p className="bg-amber-50 border border-amber-200 text-amber-800 p-2.5 text-left">
+                        Del Generador de Preus de CYPE, només els porta l&apos;enllaç <b>BC3 estàndard</b>.
+                        El <b>BC3 d&apos;Arquímedes</b> no du ni residus ni amidament: és una entrada de banc
+                        de preus.
+                    </p>
+                </>,
+                sense > 0 ? `${sense} ${sense === 1 ? 'partida al projecte' : 'partides al projecte'}, cap amb dades.` : null
+            );
+        }
+
+        if (ambAportacio === 0) {
+            return buit(
+                'Les partides amb dades tenen l\'amidament a zero',
+                <>
+                    <p>
+                        {ambDades === 1 ? 'Hi ha una partida' : `Hi ha ${ambDades} partides`} amb dades de
+                        residus al fitxer, però {ambDades === 1 ? 'el seu amidament és' : 'els seus amidaments són'} zero,
+                        de manera que no {ambDades === 1 ? 'aporta' : 'aporten'} massa ni volum. Les dades del
+                        fitxer són correctes: el que falta és entrar l&apos;amidament.
+                    </p>
+                    <ul className="text-left bg-slate-50 border border-slate-200 p-2.5 font-mono text-[10px] space-y-1">
+                        {senseAmidament.slice(0, 8).map(x => (
+                            <li key={x.id} className="truncate">{x.code} · {x.description}</li>
+                        ))}
+                        {senseAmidament.length > 8 && <li className="italic">i {senseAmidament.length - 8} més…</li>}
+                    </ul>
+                </>
             );
         }
 
@@ -3481,12 +4014,26 @@ export default function App() {
                     </div>
                 </div>
 
-                {sense > 0 && (
-                    <p className="text-[10px] text-slate-400 italic px-4 py-3 md:px-0 md:py-0 leading-relaxed">
-                        Hi ha {sense} {sense === 1 ? 'partida' : 'partides'} sense dades de residus al fitxer d&apos;origen:
-                        no compten a l&apos;estimació. Les partides creades a mà i els BC3 que no porten els
-                        registres <span className="font-mono">~R</span> i <span className="font-mono">~X</span> no en tenen.
-                    </p>
+                {(sense > 0 || senseAmidament.length > 0) && (
+                    <div className="text-[10px] text-slate-400 italic px-4 py-3 md:px-0 md:py-0 leading-relaxed space-y-1">
+                        {sense > 0 && (
+                            <p>
+                                Hi ha {sense} {sense === 1 ? 'partida' : 'partides'} sense dades de residus al fitxer
+                                d&apos;origen: no compten a l&apos;estimació. Les partides creades a mà i els BC3 que no
+                                porten els registres <span className="font-mono">~R</span> i{' '}
+                                <span className="font-mono">~X</span> no en tenen.
+                            </p>
+                        )}
+                        {senseAmidament.length > 0 && (
+                            <p>
+                                {senseAmidament.length === 1 ? 'Una partida porta' : `${senseAmidament.length} partides porten`} dades
+                                de residus però {senseAmidament.length === 1 ? 'té' : 'tenen'} l&apos;amidament a zero
+                                ({senseAmidament.slice(0, 3).map(x => x.code).join(', ')}
+                                {senseAmidament.length > 3 ? '…' : ''}): no {senseAmidament.length === 1 ? 'aporta' : 'aporten'} res
+                                fins que no s&apos;hi entri.
+                            </p>
+                        )}
+                    </div>
                 )}
             </div>
         );
@@ -3694,6 +4241,18 @@ export default function App() {
             onPaste={handlePaste}
         >
             {/* 1. DRIVE SETTINGS MODAL */}
+            {picker && (
+                <PriceBankPicker
+                    priceDatabase={priceDatabase}
+                    titol={picker.titol}
+                    subtitol={picker.subtitol}
+                    filtre={picker.filtre}
+                    onPick={picker.onPick}
+                    onCrearNou={picker.onCrearNou}
+                    onClose={() => setPicker(null)}
+                />
+            )}
+
             {showWasteStudy && (
                 <WasteStudyModal
                     summary={wasteSummary}
@@ -3719,6 +4278,11 @@ export default function App() {
                 <ItemCreator
                     onClose={() => setShowCreator(false)}
                     onSave={handleSaveNewItem}
+                    onTriarDelBanc={(omple) => setPicker({
+                        titol: 'Crear una partida des del banc',
+                        subtitol: 'Se n\'omplen codi, descripció, unitat i preu',
+                        onPick: (c) => { omple(c); setPicker(null); },
+                    })}
                     parentId={selectedId}
                     parentCode={selectedId ? (
                         // Find code by ID - basic search for standard hierarchy
@@ -3731,8 +4295,14 @@ export default function App() {
                 <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-blue-600/10 backdrop-blur-sm pointer-events-none border-4 border-dashed border-blue-400 m-4">
                     <div className="bg-white p-12 border border-blue-200 flex flex-col items-center animate-in zoom-in duration-200">
                         <Upload size={48} className="text-blue-600 mb-4" />
-                        <h2 className="text-2xl font-bold text-slate-800 tracking-tight uppercase">Importació BC3</h2>
-                        <p className="text-slate-500 mt-2 text-center max-w-sm text-sm italic">Deixa anar per analitzar la jerarquia i descripcions.</p>
+                        <h2 className="text-2xl font-bold text-slate-800 tracking-tight uppercase">
+                            {activeTab === 'prices' ? 'Ampliar el banc de preus' : 'Importació BC3'}
+                        </h2>
+                        <p className="text-slate-500 mt-2 text-center max-w-sm text-sm italic">
+                            {activeTab === 'prices'
+                                ? 'Els conceptes del fitxer s\'afegiran al banc. El pressupost no es tocarà.'
+                                : 'Deixa anar per analitzar la jerarquia i descripcions.'}
+                        </p>
                     </div>
                 </div>
             )}
@@ -4172,6 +4742,12 @@ export default function App() {
                                 >
                                     Residus
                                 </button>
+                                <button
+                                    onClick={() => setActiveTab('petjada')}
+                                    className={`flex-1 md:flex-initial px-3 md:px-4 py-3.5 md:py-1.5 text-[10px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-widest transition-colors ${activeTab === 'petjada' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
+                                >
+                                    Petjada
+                                </button>
                             </div>
 
                             {/* Search */}
@@ -4300,6 +4876,7 @@ export default function App() {
                         {activeTab === 'prices' && renderPricesTable()}
                         {activeTab === 'recursos' && renderResourcesTable()}
                         {activeTab === 'residus' && renderWasteTable()}
+                        {activeTab === 'petjada' && renderCarbonTable()}
 
                         {budget.chapters.length === 0 && activeTab === 'editor' && (
                             <div className="p-24 text-center">

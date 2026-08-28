@@ -11,9 +11,14 @@ npm install
 npm run dev
 npm run build     # ha de passar sempre abans de donar una feina per acabada
 npm run lint      # cobreix .js i .jsx; l'arbre ha de quedar amb 0 errors
+npm test          # Vitest; 113 tests sobre els càlculs, el parser i l'escriptor
+npm run test:watch
 ```
 
-No hi ha tests. Si n'afegeixes, Vitest és l'opció natural amb Vite.
+Els tests van contra **fitxers BC3 de veritat** (`test/fixtures/` i el de referència de
+l'arrel), no contra maquetes, i les xifres que hi ha fixades es van contrastar a mà contra el
+fitxer. Si en toques cap, para't a pensar si el que has canviat és correcte abans de moure el
+número esperat.
 
 ## Idioma
 
@@ -83,6 +88,9 @@ del sector: *amidament*, *partida*, *capítol*, *descomposat*, *rendiment*, *cer
   `volumePerUnit`), no amb la massa ja multiplicada: guardant el producte es perden els
   components declarats amb quantitat zero i l'exportació no pot refer el `~X`. El càlcul viu a
   `utils/waste.js` i vol `resolvedChapters`. Veure `docs/residus.md`.
+- **`ce` i `eCO2` del `~X` van a `priceDatabase`, no al node**: són propietats del concepte,
+  com el preu. Els residus sí que van al node perquè la quantitat depèn de la relació amb la
+  partida. Veure `docs/petjada.md`.
 - **La importació des d'URL depèn d'un proxy CORS de tercers** (`utils/corsProxy.js`): CYPE no
   envia `Access-Control-Allow-Origin`. Se'n proven uns quants per ordre i es comprova que la
   resposta comenci per un registre `~`; amb `VITE_CORS_PROXY` se n'hi pot posar un de propi.
@@ -99,9 +107,10 @@ del sector: *amidament*, *partida*, *capítol*, *descomposat*, *rendiment*, *cer
 
 1. `npm run build` passa.
 2. `npm run lint` continua amb 0 errors.
-3. Si has tocat la interfície, prova-la a 390 px d'amplada amb emulació tàctil: la meitat
+3. `npm test` continua en verd.
+4. Si has tocat la interfície, prova-la a 390 px d'amplada amb emulació tàctil: la meitat
    dels defectes d'usabilitat trobats només es veien des del mòbil.
-4. Si has tocat càlculs, exportació o el parser: prova el cicle complet amb
+5. Si has tocat càlculs, exportació o el parser: `npm test` ja hi passa el cicle complet amb
    `REFORMA ESPORLES_MEDICIONES_AJUSTADO.bc3` (importar → veure PEM → exportar → reimportar).
    El PEM de referència d'aquest fitxer és **135.202,54 €** amb 24 capítols i 248 partides.
    El cicle ha de conservar el PEM, el nombre de capítols, el seu ordre i les quantitats, i ha
