@@ -636,10 +636,11 @@ ESLint ≥ 9, i amb un ESLint global més nou instal·lat `npm run lint` falla.
 - **`lastSaved`** es calcula i no es mostra: seria un indicador útil al capçal.
 - **`expandedSidebarSections`** no inclou la clau `unit` a l'estat inicial (`App.jsx:960`),
   així que la secció "Unitat" del sidebar arrenca plegada mentre les altres surten obertes.
-- **`node_modules/` i `dist/` estan versionats** (5.724 i 3 fitxers) tot i figurar al
-  `.gitignore`: es van afegir abans que les regles d'ignorar, i el `.gitignore` no desindexa
-  el que ja està seguit. Cada `npm install` embruta el `git status` amb centenars de fitxers.
-  Cal `git rm -r --cached node_modules dist` en un commit dedicat.
+- ~~**`node_modules/` i `dist/` estaven versionats**~~ ✅ Trets de l'índex (5.724 i 3 fitxers).
+  S'hi havien afegit abans que les regles d'ignorar, i el `.gitignore` no desindexa el que ja
+  està seguit: cada `npm install` embrutava el `git status` amb centenars de fitxers. El
+  desplegament ja construïa el `dist` ell mateix i instal·la del `package-lock.json`, o sigui
+  que cap dels dos feia falta. Els fitxers segueixen al disc; només han sortit del seguiment.
 - **Fitxers a l'arrel que no hi haurien de ser**: dues captures de pantalla `.jpg` i el BC3 de
   mostra. El BC3 val la pena conservar-lo com a *fixture* — moure'l a `test/fixtures/`.
 
@@ -651,12 +652,11 @@ Per ordre de relació valor/esforç:
 
 1. ~~Arreglar els punts 1–23.~~ ✅ Fet.
 2. ~~Activar el lint sobre `.jsx`.~~ ✅ Fet (queda la migració a flat config).
-3. **Vitest + tests de `calculations.js` i `bc3Parser.js`**, amb el BC3 de mostra com a
-   fixture. És ara la prioritat: les correccions 2, 3 i 8 es van validar amb scripts d'un sol
-   ús que no han quedat al repositori, i el cicle exportar → reimportar hauria de ser una
-   prova automàtica, no un ritual manual.
+3. ~~**Vitest + tests de `calculations.js` i `bc3Parser.js`**~~ ✅ Fet: 113 tests contra
+   fitxers BC3 de veritat, i el cicle exportar → reimportar ja és una prova automàtica i no un
+   ritual manual. Veure [`docs/tests.md`](tests.md).
 4. **Extreure els exportadors i el writer BC3** d'`App.jsx` (passes 2 i 3 del refactor).
 5. **Bloqueig real de fases aprovades** al hook `useCertification`.
 6. ~~Informe de certificació en PDF.~~ ✅ Fet.
 7. **Code-splitting** de jsPDF / SheetJS.
-8. **`git rm -r --cached node_modules dist`** en un commit dedicat.
+8. ~~**`git rm -r --cached node_modules dist`**~~ ✅ Fet.
