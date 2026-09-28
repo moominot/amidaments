@@ -2,7 +2,7 @@
 
 Inventari fet llegint el codi (agost 2026).
 
-**Estat: els trenta-un defectes estan corregits.** Es conserva la descripció de cadascun
+**Estat: els trenta-dos defectes estan corregits.** Es conserva la descripció de cadascun
 perquè expliquen decisions del codi actual i serveixen de referència si tornen a aparèixer.
 El deute tècnic de la segona meitat del document continua obert.
 
@@ -562,6 +562,26 @@ Del mateix arreglo n'han sortit dos més:
 - **El resum comptava els materials com si fossin partides.** `buildWasteSummary` baixava als
   fills d'una partida, que són els components del descomposat: sortia «9 de 15 partides» quan
   només n'hi havia una. `buildCarbonSummary` ja s'aturava; ara les dues fan igual.
+
+### 32. El PDF d'amidaments no es corresponia amb la vista prèvia ni amb `printConfig` ✅
+
+`flattenBudget` (`App.jsx:102`) construïa la fila d'una partida amb només 6 valors
+(`[codi, descripció, unitat, quantitat, preu, import]`) per a una taula de 10 columnes
+(Codi, Descripció, Ud, Long., Ampl., Alç., Parc., Quant., Preu, Import). autoTable els
+col·loca seqüencialment: la quantitat queia sota "Long.", el preu sota "Ampl." i l'import
+sota "Alç.", i les columnes "Quant.", "Preu" i "Import" quedaven buides. El PDF mostrava
+xifres, però no les que tocava ni a la columna que tocava.
+
+A més, `flattenBudget` ignorava `config.showMeasurements` i `config.showBreakdown`: mai
+generava les línies d'amidament ni la taula de descomposat, encara que `renderPrintNode`
+(la vista prèvia HTML) sí que les mostra quan aquestes opcions estan actives. I tampoc
+escrivia la fila de "Total Capítol/Subcapítol" que sí surt a la previsualització.
+
+Correcció: la fila de partida ara omple les columnes buides (`Long.`/`Ampl.`/`Alç.`/`Parc.`)
+igual que fa `renderPrintNode`, i `flattenBudget` genera també les línies d'amidament
+(tipus `measurement`), el descomposat (tipus `breakdown`, reaprofitant l'estil que ja
+existia per a `didParseCell` però que no s'arribava a fer servir mai) i la fila de total
+de capítol (`chapter-total`), que ja tenia estil definit però cap fila que el disparés.
 
 ---
 

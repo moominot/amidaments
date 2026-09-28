@@ -137,19 +137,75 @@ const flattenBudget = (nodes, level = 0, parentRef = '', counterObj = { val: 0 }
                 // Recursive children - New counter for next level
                 const children = [...(node.subChapters || []), ...(node.items || [])];
                 rows.push(...flattenBudget(children, level + 1, currentRef, { val: 0 }, config, priceDatabase));
+
+                // Chapter Footer Total (com a renderPrintNode)
+                rows.push({
+                    type: 'chapter-total',
+                    data: [
+                        { content: `Total ${level === 0 ? 'Capítol' : 'Subcapítol'} ${displayCode} ${node.description}`, colSpan: 9 },
+                        formatNumber(totalAmount, 2)
+                    ]
+                });
             } else {
-                // Item Row
+                // Item Row - les columnes han de coincidir amb la capçalera
+                // (Codi, Descripció, Ud, Long., Ampl., Alç., Parc., Quant., Preu, Import)
                 rows.push({
                     type: 'item',
                     data: [
                         displayCode,
                         node.description,
                         node.unit,
+                        '', '', '', '',
                         formatNumber(calcItemTotalQty(node), 2),
                         formatPrice(getItemUnitPrice(node, priceDatabase)),
                         formatNumber(totalAmount, 2)
                     ]
                 });
+
+                // Item Long Description
+                if (config.showLongDesc && node.fullDescription && node.fullDescription !== node.description) {
+                    rows.push({
+                        type: 'item-long-desc',
+                        data: [
+                            '',
+                            { content: node.fullDescription, colSpan: 9 }
+                        ]
+                    });
+                }
+
+                // Measurement Lines
+                if (config.showMeasurements && node.measurements && node.measurements.length > 0) {
+                    node.measurements.forEach((m) => {
+                        rows.push({
+                            type: 'measurement',
+                            data: [
+                                '',
+                                m.description || '',
+                                formatNumber(m.units, 0),
+                                m.length > 1 || (m.width === 1 && m.height === 1 && m.length !== 0) ? formatNumber(m.length, 2) : '',
+                                m.width > 1 ? formatNumber(m.width, 2) : '',
+                                m.height > 1 ? formatNumber(m.height, 2) : '',
+                                formatNumber(m.units * m.length * m.width * m.height, 2),
+                                '', '', ''
+                            ]
+                        });
+                    });
+                }
+
+                // Breakdown (descomposat)
+                if (config.showBreakdown && node.breakdown && node.breakdown.length > 0) {
+                    node.breakdown.forEach((b) => {
+                        rows.push({
+                            type: 'breakdown',
+                            data: [
+                                '',
+                                `${b.code}  ${b.description}  (rend. ${formatNumber(b.yield, 3)} x ${formatNumber(b.price, 2)} €)`,
+                                '', '', '', '', '', '', '',
+                                formatNumber(b.total, 2)
+                            ]
+                        });
+                    });
+                }
             }
         }
     });
@@ -1331,6 +1387,11 @@ export default function App() {
                             data.cell.styles.lineWidth = { top: 0.2 };
                             data.cell.styles.lineColor = [150, 150, 150];
                         }
+                    }
+                    if (rowObj.type === 'breakdown') {
+                        data.cell.styles.fontSize = 7.5;
+                        data.cell.styles.textColor = [90, 90, 90];
+                        data.cell.styles.cellPadding = { top: 0.5, bottom: 0.5, left: 4, right: 1.5 };
                     }
                 }
             });

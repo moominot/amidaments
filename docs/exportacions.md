@@ -39,9 +39,13 @@ projecte, data i número de pàgina.
 
 Amb `chaptersOnNewPage` es genera una taula independent per capítol, cadascuna en una pàgina.
 
-> **Bug obert.** La crida a `flattenBudget` (`App.jsx:1100`) passa vuit arguments a una
-> funció que n'accepta sis, i `priceDatabase` acaba en la posició equivocada. Veure
-> `docs/estat-actual.md` § 1.
+Les files de partida omplen les 10 columnes de la capçalera en les posicions exactes
+(`Long.`/`Ampl.`/`Alç.`/`Parc.` en blanc per a la fila resum, `Quant.`/`Preu`/`Import` amb
+els totals), i `flattenBudget` també genera línies d'amidament (`showMeasurements`),
+descomposat (`showBreakdown`) i el total de cada capítol, igual que `renderPrintNode` a la
+previsualització. Veure `docs/estat-actual.md` § 32 (defecte ja corregit: les partides
+sortien amb les columnes desplaçades i les opcions `showMeasurements`/`showBreakdown` no
+tenien cap efecte al PDF).
 
 ## PDF de resum — `handleExportSummaryPDF` (`App.jsx:1231`)
 
