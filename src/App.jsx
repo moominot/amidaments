@@ -1178,7 +1178,14 @@ export default function App() {
      * biblioteca). Hi aplica les migracions d'esquema pendents i avisa si ha convertit
      * dades, perquè el canvi no passi desapercebut.
      */
+    // Fitxer de projecte obert o desat amb la File System Access API (Chromium). Si n'hi ha,
+    // «Desar» escriu sobre l'original en lloc de baixar-ne una còpia nova cada vegada.
+    const fitxerHandleRef = React.useRef(null);
+
     const adoptaProjecte = useCallback((entrant) => {
+        // Qualsevol projecte que entra és un altre fitxer: no s'hi ha de poder desar a sobre
+        // del que s'havia obert abans. Qui té un handle nou el torna a posar després.
+        fitxerHandleRef.current = null;
         const { budget: migrat, migrat: haCanviat } = migrateBudget(entrant);
         setBudget(migrat);
         if (haCanviat) {
@@ -2186,7 +2193,7 @@ export default function App() {
     // --- Project Management Handlers ---
     const fileInputRef = React.useRef(null);
 
-    const handleDownloadProject = () => {
+    const baixaProjecte = () => {
         const blob = new Blob([serialitzaProjecte(budget, priceDatabase)], { type: MIME_PROJECTE });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -2199,7 +2206,42 @@ export default function App() {
         notify("Projecte desat correctament");
     };
 
-    const handleOpenProject = () => {
+    const handleDownloadProject = async ({ com = false } = {}) => {
+        if (!('showSaveFilePicker' in window)) { baixaProjecte(); return; }
+        try {
+            let handle = com ? null : fitxerHandleRef.current;
+            if (!handle) {
+                handle = await window.showSaveFilePicker({
+                    suggestedName: `${safeFileName(budget.name, 'projecte')}${EXTENSIO_PROJECTE}`,
+                    types: [{ description: 'Projecte d\'amidaments', accept: { [MIME_PROJECTE]: [EXTENSIO_PROJECTE] } }],
+                });
+            }
+            const writable = await handle.createWritable();
+            await writable.write(serialitzaProjecte(budget, priceDatabase));
+            await writable.close();
+            fitxerHandleRef.current = handle;
+            notify(`Projecte desat a "${handle.name}"`);
+        } catch (err) {
+            if (err?.name === 'AbortError') return; // l'usuari ha tancat el selector
+            console.error('Error desant el projecte:', err);
+            // Sense permís d'escriptura (o fitxer mogut): no es perd la feina, es baixa.
+            fitxerHandleRef.current = null;
+            baixaProjecte();
+        }
+    };
+
+    const handleOpenProject = async () => {
+        if ('showOpenFilePicker' in window) {
+            try {
+                const [handle] = await window.showOpenFilePicker({
+                    types: [{ description: 'Projecte o BC3', accept: { '*/*': ['.amid', '.json', '.bc3'] } }],
+                });
+                await obreFitxer(await handle.getFile(), { handle });
+            } catch (err) {
+                if (err?.name !== 'AbortError') console.error('Error obrint el fitxer:', err);
+            }
+            return;
+        }
         fileInputRef.current?.click();
     };
 
@@ -2208,7 +2250,7 @@ export default function App() {
      * compartir del sistema. Els tres camins feien la seva pròpia comprovació —i la de la File
      * Handling API mirava un camp que no s'escrivia enlloc— així que ara passen tots per aquí.
      */
-    const obreFitxer = useCallback(async (file, { replace = true, nomesPreus = false } = {}) => {
+    const obreFitxer = useCallback(async (file, { replace = true, nomesPreus = false, handle = null } = {}) => {
         if (!file) return;
 
         // Deixar anar un fitxer sobre el banc de preus no ha de tocar el pressupost: el que
@@ -2233,6 +2275,7 @@ export default function App() {
             }
             adoptaProjecte(projecte.budget);
             setPriceDatabase(projecte.priceDatabase);
+            fitxerHandleRef.current = handle;
             notify('Projecte carregat correctament');
             return;
         }
@@ -2241,6 +2284,7 @@ export default function App() {
             // El BC3 és Windows-1252, no UTF-8: llegir-lo com a text el destrossaria.
             const text = new TextDecoder('windows-1252').decode(await file.arrayBuffer());
             const result = processBC3Data(text);
+            if (replace) fitxerHandleRef.current = null;
             if (result) startImportProcess(result, { replace });
             else notify('Format BC3 no reconegut', 'error');
             return;
@@ -2288,6 +2332,7 @@ export default function App() {
                 return;
             }
         }
+        fitxerHandleRef.current = null;
         setBudget({ id: crypto.randomUUID(), name: 'Nou Projecte', chapters: [], certifications: [] });
         setPriceDatabase({});
         setSelectedId(null);
@@ -2618,7 +2663,7 @@ export default function App() {
         if ('launchQueue' in window) {
             window.launchQueue.setConsumer(async (launchParams) => {
                 for (const handle of launchParams.files || []) {
-                    await obreFitxer(await handle.getFile());
+                    await obreFitxer(await handle.getFile(), { handle });
                 }
             });
         }
@@ -4560,6 +4605,15 @@ export default function App() {
                                         <FileDown size={12} className="text-emerald-400" />
                                         Desar projecte (Disc)
                                     </button>
+                                    {'showSaveFilePicker' in window && (
+                                        <button
+                                            onClick={() => { handleDownloadProject({ com: true }); setShowSaveDropdown(false); }}
+                                            className="w-full text-left px-4 py-2 text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-colors flex items-center gap-2 italic"
+                                        >
+                                            <FileDown size={12} className="text-slate-400" />
+                                            Desar com a… (Disc)
+                                        </button>
+                                    )}
                                     <button
                                         onClick={() => { requireDrive(() => drive.saveToDrive(budget, priceDatabase)); setShowSaveDropdown(false); }}
                                         className="w-full text-left px-4 py-2 text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-colors flex items-center gap-2"
