@@ -84,6 +84,7 @@ import { generateBC3, nomFitxerCertificacio } from './utils/bc3Writer';
 import { numberToTextCatalan } from './utils/numberToText';
 import { exportCertificationPDF } from './utils/certificationPdf';
 import { safeFileName } from './utils/fileName';
+import { pdfDateText } from './utils/pdfDate';
 import { descarregaBC3 } from './utils/corsProxy';
 import { buildWasteSummary, formatMassa, nomTipus, catalegResidus, magnitudsDe, TIPUS_RESIDU } from './utils/waste';
 import { buildCarbonSummary, formatEnergia, formatCO2 } from './utils/carbon';
@@ -214,7 +215,7 @@ const flattenBudget = (nodes, level = 0, parentRef = '', counterObj = { val: 0 }
 
 // --- Component de Vista d'Impressió ---
 const PrintView = ({ budget, priceDatabase, budgetTotal, config, onOpenConfig, onClose, onExportPDF, onExportSummaryPDF, handleExportXLSX }) => {
-    const [date] = useState(new Date().toLocaleDateString('ca-ES'));
+    const date = pdfDateText(config);
     const [viewMode, setViewMode] = useState('amidaments'); // 'amidaments' | 'resum'
 
 
@@ -427,6 +428,7 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, onOpenConfig, o
                     <div className="mb-10 text-left border-b-2 border-black pb-4">
                         <h1 className="text-2xl font-bold uppercase tracking-tighter">Pressupost i Amidaments</h1>
                         <p className="text-sm font-bold mt-2 uppercase">{budget.name}</p>
+                        {budget.address && <p className="text-xs text-slate-600 mt-1">{budget.address}</p>}
                     </div>
 
                     {viewMode === 'amidaments' ? (
@@ -685,6 +687,21 @@ const PrintConfigModal = ({ config, setConfig, onClose }) => {
                 </div>
 
                 <div className="p-6 space-y-8 max-h-[80vh] overflow-auto">
+                    <div className="flex items-center justify-between gap-3">
+                        <label className="text-xs text-slate-600">Data als PDF <span className="text-slate-400">(buida = avui)</span></label>
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="date"
+                                value={config.date || ''}
+                                onChange={e => setConfig({ ...config, date: e.target.value })}
+                                className="border border-slate-300 rounded p-1 text-xs font-mono"
+                            />
+                            {config.date && (
+                                <button onClick={() => setConfig({ ...config, date: '' })} className="text-[10px] text-slate-400 hover:text-red-500 font-bold uppercase">Avui</button>
+                            )}
+                        </div>
+                    </div>
+
                     {/* Measurement View Settings */}
                     <div className="space-y-4">
                         <p className="text-[11px] text-blue-600 uppercase font-bold tracking-wider border-b border-blue-100 pb-2">Vista d'Amidaments (Detall)</p>
@@ -987,6 +1004,7 @@ export default function App() {
         useCorrelativeCodes: true,
         chaptersOnNewPage: true,
         certItemDetail: true,
+        date: '',
         ge: { enabled: false, percentage: 13 },
         ip: { enabled: false, percentage: 6 },
         iva: { enabled: false, percentage: 21 }
@@ -1281,7 +1299,7 @@ export default function App() {
             budget,
             summary: wasteSummary,
             study: buildWasteStudy(wasteSummary, tarifes),
-            dades,
+            dades: { ...dades, emplacament: dades.emplacament || budget.address || "" },
         });
         setShowWasteStudy(false);
         notify('Estudi de gestió de residus generat');
@@ -1290,7 +1308,7 @@ export default function App() {
     const handleExportPDF = useCallback((config) => {
         const doc = new jsPDF('p', 'mm', 'a4');
         const counter = { val: 0 };
-        const date = new Date().toLocaleDateString('ca-ES');
+        const date = pdfDateText(config);
 
         const generateTableForNodes = (nodes, isFirst, currentCounter) => {
             const rows = flattenBudget(nodes, 0, '', currentCounter, config, priceDatabase);
@@ -1336,6 +1354,11 @@ export default function App() {
                     doc.setFontSize(10);
                     doc.setFont('helvetica', 'bold');
                     doc.text(budget.name.toUpperCase(), 14, (pageNum === 1 ? 20 : 15));
+                    if (budget.address) {
+                        doc.setFontSize(8);
+                        doc.setFont('helvetica', 'normal');
+                        doc.text(budget.address, 196, (pageNum === 1 ? 20 : 15), { align: 'right' });
+                    }
                     doc.setLineWidth(0.5);
                     doc.line(14, (pageNum === 1 ? 22 : 17), 196, (pageNum === 1 ? 22 : 17));
                     const str = `Pàgina ${pageNum}`;
@@ -1432,7 +1455,7 @@ export default function App() {
     const handleExportSummaryPDF = useCallback((config) => {
         const doc = new jsPDF('p', 'mm', 'a4');
         const PEMValue = budgetTotal;
-        const date = new Date().toLocaleDateString('ca-ES');
+        const date = pdfDateText(config);
 
         const GE = config.ge.enabled ? PEMValue * (config.ge.percentage / 100) : 0;
         const IP = config.ip.enabled ? PEMValue * (config.ip.percentage / 100) : 0;
@@ -1472,6 +1495,11 @@ export default function App() {
                     doc.text('RESUM DE PRESSUPOST', 14, 20);
                     doc.setFontSize(10);
                     doc.text(budget.name.toUpperCase(), 14, 28);
+                    if (budget.address) {
+                        doc.setFontSize(8);
+                        doc.setFont('helvetica', 'normal');
+                        doc.text(budget.address, 196, 28, { align: 'right' });
+                    }
                     doc.setLineWidth(0.5);
                     doc.line(14, 32, 196, 32);
                 }
@@ -4883,6 +4911,12 @@ export default function App() {
                                             value={budget.name}
                                             onChange={(e) => setBudget(prev => ({ ...prev, name: e.target.value }))}
                                             placeholder="Nom del Projecte"
+                                        />
+                                        <input
+                                            className="text-[11px] text-slate-500 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 focus:outline-none transition-colors px-1 -ml-1 w-full truncate"
+                                            value={budget.address || ''}
+                                            onChange={(e) => setBudget(prev => ({ ...prev, address: e.target.value }))}
+                                            placeholder="Adreça del projecte"
                                         />
                                     </div>
                                 </div>

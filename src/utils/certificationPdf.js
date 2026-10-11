@@ -4,6 +4,7 @@ import autoTable from 'jspdf-autotable';
 import { formatNumber } from './calculations';
 import { numberToTextCatalan } from './numberToText';
 import { safeFileName } from './fileName';
+import { pdfDate } from './pdfDate';
 
 /**
  * Certificació d'obra en PDF.
@@ -44,6 +45,12 @@ const drawHeader = (doc, { budget, cert, certIndex, dateStr }) => {
         doc.text(`Data: ${dateStr}`, RIGHT, 31, { align: 'right' });
     }
 
+    if (budget.address) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.text(budget.address, RIGHT, page === 1 ? 25 : 19, { align: 'right' });
+    }
+
     doc.setLineWidth(0.5);
     doc.line(MARGIN, page === 1 ? 34 : 22, RIGHT, page === 1 ? 34 : 22);
 
@@ -79,7 +86,7 @@ export const buildCertificationPdf = ({
     // La data del document és la de la certificació, no la del dia que s'imprimeix:
     // una certificació de març signada al juny segueix essent de març.
     const dataCert = cert?.date ? new Date(`${String(cert.date).substring(0, 10)}T12:00:00`) : null;
-    const dataDoc = dataCert && !Number.isNaN(dataCert.getTime()) ? dataCert : date;
+    const dataDoc = config.date ? pdfDate(config) : (dataCert && !Number.isNaN(dataCert.getTime()) ? dataCert : date);
     const dateStr = dataDoc.toLocaleDateString('ca-ES');
     const { totals } = summary;
     const ge = config.ge || { enabled: false, percentage: 0 };
