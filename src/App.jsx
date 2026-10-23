@@ -101,6 +101,9 @@ import { toWindows1252Bytes } from './utils/googleDrive';
 const formatPrice = (val) => formatNumber(val, 2);
 
 const flattenBudget = (nodes, level = 0, parentRef = '', counterObj = { val: 0 }, config, priceDatabase) => {
+    // Sense preus, la taula perd les columnes Preu i Import: 8 columnes en comptes de 10
+    const prices = config.showPrices !== false;
+    const cols = prices ? 10 : 8;
     let rows = [];
     nodes.forEach((node) => {
         const isChapter = !node.unit;
@@ -117,11 +120,9 @@ const flattenBudget = (nodes, level = 0, parentRef = '', counterObj = { val: 0 }
                 rows.push({
                     type: 'chapter',
                     level: level,
-                    data: [
-                        displayCode,
-                        { content: node.description.toUpperCase(), colSpan: 8 },
-                        formatNumber(totalAmount, 2)
-                    ]
+                    data: prices
+                        ? [displayCode, { content: node.description.toUpperCase(), colSpan: 8 }, formatNumber(totalAmount, 2)]
+                        : [displayCode, { content: node.description.toUpperCase(), colSpan: 7 }]
                 });
 
                 // Chapter Long Description
@@ -130,7 +131,7 @@ const flattenBudget = (nodes, level = 0, parentRef = '', counterObj = { val: 0 }
                         type: 'item-long-desc',
                         data: [
                             '',
-                            { content: node.fullDescription, colSpan: 9 }
+                            { content: node.fullDescription, colSpan: cols - 1 }
                         ]
                     });
                 }
@@ -140,7 +141,7 @@ const flattenBudget = (nodes, level = 0, parentRef = '', counterObj = { val: 0 }
                 rows.push(...flattenBudget(children, level + 1, currentRef, { val: 0 }, config, priceDatabase));
 
                 // Chapter Footer Total (com a renderPrintNode)
-                rows.push({
+                if (prices) rows.push({
                     type: 'chapter-total',
                     data: [
                         { content: `Total ${level === 0 ? 'Capítol' : 'Subcapítol'} ${displayCode} ${node.description}`, colSpan: 9 },
@@ -158,8 +159,7 @@ const flattenBudget = (nodes, level = 0, parentRef = '', counterObj = { val: 0 }
                         node.unit,
                         '', '', '', '',
                         formatNumber(calcItemTotalQty(node), 2),
-                        formatPrice(getItemUnitPrice(node, priceDatabase)),
-                        formatNumber(totalAmount, 2)
+                        ...(prices ? [formatPrice(getItemUnitPrice(node, priceDatabase)), formatNumber(totalAmount, 2)] : [])
                     ]
                 });
 
@@ -169,7 +169,7 @@ const flattenBudget = (nodes, level = 0, parentRef = '', counterObj = { val: 0 }
                         type: 'item-long-desc',
                         data: [
                             '',
-                            { content: node.fullDescription, colSpan: 9 }
+                            { content: node.fullDescription, colSpan: cols - 1 }
                         ]
                     });
                 }
@@ -187,14 +187,14 @@ const flattenBudget = (nodes, level = 0, parentRef = '', counterObj = { val: 0 }
                                 m.width > 1 ? formatNumber(m.width, 2) : '',
                                 m.height > 1 ? formatNumber(m.height, 2) : '',
                                 formatNumber(m.units * m.length * m.width * m.height, 2),
-                                '', '', ''
+                                ...Array(cols - 7).fill('')
                             ]
                         });
                     });
                 }
 
-                // Breakdown (descomposat)
-                if (config.showBreakdown && node.breakdown && node.breakdown.length > 0) {
+                // Breakdown (descomposat): és tot preus, sense preus no surt
+                if (prices && config.showBreakdown && node.breakdown && node.breakdown.length > 0) {
                     node.breakdown.forEach((b) => {
                         rows.push({
                             type: 'breakdown',
@@ -214,9 +214,12 @@ const flattenBudget = (nodes, level = 0, parentRef = '', counterObj = { val: 0 }
 };
 
 // --- Component de Vista d'Impressió ---
-const PrintView = ({ budget, priceDatabase, budgetTotal, config, onOpenConfig, onClose, onExportPDF, onExportSummaryPDF, handleExportXLSX }) => {
+const PrintView = ({ budget, priceDatabase, budgetTotal, config, setConfig, onOpenConfig, onClose, onExportPDF, onExportSummaryPDF, handleExportXLSX }) => {
     const date = pdfDateText(config);
     const [viewMode, setViewMode] = useState('amidaments'); // 'amidaments' | 'resum'
+    // Sense preus la taula d'amidaments perd Preu i Import: 8 columnes en comptes de 10
+    const prices = config.showPrices !== false;
+    const cols = prices ? 10 : 8;
 
 
     const renderPrintNode = (node, level = 0, parentRef = '', counterObj = { val: 0 }) => {
@@ -242,7 +245,7 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, onOpenConfig, o
                     <>
                         {isChapter ? (
                             <tr className={`border-b-2 border-black/20 break-inside-avoid align-bottom ${level === 0 && config.chaptersOnNewPage ? 'break-before-page' : ''}`}>
-                                <td className="p-1 px-2 font-bold text-[11px] uppercase" colSpan={9}>
+                                <td className="p-1 px-2 font-bold text-[11px] uppercase" colSpan={prices ? 9 : cols}>
                                     <div className="flex flex-col gap-1">
                                         <span>{level === 0 ? 'CAPÍTOL ' : 'SUBCAPÍTOL '} {displayCode} {node.description}</span>
                                         {config.showLongDesc && node.fullDescription && node.fullDescription !== node.description && (
@@ -252,16 +255,18 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, onOpenConfig, o
                                         )}
                                     </div>
                                 </td>
-                                <td className="p-1 text-right font-bold text-[11px] font-mono">
-                                    {formatNumber(totalAmount, 2)}
-                                </td>
+                                {prices && (
+                                    <td className="p-1 text-right font-bold text-[11px] font-mono">
+                                        {formatNumber(totalAmount, 2)}
+                                    </td>
+                                )}
                             </tr>
                         ) : (
                             <>
                                 {/* Item Main Row */}
                                 <tr className="text-[10px] break-inside-avoid-page align-top">
                                     <td className="p-1 px-2 font-mono whitespace-nowrap">{displayCode}</td>
-                                    <td className="p-1 px-2 leading-tight" colSpan={9}>
+                                    <td className="p-1 px-2 leading-tight" colSpan={cols - 1}>
                                         <div className="font-bold flex gap-2">
                                             <span className="min-w-[20px]">{node.unit}</span>
                                             <span>{node.description}</span>
@@ -286,7 +291,7 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, onOpenConfig, o
                                                 <td className="p-0.5 text-right font-mono">{m.width > 1 ? formatNumber(m.width, 2) : ''}</td>
                                                 <td className="p-0.5 text-right font-mono">{m.height > 1 ? formatNumber(m.height, 2) : ''}</td>
                                                 <td className="p-0.5 text-right font-mono">{formatNumber(m.units * m.length * m.width * m.height, 2)}</td>
-                                                <td className="p-0.5" colSpan={3}></td>
+                                                <td className="p-0.5" colSpan={cols - 7}></td>
                                             </tr>
                                         ))}
                                     </>
@@ -296,21 +301,21 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, onOpenConfig, o
                                 <tr className="text-[10px] align-bottom">
                                     <td colSpan={7}></td>
                                     <td className="border-t border-black/40"></td>
-                                    <td className="border-t border-black/40"></td>
-                                    <td className="border-t border-black/40"></td>
+                                    {prices && <td className="border-t border-black/40"></td>}
+                                    {prices && <td className="border-t border-black/40"></td>}
                                 </tr>
                                 <tr className="text-[10px] font-bold align-bottom">
                                     <td colSpan={7}></td>
                                     <td className="p-1 text-right font-mono font-bold">{formatNumber(totalQty, 2)}</td>
-                                    <td className="p-1 text-right font-mono">{formatNumber(unitPrice, 2)}</td>
-                                    <td className="p-1 text-right font-mono">{formatNumber(totalAmount, 2)}</td>
+                                    {prices && <td className="p-1 text-right font-mono">{formatNumber(unitPrice, 2)}</td>}
+                                    {prices && <td className="p-1 text-right font-mono">{formatNumber(totalAmount, 2)}</td>}
                                 </tr>
                                 <tr className="h-1">
-                                    <td colSpan={10}></td>
+                                    <td colSpan={cols}></td>
                                 </tr>
 
-                                {/* Breakdown (if expanded) */}
-                                {config.showBreakdown && node.breakdown && node.breakdown.length > 0 && (
+                                {/* Breakdown (if expanded): és tot preus, sense preus no surt */}
+                                {prices && config.showBreakdown && node.breakdown && node.breakdown.length > 0 && (
                                     <tr>
                                         <td></td>
                                         <td colSpan={9} className="p-2 pt-0">
@@ -355,7 +360,7 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, onOpenConfig, o
                 ))}
 
                 {/* Chapter Footer Total */}
-                {isChapter && shouldShowHeader && (
+                {prices && isChapter && shouldShowHeader && (
                     <tr className="text-[10px] font-bold break-inside-avoid">
                         <td colSpan={9} className="p-1 pt-4 text-right pr-4 uppercase italic">
                             <div className="flex items-end gap-2">
@@ -398,6 +403,16 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, onOpenConfig, o
                         </button>
                     </div>
 
+                    {viewMode === 'amidaments' && (
+                        <button
+                            onClick={() => setConfig({ ...config, showPrices: !prices })}
+                            aria-pressed={!prices}
+                            className={`px-4 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all ${!prices ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+                        >
+                            Sense preus
+                        </button>
+                    )}
+
                     <div className="h-4 w-[1px] bg-slate-700 mx-2"></div>
 
                     <button
@@ -426,7 +441,7 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, onOpenConfig, o
             <div className="flex-1 bg-gray-100 p-8 print:p-0 print:bg-white print:overflow-visible overflow-auto print:block">
                 <div className="max-w-[21cm] mx-auto p-[2cm] print:p-0 print:max-w-none print:mx-0 shadow-2xl print:shadow-none bg-white min-h-[29.7cm]">
                     <div className="mb-10 text-left border-b-2 border-black pb-4">
-                        <h1 className="text-2xl font-bold uppercase tracking-tighter">Pressupost i Amidaments</h1>
+                        <h1 className="text-2xl font-bold uppercase tracking-tighter">{viewMode === 'amidaments' && !prices ? 'Amidaments' : 'Pressupost i Amidaments'}</h1>
                         <p className="text-sm font-bold mt-2 uppercase">{budget.name}</p>
                         {budget.address && <p className="text-xs text-slate-600 mt-1">{budget.address}</p>}
                     </div>
@@ -443,8 +458,8 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, onOpenConfig, o
                                     <th className="p-1 text-right w-14">Alçada</th>
                                     <th className="p-1 text-right w-16">Parcials</th>
                                     <th className="p-1 text-right w-16">Quantitat</th>
-                                    <th className="p-1 text-right w-16">Preu</th>
-                                    <th className="p-1 text-right w-28">Import</th>
+                                    {prices && <th className="p-1 text-right w-16">Preu</th>}
+                                    {prices && <th className="p-1 text-right w-28">Import</th>}
                                 </tr>
                             </thead>
                             <tbody>
@@ -453,12 +468,14 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, onOpenConfig, o
                                     return (budget.chapters || []).map(node => renderPrintNode(node, 0, '', counter));
                                 })()}
                             </tbody>
-                            <tfoot className="border-t-2 border-black mt-8">
-                                <tr className="text-sm font-bold bg-gray-100">
-                                    <td colSpan={9} className="p-4 text-right uppercase tracking-widest leading-none">Total Pressupost d'Execució Material</td>
-                                    <td className="p-4 text-right font-mono text-lg underline underline-offset-4 decoration-double whitespace-nowrap">{formatCurrency(budgetTotal)}</td>
-                                </tr>
-                            </tfoot>
+                            {prices && (
+                                <tfoot className="border-t-2 border-black mt-8">
+                                    <tr className="text-sm font-bold bg-gray-100">
+                                        <td colSpan={9} className="p-4 text-right uppercase tracking-widest leading-none">Total Pressupost d'Execució Material</td>
+                                        <td className="p-4 text-right font-mono text-lg underline underline-offset-4 decoration-double whitespace-nowrap">{formatCurrency(budgetTotal)}</td>
+                                    </tr>
+                                </tfoot>
+                            )}
                         </table>
                     ) : (
                         <div className="space-y-8">
@@ -726,6 +743,10 @@ const PrintConfigModal = ({ config, setConfig, onClose }) => {
                             <label className="flex items-center gap-2 cursor-pointer">
                                 <input type="checkbox" checked={config.showBreakdown} onChange={e => setConfig({ ...config, showBreakdown: e.target.checked })} />
                                 <span className="text-xs text-slate-600">Mostrar Descomposts</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" checked={config.showPrices !== false} onChange={e => setConfig({ ...config, showPrices: e.target.checked })} />
+                                <span className="text-xs text-slate-600">Mostrar Preus i Imports</span>
                             </label>
                             <label className="flex items-center gap-2 cursor-pointer">
                                 <input type="checkbox" checked={config.useCorrelativeCodes} onChange={e => setConfig({ ...config, useCorrelativeCodes: e.target.checked })} />
@@ -1001,6 +1022,7 @@ export default function App() {
         showLongDesc: true,
         showBreakdown: false,
         showMeasurements: true,
+        showPrices: true,
         useCorrelativeCodes: true,
         chaptersOnNewPage: true,
         certItemDetail: true,
@@ -1316,6 +1338,7 @@ export default function App() {
         const doc = new jsPDF('p', 'mm', 'a4');
         const counter = { val: 0 };
         const date = pdfDateText(config);
+        const prices = config.showPrices !== false;
 
         const generateTableForNodes = (nodes, isFirst, currentCounter) => {
             const rows = flattenBudget(nodes, 0, '', currentCounter, config, priceDatabase);
@@ -1330,8 +1353,10 @@ export default function App() {
                     { content: 'Alç.', styles: { halign: 'right' } },
                     { content: 'Parc.', styles: { halign: 'right' } },
                     { content: 'Quant.', styles: { halign: 'right' } },
-                    { content: 'Preu', styles: { halign: 'right' } },
-                    { content: 'Import', styles: { halign: 'right' } }
+                    ...(prices ? [
+                        { content: 'Preu', styles: { halign: 'right' } },
+                        { content: 'Import', styles: { halign: 'right' } }
+                    ] : [])
                 ]],
                 body: rows.map(r => r.data),
                 startY: (isFirst ? 30 : 25),
@@ -1356,7 +1381,7 @@ export default function App() {
                     if (pageNum === 1) {
                         doc.setFontSize(16);
                         doc.setFont('helvetica', 'bold');
-                        doc.text('PRESSUPOST I AMIDAMENTS', 14, 15);
+                        doc.text(prices ? 'PRESSUPOST I AMIDAMENTS' : 'AMIDAMENTS', 14, 15);
                     }
                     doc.setFontSize(10);
                     doc.setFont('helvetica', 'bold');
@@ -1442,21 +1467,24 @@ export default function App() {
             finalY = 30;
         }
 
-        doc.setFontSize(11);
-        doc.setFont('helvetica', 'bold');
-        doc.setFillColor(245, 245, 245);
-        doc.rect(14, finalY - 7, 182, 14, 'F');
-        doc.text("TOTAL PRESSUPOST D'EXECUCIÓ MATERIAL", 150, finalY + 2, { align: 'right' });
-        doc.setFontSize(13);
-        doc.text(formatCurrency(budgetTotal), 196, finalY + 2, { align: 'right' });
+        if (prices) {
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'bold');
+            doc.setFillColor(245, 245, 245);
+            doc.rect(14, finalY - 7, 182, 14, 'F');
+            doc.text("TOTAL PRESSUPOST D'EXECUCIÓ MATERIAL", 150, finalY + 2, { align: 'right' });
+            doc.setFontSize(13);
+            doc.text(formatCurrency(budgetTotal), 196, finalY + 2, { align: 'right' });
+            finalY += 15;
+        }
 
-        finalY += 15;
         if (finalY > 270) { doc.addPage(); finalY = 50; }
+        doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
         doc.text('LA PROPIETAT', 55, finalY, { align: 'center' });
         doc.text('LA DIRECCIÓ FACULTATIVA', 155, finalY, { align: 'center' });
 
-        doc.save(`Amidaments_${safeFileName(budget.name, 'projecte')}.pdf`);
+        doc.save(`Amidaments_${prices ? '' : 'sense_preus_'}${safeFileName(budget.name, 'projecte')}.pdf`);
     }, [budget, resolvedChapters, priceDatabase, budgetTotal]);
 
     const handleExportSummaryPDF = useCallback((config) => {
