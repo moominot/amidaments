@@ -4,24 +4,35 @@
  * No requereix cap paquet npm — carrega les APIs de Google dinàmicament.
  */
 
-import { esFitxerProjecte, esFitxerBC3 } from './projectFile';
+import { esFitxerProjecte, esFitxerBC3, MIME_PROJECTE } from './projectFile';
 
 // ─── Càrrega dinàmica d'APIs ────────────────────────────────────────────────
 
 let _gapiInitialized = false;
 
-const _loadScript = (src) =>
-    new Promise((resolve, reject) => {
-        const existing = document.querySelector(`script[src="${src}"]`);
-        if (existing) { resolve(); return; }
-        const s = document.createElement('script');
-        s.src = src;
-        s.async = true;
-        s.defer = true;
-        s.onload = resolve;
-        s.onerror = () => reject(new Error(`Error carregant script: ${src}`));
-        document.head.appendChild(s);
-    });
+// Es guarda la promesa i no només si el <script> ja hi és: si es demana mentre encara es
+// baixa (l'efecte d'inicialització s'executa dues vegades en desenvolupament), mirar el
+// <script> la donava per resolta i `window.gapi` encara no existia.
+const _scripts = new Map();
+
+const _loadScript = (src) => {
+    if (!_scripts.has(src)) {
+        _scripts.set(src, new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = src;
+            s.async = true;
+            s.defer = true;
+            s.onload = resolve;
+            s.onerror = () => {
+                _scripts.delete(src);
+                s.remove();
+                reject(new Error(`Error carregant script: ${src}`));
+            };
+            document.head.appendChild(s);
+        }));
+    }
+    return _scripts.get(src);
+};
 
 export const loadGoogleApis = async () => {
     await Promise.all([
@@ -56,24 +67,76 @@ const SCOPES = [
     'https://www.googleapis.com/auth/userinfo.email',
 ].join(' ');
 
-export const createTokenClient = (clientId, callback) =>
+/**
+ * @param {function} errorCallback rep els errors que no arriben a `callback`: finestra
+ *   bloquejada (`popup_failed_to_open`) o tancada (`popup_closed`). Sense, la petició de
+ *   token es queda penjada per sempre i l'app no fa res ni avisa.
+ */
+export const createTokenClient = (clientId, callback, errorCallback) =>
     window.google.accounts.oauth2.initTokenClient({
         client_id: clientId,
         scope: SCOPES,
         callback,
+        error_callback: errorCallback,
     });
+
+/** Missatge entenedor per als errors de `error_callback`. */
+export const missatgeErrorToken = (err) => {
+    if (err?.type === 'popup_failed_to_open') return 'El navegador ha bloquejat la finestra d\'inici de sessió de Google';
+    if (err?.type === 'popup_closed') return 'S\'ha tancat la finestra d\'inici de sessió de Google';
+    return err?.message || err?.type || 'error desconegut';
+};
 
 // ─── Google Picker ────────────────────────────────────────────────────────────
 
+/**
+ * Tipus MIME amb què Drive pot tenir desats els nostres fitxers. El BC3 no té un tipus
+ * registrat: segons d'on s'hagi pujat, Drive el desa com a `application/octet-stream` o
+ * `text/plain` (que és el que hi posa la nostra exportació). Filtrar per aquí treu del
+ * selector els PDF, imatges, documents de Google i fulls de càlcul; l'extensió es torna a
+ * comprovar en triar. Sense la carpeta a la llista, el selector no deixa navegar-hi.
+ */
+const MIMES_SELECTOR = [
+    'application/vnd.google-apps.folder',
+    MIME_PROJECTE,
+    'application/json',
+    'application/x-bc3',
+    'text/plain',
+    'application/octet-stream',
+].join(',');
+
 export const openPicker = ({ accessToken, apiKey, appId, onPicked, onCancel }) => {
-    // View que mostra tots els fitxers de Drive (no filtrem per MIME perquè BC3
-    // pot tenir mimeType variable; ho validem nosaltres per extensió després).
-    const allFilesView = new window.google.picker.DocsView()
-        .setIncludeFolders(false)
-        .setSelectFolderEnabled(false);
+    const { DocsView, DocsViewMode, ViewId } = window.google.picker;
+
+    // «La meva unitat» per carpetes, començant per l'arrel. Sense `setParent` i amb
+    // `setIncludeFolders(false)` el selector era una llista plana de tot el Drive, i al
+    // mòbil no hi havia manera d'arribar a una carpeta.
+    const unitatView = new DocsView(ViewId.DOCS)
+        .setParent('root')
+        .setIncludeFolders(true)
+        .setSelectFolderEnabled(false)
+        .setMimeTypes(MIMES_SELECTOR)
+        .setMode(DocsViewMode.LIST);
+
+    // Unitats compartides, també per carpetes.
+    const compartidesView = new DocsView(ViewId.DOCS)
+        .setEnableDrives(true)
+        .setIncludeFolders(true)
+        .setSelectFolderEnabled(false)
+        .setMimeTypes(MIMES_SELECTOR)
+        .setMode(DocsViewMode.LIST);
+
+    // Tots els fitxers, per cercar-los pel nom sense saber on són.
+    const totsView = new DocsView(ViewId.DOCS)
+        .setMimeTypes(MIMES_SELECTOR)
+        .setMode(DocsViewMode.LIST);
 
     const picker = new window.google.picker.PickerBuilder()
-        .addView(allFilesView)
+        .addView(unitatView)
+        .addView(compartidesView)
+        .addView(totsView)
+        .enableFeature(window.google.picker.Feature.SUPPORT_DRIVES)
+        .setLocale('ca')
         .setOAuthToken(accessToken)
         .setDeveloperKey(apiKey)
         .setAppId(appId)

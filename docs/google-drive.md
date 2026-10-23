@@ -49,7 +49,7 @@ autenticar-se.
 
 | Funció | Què fa |
 |---|---|
-| `openFromDrive()` | Obre el Google Picker; accepta `.json` i `.bc3` (validat per extensió) |
+| `openFromDrive()` | Obre el Google Picker; accepta `.amid`, `.json` i `.bc3` (validat per extensió) |
 | `saveToDrive(budget, prices)` | Actualitza el JSON obert, o en crea un de nou demanant nom amb `prompt()` |
 | `saveAsToDrive(...)` | Sempre crea una còpia nova |
 | `exportBC3ToDrive(contingut, nom, sempreNou)` | Demana amb `confirm()` si sobreescriure el BC3 obert o fer-ne còpia. Amb `sempreNou` (les certificacions) crea sempre un fitxer nou i no el pren com a fitxer de referència: el que s'edita continua essent el pressupost |
@@ -57,11 +57,33 @@ autenticar-se.
 Les pujades es fan amb `multipart/related` construït a mà (`_buildMultipartForm`), perquè el
 BC3 s'ha de pujar com a bytes Windows-1252 i no com a text UTF-8.
 
+## El selector (Picker)
+
+Tres pestanyes: *La meva unitat* per carpetes (`setParent('root')`), unitats compartides
+(`setEnableDrives`) i tots els fitxers, per cercar pel nom. Totes filtren per
+`MIMES_SELECTOR` (`utils/googleDrive.js`): carpeta, `.amid`, JSON, `text/plain` i
+`application/octet-stream`. El BC3 no té tipus MIME registrat i Drive el desa com un
+d'aquests dos últims, així que el filtre treu PDF, imatges i documents de Google però no
+tots els fitxers de text o binaris; l'extensió es torna a comprovar en triar.
+
+Abans hi havia una sola vista amb `setIncludeFolders(false)` i sense filtre: al mòbil era una
+llista plana de tot el Drive, sense carpetes.
+
 ## "Obrir amb…" des de Drive
 
 Si l'usuari obre un fitxer des de la interfície de Drive, Google redirigeix a l'app amb
-`?state={"action":"open","ids":["…"]}`. `_handleUrlState()` ho detecta a la inicialització,
-neteja el paràmetre amb `history.replaceState` i carrega el fitxer.
+`?state={"action":"open","ids":["…"],"userId":"…"}`. `_handleUrlState()` ho detecta a la
+inicialització, neteja el paràmetre amb `history.replaceState` i deixa el fitxer a
+`pendingDriveOpen`. L'app mostra un avís amb un botó «Obrir», i és aquest toc el que demana
+el token (amb `login_hint` = `userId`) i carrega el fitxer.
+
+No es pot demanar el token directament en arrencar: el token no es persisteix, demanar-lo
+obre una finestra de Google i el navegador la bloqueja si no surt d'un gest de l'usuari
+(al mòbil, sempre). Abans es feia així i, com que el client de token no tenia
+`error_callback`, la promesa no es resolia mai i «Obre amb» no feia res, ni avisava.
+
+Perquè aparegui a «Obre amb» de Drive, l'app ha d'estar configurada a la consola de Google
+Cloud (Drive API → *Drive UI integration*) amb l'URL d'obertura apuntant a `/amidaments/`.
 
 ## Punts a tenir presents en tocar aquest codi
 

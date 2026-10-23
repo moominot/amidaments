@@ -3,6 +3,7 @@ import {
     loadGoogleApis,
     initGapiClient,
     createTokenClient,
+    missatgeErrorToken,
     openPicker,
     getFileMetadata,
     downloadDriveFile,
@@ -42,10 +43,15 @@ export const useGoogleDrive = ({
     const [currentFileId, setCurrentFileId] = useState(null);
     const [currentFileName, setCurrentFileName] = useState('');
     const [currentFileType, setCurrentFileType] = useState(null); // 'json' | 'bc3' | null
+    // Fitxer que ens ha passat Drive amb «Obre amb» i que encara no s'ha pogut obrir perquè
+    // cal iniciar sessió: { fileId, userId }
+    const [pendingDriveOpen, setPendingDriveOpen] = useState(null);
 
     const tokenClientRef = useRef(null);
     const accessTokenRef = useRef(null);
     const tokenExpiryRef = useRef(null);
+    // Qui espera el token, per avisar-lo si la finestra de Google falla o es tanca
+    const tokenRejectRef = useRef(null);
 
     // ── Inicialització ──────────────────────────────────────────────────────
 
@@ -72,6 +78,11 @@ export const useGoogleDrive = ({
                     const info = await getUserInfo(resp.access_token);
                     console.log('👤 Active Google User:', info?.email || 'unknown');
                     if (info?.name) setUserName(info.name);
+                }, (err) => {
+                    const reject = tokenRejectRef.current;
+                    tokenRejectRef.current = null;
+                    if (reject) reject(new Error(missatgeErrorToken(err)));
+                    else notify?.('Error d\'autenticació Drive: ' + missatgeErrorToken(err), 'error');
                 });
 
                 setIsReady(true);
@@ -89,7 +100,16 @@ export const useGoogleDrive = ({
 
     // ── Token management ────────────────────────────────────────────────────
 
-    const _ensureToken = () =>
+    /**
+     * Retorna el token vigent o en demana un de nou.
+     *
+     * Demanar-lo obre una finestra de Google, i el navegador només la deixa obrir si la
+     * petició surt d'un toc o d'un clic de l'usuari: no hi pot haver cap `await` entre el
+     * gest i la crida. Fora d'un gest (per exemple, en arrencar), la finestra queda bloquejada.
+     *
+     * @param {string} [loginHint] compte de Google que s'ha de fer servir, si se sap
+     */
+    const _ensureToken = (loginHint) =>
         new Promise((resolve, reject) => {
             const now = Date.now();
             if (accessTokenRef.current && tokenExpiryRef.current && now < tokenExpiryRef.current) {
@@ -102,8 +122,13 @@ export const useGoogleDrive = ({
                 return;
             }
             const originalCallback = tokenClientRef.current.callback;
+            tokenRejectRef.current = (err) => {
+                tokenClientRef.current.callback = originalCallback;
+                reject(err);
+            };
             tokenClientRef.current.callback = (resp) => {
                 tokenClientRef.current.callback = originalCallback;
+                tokenRejectRef.current = null;
                 if (resp.error) { reject(new Error(resp.error)); return; }
                 accessTokenRef.current = resp.access_token;
                 tokenExpiryRef.current = Date.now() + (resp.expires_in - 30) * 1000;
@@ -114,7 +139,7 @@ export const useGoogleDrive = ({
                 originalCallback?.(resp);
                 resolve(resp.access_token);
             };
-            tokenClientRef.current.requestAccessToken({ prompt: '' });
+            tokenClientRef.current.requestAccessToken(loginHint ? { prompt: '', login_hint: loginHint } : { prompt: '' });
         });
 
     // ── Sign in / Sign out ──────────────────────────────────────────────────
@@ -198,39 +223,50 @@ export const useGoogleDrive = ({
     }, [onProjectLoaded, onBC3Loaded]);
 
     // ── "Open with..." — processa ?state= de l'URL ───────────────────────────
+    //
+    // En arribar de Drive no tenim token (no es persisteix), i demanar-lo aquí, sense cap
+    // gest de l'usuari, obre una finestra que el navegador bloqueja; al mòbil, sempre. Abans
+    // es feia així i la promesa no es resolia mai: «Obre amb» no feia res. Ara el fitxer
+    // queda pendent i l'app mostra un botó; el toc de l'usuari és el que demana el token.
 
-    const _handleUrlState = useCallback(async () => {
+    const _handleUrlState = useCallback(() => {
         const params = new URLSearchParams(window.location.search);
         const stateStr = params.get('state');
         if (!stateStr) return;
 
+        // Es treu de seguida perquè recarregar no torni a obrir el mateix fitxer.
+        window.history.replaceState({}, document.title, window.location.pathname);
+
+        let state;
         try {
-            const state = JSON.parse(stateStr);
-            if (state.action === 'open' && state.ids?.[0]) {
-                const fileId = state.ids[0];
-                console.log('🔄 Drive URL State detected:', state);
-                notify?.('Obrint fitxer des de Google Drive...');
+            state = JSON.parse(stateStr);
+        } catch {
+            notify?.('L\'enllaç de Google Drive no és vàlid', 'error');
+            return;
+        }
+        const fileId = state?.ids?.[0];
+        if (state?.action !== 'open' || !fileId) return;
+        setPendingDriveOpen({ fileId, userId: state.userId || '' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
-                // Netejar el paràmetre de l'URL sense recarregar
-                const newUrl = window.location.pathname;
-                window.history.replaceState({}, document.title, newUrl);
-                console.log('🧹 URL cleaned');
-
-                // Necessitem token primer
-                const token = await _ensureToken();
-                console.log('✅ Token acquired for URL state');
-
-                const meta = await getFileMetadata(fileId, token);
-                console.log('📄 Metadata retrieved:', meta.name);
-                const ext = esFitxerBC3(meta.name) ? 'bc3' : 'json';
-                await _loadFile(fileId, meta.name, ext);
-            }
+    /** S'ha de cridar directament des del toc de l'usuari (veure `_ensureToken`). */
+    const openPendingDriveFile = useCallback(async () => {
+        const pendent = pendingDriveOpen;
+        if (!pendent) return;
+        try {
+            const token = await _ensureToken(pendent.userId);
+            setPendingDriveOpen(null);
+            const meta = await getFileMetadata(pendent.fileId, token);
+            await _loadFile(pendent.fileId, meta.name, esFitxerBC3(meta.name) ? 'bc3' : 'json');
         } catch (err) {
-            console.error('❌ Error processant state de Drive:', err);
-            notify?.('Error al processar l\'obertura des de Drive: ' + err.message, 'error');
+            console.error('Error obrint el fitxer de Drive:', err);
+            notify?.('No s\'ha pogut obrir el fitxer de Drive: ' + err.message, 'error');
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [_loadFile]);
+    }, [pendingDriveOpen, _loadFile]);
+
+    const dismissPendingDriveFile = useCallback(() => setPendingDriveOpen(null), []);
 
     // ── Desar JSON a Drive ────────────────────────────────────────────────────
 
@@ -339,6 +375,9 @@ export const useGoogleDrive = ({
         currentFileId,
         currentFileName,
         currentFileType,
+        pendingDriveOpen,
+        openPendingDriveFile,
+        dismissPendingDriveFile,
         signIn,
         signOut,
         openFromDrive,

@@ -5486,6 +5486,33 @@ export default function App() {
                 />
             )}
 
+            {/* Fitxer obert amb «Obre amb» des de Google Drive: cal un toc per iniciar sessió */}
+            {drive.pendingDriveOpen && !drive.isLoading && (
+                <div className="fixed inset-x-4 bottom-4 md:inset-x-auto md:right-6 md:bottom-6 md:w-96 z-[105] bg-slate-950 text-white border border-slate-700 rounded-lg shadow-2xl p-4 flex flex-col gap-3">
+                    <div className="flex items-start gap-3">
+                        <Cloud size={18} className="text-blue-400 shrink-0 mt-0.5" />
+                        <div className="text-[11px] leading-snug">
+                            <p className="font-bold uppercase tracking-widest text-[10px]">Fitxer de Google Drive</p>
+                            <p className="text-slate-300 mt-1">Per obrir-lo, cal iniciar sessió a Google.</p>
+                        </div>
+                    </div>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={drive.dismissPendingDriveFile}
+                            className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded text-[10px] font-bold uppercase tracking-widest"
+                        >
+                            Ara no
+                        </button>
+                        <button
+                            onClick={drive.openPendingDriveFile}
+                            className="flex-1 bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded text-[10px] font-bold uppercase tracking-widest"
+                        >
+                            Obrir
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {drive.isLoading && (
                 <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-[110]">
                     <div className="bg-white p-6 rounded-lg shadow-xl flex flex-col items-center gap-4">
