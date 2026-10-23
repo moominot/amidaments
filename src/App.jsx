@@ -100,6 +100,10 @@ import { toWindows1252Bytes } from './utils/googleDrive';
 
 const formatPrice = (val) => formatNumber(val, 2);
 
+// A Android, l'app instal·lada no pot sortir a «Obre amb» de l'app de Drive: Chrome només la
+// registra per rebre fitxers compartits. El camí que funciona és «Envia una còpia».
+const esAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
+
 const flattenBudget = (nodes, level = 0, parentRef = '', counterObj = { val: 0 }, config, priceDatabase) => {
     // Sense preus, la taula perd les columnes Preu i Import: 8 columnes en comptes de 10
     const prices = config.showPrices !== false;
@@ -4753,7 +4757,14 @@ export default function App() {
                                         className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 transition-colors flex items-center gap-3 border-b border-slate-800"
                                     >
                                         <Cloud size={18} className="text-blue-400" />
-                                        <span className="font-medium">Google Drive</span>
+                                        <span className="flex flex-col">
+                                            <span className="font-medium">Google Drive</span>
+                                            {esAndroid && (
+                                                <span className="text-[10px] text-slate-400 leading-snug mt-0.5">
+                                                    Des de l'app de Drive: ⋮ › Envia una còpia › Amidaments
+                                                </span>
+                                            )}
+                                        </span>
                                     </button>
                                     <button
                                         onClick={() => { setShowLibrary(true); setShowMobileMenu(false); }}

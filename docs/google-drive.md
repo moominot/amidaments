@@ -85,6 +85,19 @@ obre una finestra de Google i el navegador la bloqueja si no surt d'un gest de l
 Perquè aparegui a «Obre amb» de Drive, l'app ha d'estar configurada a la consola de Google
 Cloud (Drive API → *Drive UI integration*) amb l'URL d'obertura apuntant a `/amidaments/`.
 
+### Des de l'app de Drive d'Android
+
+«Obre amb» **no funciona** des de l'app de Drive d'Android: l'app no s'obre i Drive es queda
+bloquejat. No és un defecte nostre: Chrome, en instal·lar l'app a Android (WebAPK), només la
+registra per a enllaços del seu àmbit i com a destinació de compartir (`SEND`), mai per
+obrir fitxers (`VIEW`); `file_handlers` només té efecte a l'escriptori. Ho diu la plantilla
+del WebAPK a Chromium, `chrome/android/webapk/shell_apk/AndroidManifest.xml`.
+
+El camí que funciona és **⋮ › Envia una còpia › Amidaments**, que entra per `share_target`
+(veure `public/sw.js`). Al menú del mòbil, sota «Google Drive», l'app ho recorda quan detecta
+Android. Si Amidaments no surt a la llista, l'app instal·lada és anterior al `share_target`:
+cal desinstal·lar-la i tornar-la a instal·lar.
+
 ## Punts a tenir presents en tocar aquest codi
 
 - `toWindows1252Bytes` és la conversió compartida per l'exportació BC3 a disc i a Drive.
