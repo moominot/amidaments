@@ -379,25 +379,30 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, setConfig, onOp
 
     return (
         <div className="fixed inset-0 z-[100] bg-white overflow-auto flex flex-col print:relative print:z-0 print:overflow-visible print:h-auto print:bg-transparent print:block">
-            <div className="print:hidden bg-slate-900 p-4 flex justify-between items-center text-white border-b border-slate-700 shadow-2xl z-20 gap-6">
-                <div className="flex items-center gap-3">
+            {/* Al mòbil la barra es reparteix en tres files: títol i tancar, vista i opcions, accions */}
+            <div className="print:hidden bg-slate-900 p-3 md:p-4 flex flex-wrap md:flex-nowrap justify-between items-center text-white border-b border-slate-700 shadow-2xl z-20 gap-2 md:gap-6">
+                <div className="flex items-center gap-3 flex-1 md:flex-none min-w-0">
                     <div className="bg-blue-600 p-1.5 rounded-lg">
                         <Printer size={18} />
                     </div>
-                    <h2 className="font-bold uppercase tracking-widest text-xs">Ajustaments de Sortida</h2>
+                    <h2 className="font-bold uppercase tracking-widest text-xs truncate">Ajustaments de Sortida</h2>
                 </div>
 
-                <div className="flex items-center gap-6 flex-1 justify-center bg-slate-800/50 p-2 rounded-xl border border-slate-700/50 backdrop-blur-sm">
-                    <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-700 mr-4 shadow-inner">
+                <button onClick={onClose} className="md:hidden bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-lg" title="Tancar" aria-label="Tancar">
+                    <X size={18} />
+                </button>
+
+                <div className="flex items-center gap-2 md:gap-6 w-full md:w-auto md:flex-1 justify-between md:justify-center bg-slate-800/50 p-1.5 md:p-2 rounded-xl border border-slate-700/50 backdrop-blur-sm">
+                    <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-700 md:mr-4 shadow-inner">
                         <button
                             onClick={() => setViewMode('amidaments')}
-                            className={`px-4 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all duration-300 ${viewMode === 'amidaments' ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40' : 'text-slate-400 hover:text-white'}`}
+                            className={`px-3 md:px-4 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all duration-300 ${viewMode === 'amidaments' ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40' : 'text-slate-400 hover:text-white'}`}
                         >
                             Amidaments
                         </button>
                         <button
                             onClick={() => setViewMode('resum')}
-                            className={`px-4 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all duration-300 ${viewMode === 'resum' ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40' : 'text-slate-400 hover:text-white'}`}
+                            className={`px-3 md:px-4 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all duration-300 ${viewMode === 'resum' ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40' : 'text-slate-400 hover:text-white'}`}
                         >
                             Resum
                         </button>
@@ -407,39 +412,41 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, setConfig, onOp
                         <button
                             onClick={() => setConfig({ ...config, showPrices: !prices })}
                             aria-pressed={!prices}
-                            className={`px-4 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all ${!prices ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+                            className={`px-3 md:px-4 py-1.5 rounded-md text-[10px] font-bold uppercase whitespace-nowrap transition-all ${!prices ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
                         >
                             Sense preus
                         </button>
                     )}
 
-                    <div className="h-4 w-[1px] bg-slate-700 mx-2"></div>
+                    <div className="hidden md:block h-4 w-[1px] bg-slate-700 mx-2"></div>
 
                     <button
                         onClick={onOpenConfig}
-                        className="flex items-center gap-2 px-4 py-1.5 rounded-md text-[10px] font-bold uppercase bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all"
+                        title="Configuració"
+                        aria-label="Configuració"
+                        className="flex items-center gap-2 px-2.5 md:px-4 py-1.5 rounded-md text-[10px] font-bold uppercase bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all"
                     >
                         <Settings size={14} className="text-blue-400" />
-                        Configuració
+                        <span className="hidden sm:inline">Configuració</span>
                     </button>
                 </div>
 
-                <div className="flex gap-3">
-                    <button onClick={handleExportXLSX} className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-widest flex items-center gap-2 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-emerald-500/25">
+                <div className="grid grid-cols-3 md:flex gap-2 md:gap-3 w-full md:w-auto">
+                    <button onClick={handleExportXLSX} className="bg-emerald-600 hover:bg-emerald-500 text-white px-2 md:px-6 py-2 rounded-lg text-xs font-bold uppercase md:tracking-widest flex items-center justify-center gap-2 transition-all md:hover:scale-105 active:scale-95 shadow-lg shadow-emerald-500/25">
                         <FileSpreadsheet size={14} />
                         Excel
                     </button>
-                    <button onClick={() => viewMode === 'amidaments' ? onExportPDF(config) : onExportSummaryPDF(config)} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-widest flex items-center gap-2 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-blue-500/25">
+                    <button onClick={() => viewMode === 'amidaments' ? onExportPDF(config) : onExportSummaryPDF(config)} className="bg-blue-600 hover:bg-blue-500 text-white px-2 md:px-6 py-2 rounded-lg text-xs font-bold uppercase md:tracking-widest flex items-center justify-center gap-2 transition-all md:hover:scale-105 active:scale-95 shadow-lg shadow-blue-500/25 whitespace-nowrap">
                         <FileDown size={14} />
-                        Exporta PDF
+                        <span><span className="hidden sm:inline">Exporta </span>PDF</span>
                     </button>
-                    <button onClick={() => window.print()} className="bg-slate-700 hover:bg-slate-600 text-white px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-widest">Imprimir</button>
-                    <button onClick={onClose} className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-widest">Tancar</button>
+                    <button onClick={() => window.print()} className="bg-slate-700 hover:bg-slate-600 text-white px-2 md:px-6 py-2 rounded-lg text-xs font-bold uppercase md:tracking-widest">Imprimir</button>
+                    <button onClick={onClose} className="hidden md:block bg-slate-800 hover:bg-slate-700 text-slate-300 px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-widest">Tancar</button>
                 </div>
             </div>
 
-            <div className="flex-1 bg-gray-100 p-8 print:p-0 print:bg-white print:overflow-visible overflow-auto print:block">
-                <div className="max-w-[21cm] mx-auto p-[2cm] print:p-0 print:max-w-none print:mx-0 shadow-2xl print:shadow-none bg-white min-h-[29.7cm]">
+            <div className="flex-1 bg-gray-100 p-2 md:p-8 print:p-0 print:bg-white print:overflow-visible overflow-auto print:block">
+                <div className="max-w-[21cm] mx-auto p-4 md:p-[2cm] print:p-0 print:max-w-none print:mx-0 shadow-2xl print:shadow-none bg-white min-h-[29.7cm]">
                     <div className="mb-10 text-left border-b-2 border-black pb-4">
                         <h1 className="text-2xl font-bold uppercase tracking-tighter">{viewMode === 'amidaments' && !prices ? 'Amidaments' : 'Pressupost i Amidaments'}</h1>
                         <p className="text-sm font-bold mt-2 uppercase">{budget.name}</p>
