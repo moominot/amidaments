@@ -5,7 +5,7 @@ npm test          # una passada
 npm run test:watch
 ```
 
-**Vitest**, 113 tests en set fitxers, poc més d'un segon. `vitest.config.js` és a part de
+**Vitest**, 121 tests en vuit fitxers, poc més d'un segon. `vitest.config.js` és a part de
 `vite.config.js` a posta: els tests són tots de lògica de càlcul i no munten cap component, de
 manera que no els cal ni el plugin de React ni l'entorn de navegador.
 
@@ -37,6 +37,7 @@ que has canviat és correcte abans de moure el número esperat.
 | `vincles.test.js` | Amidaments vinculats: a la partida, a una línia, factor, cicles, cadenes |
 | `certificacions.test.js` | Anterior, període i origen; el període és una resta, no una dada |
 | `projecte.test.js` | El fitxer `.amid`, `safeFileName` i la migració d'esquema |
+| `cad.test.js` | El text del LISP `AMIDA` i què en surt segons la unitat (m2, m, ud, m3). Sense fitxer real: el text el genera el LISP |
 
 ## Per què aquests i no uns altres
 

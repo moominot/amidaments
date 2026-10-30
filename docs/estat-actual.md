@@ -609,7 +609,7 @@ suggerit, de menys a més arriscat:
 
 ### Tests ✅ (fet)
 
-Hi ha **113 tests amb Vitest** (`npm test`), contra fitxers BC3 de veritat i no maquetes, i el
+Hi ha **121 tests amb Vitest** (`npm test`), contra fitxers BC3 de veritat i no maquetes, i el
 desplegament els passa abans de construir. Detall a [`docs/tests.md`](tests.md).
 
 Es van escriure després de tot el que hi ha en aquest registre, i per això cada test fixa un
@@ -672,7 +672,7 @@ Per ordre de relació valor/esforç:
 
 1. ~~Arreglar els punts 1–23.~~ ✅ Fet.
 2. ~~Activar el lint sobre `.jsx`.~~ ✅ Fet (queda la migració a flat config).
-3. ~~**Vitest + tests de `calculations.js` i `bc3Parser.js`**~~ ✅ Fet: 113 tests contra
+3. ~~**Vitest + tests de `calculations.js` i `bc3Parser.js`**~~ ✅ Fet: 121 tests contra
    fitxers BC3 de veritat, i el cicle exportar → reimportar ja és una prova automàtica i no un
    ritual manual. Veure [`docs/tests.md`](tests.md).
 4. **Extreure els exportadors i el writer BC3** d'`App.jsx` (passes 2 i 3 del refactor).

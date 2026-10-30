@@ -39,6 +39,7 @@ import {
     LogOut,
     Recycle,
     Leaf,
+    ClipboardPaste,
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -84,6 +85,7 @@ import { generateBC3, nomFitxerCertificacio } from './utils/bc3Writer';
 import { numberToTextCatalan } from './utils/numberToText';
 import { exportCertificationPDF } from './utils/certificationPdf';
 import { safeFileName } from './utils/fileName';
+import { parseCadClipboard, cadEntitiesToMeasurements } from './utils/cadPaste';
 import { pdfDateText } from './utils/pdfDate';
 import { descarregaBC3 } from './utils/corsProxy';
 import { buildWasteSummary, formatMassa, nomTipus, catalegResidus, magnitudsDe, TIPUS_RESIDU } from './utils/waste';
@@ -2796,15 +2798,21 @@ export default function App() {
         if (file) obreFitxer(file, { replace: false, nomesPreus: activeTab === 'prices' });
     };
 
-    const handlePaste = useCallback((e) => {
+    // Sense useCallback a posta: depèn de la pestanya i de la partida seleccionada, i una
+    // dependència oblidada faria que enganxar actués sobre l'estat de quan es va muntar.
+    const handlePaste = (e) => {
         const text = e.clipboardData.getData('text/plain')?.trim();
+        // Les entitats copiades amb l'ordre AMIDA del LISP. Es comprova abans que res i se
+        // n'impedeix l'acció per defecte: si el focus és en un camp de la línia d'amidament,
+        // el text tabulat hi acabaria enganxat.
+        if (text && enganxaCad(text)) {
+            e.preventDefault();
+            return;
+        }
         if (text && (text.toLowerCase().includes('.bc3') || text.toLowerCase().includes('generadordepreus'))) {
             importFromUrl(text, { nomesPreus: activeTab === 'prices' });
         }
-        // `activeTab` ha d'anar a les dependències: sense ell el callback es quedaria amb la
-        // pestanya que hi havia en muntar-se i enganxar un enllaç al banc de preus l'importaria
-        // igualment al pressupost.
-    }, [importFromUrl, activeTab]);
+    };
 
 
     const updateMeasurement = (itemId, mId, field, value) => {
@@ -2967,6 +2975,72 @@ export default function App() {
             });
         };
         setBudget(prev => ({ ...prev, chapters: updateInTree(prev.chapters) }));
+    };
+
+    /**
+     * Afegeix a la partida seleccionada una línia d'amidament per cada entitat copiada amb
+     * l'ordre AMIDA (`public/cad/amidaments.lsp`). Què s'agafa de cada entitat ho decideix la
+     * unitat de la partida: veure `utils/cadPaste.js`.
+     *
+     * Torna `false` si el text no ve del LISP, perquè l'enganxat segueixi el camí normal.
+     */
+    const enganxaCad = (text) => {
+        const dades = parseCadClipboard(text);
+        if (!dades) return false;
+
+        const node = selectedId ? findNodeById(budget.chapters, selectedId) : null;
+        if (!node || !node.unit) {
+            notify('Selecciona una partida abans d\'enganxar les entitats del CAD', 'error');
+            return true;
+        }
+        if (dades.entities.length === 0) {
+            notify('El que s\'ha copiat del CAD no porta cap entitat', 'error');
+            return true;
+        }
+
+        const r = cadEntitiesToMeasurements(dades.entities, node.unit);
+        if (!r.kind) {
+            notify(`La partida és en «${node.unit}»: des del CAD només es pot amidar en m, m2, m3 o ud`, 'error');
+            return true;
+        }
+        if (r.lines.length === 0) {
+            notify(`Cap de les ${dades.entities.length} entitats no té ${r.kind === 'm' ? 'llargada' : 'àrea ni llargada'}`, 'error');
+            return true;
+        }
+
+        const updateInTree = (nodes) => nodes.map(n => {
+            if (n.id === node.id) {
+                return { ...n, measurements: [...(n.measurements || []), ...r.lines] };
+            }
+            return {
+                ...n,
+                subChapters: updateInTree(n.subChapters || []),
+                items: updateInTree(n.items || [])
+            };
+        });
+        setBudget(prev => ({ ...prev, chapters: updateInTree(prev.chapters) }));
+
+        const avisos = [];
+        if (r.pendingHeight) avisos.push(`${r.pendingHeight} sense ${r.kind === 'm3' ? 'alçada o gruix' : 'alçada'} (en groc)`);
+        if (r.pendingWidth) avisos.push(`${r.pendingWidth} sense amplada`);
+        if (r.skipped.length) {
+            const descartades = r.skipped.length === 1 ? '1 entitat descartada' : `${r.skipped.length} entitats descartades`;
+            avisos.push(`${descartades} per no tenir ${r.kind === 'm' ? 'llargada' : 'àrea ni llargada'}`);
+        }
+        const linies = r.lines.length === 1 ? '1 línia afegida' : `${r.lines.length} línies afegides`;
+        notify(avisos.length ? `${linies} · ${avisos.join(' · ')}` : linies);
+        return true;
+    };
+
+    const enganxaCadDelPortaRetalls = async () => {
+        let text;
+        try {
+            text = await navigator.clipboard.readText();
+        } catch {
+            notify('El navegador no deixa llegir el porta-retalls: selecciona la partida i fes Ctrl+V', 'error');
+            return;
+        }
+        if (!enganxaCad(text)) notify('El porta-retalls no porta entitats copiades amb l\'ordre AMIDA', 'error');
     };
 
     const deleteNode = (id) => {
@@ -5308,8 +5382,10 @@ export default function App() {
                                                                         <td className="p-1.5"><input type="text" value={m.description} onChange={(e) => updateMeasurement(node.id, m.id, 'description', e.target.value)} className="w-full bg-transparent border-none text-slate-600 outline-none p-0" /></td>
                                                                         <td className="p-1.5"><NumberInput value={m.units} onChange={(v) => updateMeasurement(node.id, m.id, 'units', v)} className="w-full text-right bg-transparent border-none font-mono outline-none p-0" /></td>
                                                                         <td className="p-1.5"><NumberInput value={m.length} onChange={(v) => updateMeasurement(node.id, m.id, 'length', v)} className="w-full text-right bg-transparent border-none font-mono text-slate-400 outline-none p-0" /></td>
-                                                                        <td className="p-1.5"><NumberInput value={m.width} onChange={(v) => updateMeasurement(node.id, m.id, 'width', v)} className="w-full text-right bg-transparent border-none font-mono text-slate-400 outline-none p-0" /></td>
-                                                                        <td className="p-1.5"><NumberInput value={m.height} onChange={(v) => updateMeasurement(node.id, m.id, 'height', v)} className="w-full text-right bg-transparent border-none font-mono text-slate-400 outline-none p-0" /></td>
+                                                                        {/* Les línies que venen del CAD sense alçada (o sense amplada, en m3) es marquen
+                                                                            fins que s'hi posa un valor: mentre és a zero, el parcial la compta com a 1. */}
+                                                                        <td className={`p-1.5 ${m.needsWidth && !m.width ? 'bg-amber-100' : ''}`} title={m.needsWidth && !m.width ? 'Falta l\'amplada' : undefined}><NumberInput value={m.width} onChange={(v) => updateMeasurement(node.id, m.id, 'width', v)} className="w-full text-right bg-transparent border-none font-mono text-slate-400 outline-none p-0" /></td>
+                                                                        <td className={`p-1.5 ${m.needsHeight && !m.height ? 'bg-amber-100' : ''}`} title={m.needsHeight && !m.height ? 'Falta l\'alçada' : undefined}><NumberInput value={m.height} onChange={(v) => updateMeasurement(node.id, m.id, 'height', v)} className="w-full text-right bg-transparent border-none font-mono text-slate-400 outline-none p-0" /></td>
                                                                         <td className="p-1.5 text-right font-bold text-blue-900">
                                                                             <div className="flex items-center justify-end gap-1">
                                                                                 {formatNumber(calcMeasureTotal(m), 2)}
@@ -5352,7 +5428,7 @@ export default function App() {
                                                             </tbody>
                                                         </table>
                                                         <div className="p-2 bg-slate-50 border-t border-slate-100 flex justify-between items-center gap-2">
-                                                            <div className="flex gap-2">
+                                                            <div className="flex flex-wrap gap-2">
                                                                 <button onClick={() => addMeasurementLine(node.id)} className="text-[10px] md:text-[9px] bg-white border border-slate-200 px-2 py-1 flex items-center gap-1 hover:bg-slate-100 transition-colors uppercase font-bold text-slate-600">
                                                                     <Plus size={10} /> Afegir línia
                                                                 </button>
@@ -5362,6 +5438,12 @@ export default function App() {
                                                                 <button onClick={() => addIncrementLine(node.id)} className="text-[10px] md:text-[9px] bg-white border border-slate-200 px-2 py-1 flex items-center gap-1 hover:bg-slate-100 transition-colors uppercase font-bold text-slate-600">
                                                                     <Percent size={10} /> Afegir %
                                                                 </button>
+                                                                <button onClick={enganxaCadDelPortaRetalls} className="text-[10px] md:text-[9px] bg-white border border-slate-200 px-2 py-1 flex items-center gap-1 hover:bg-slate-100 transition-colors uppercase font-bold text-slate-600" title="Una línia per entitat copiada a AutoCAD amb l'ordre AMIDA (també amb Ctrl+V)">
+                                                                    <ClipboardPaste size={10} /> Enganxa CAD
+                                                                </button>
+                                                                <a href={`${import.meta.env.BASE_URL}cad/amidaments.lsp`} download={safeFileName('amidaments.lsp')} className="text-[10px] md:text-[9px] text-slate-400 hover:text-blue-600 px-1 py-1 flex items-center gap-1 underline" title="LISP per a AutoCAD: carrega'l amb APPLOAD i escriu AMIDA">
+                                                                    LISP
+                                                                </a>
                                                             </div>
                                                             <span className="text-[11px] md:text-[10px] font-mono font-bold text-blue-700">{formatNumber(calcItemTotalQty(node), 2)} {node.unit}</span>
                                                         </div>

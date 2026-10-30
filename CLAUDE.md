@@ -11,7 +11,7 @@ npm install
 npm run dev
 npm run build     # ha de passar sempre abans de donar una feina per acabada
 npm run lint      # cobreix .js i .jsx; l'arbre ha de quedar amb 0 errors
-npm test          # Vitest; 113 tests sobre els càlculs, el parser i l'escriptor
+npm test          # Vitest; 121 tests sobre els càlculs, el parser i l'escriptor
 npm run test:watch
 ```
 
