@@ -22,8 +22,7 @@ const PROXIES = [
     // El format nou de corsproxy.io. Amb el pla gratuït només respon a peticions de navegador
     // (amb Origin); des d'un script diu «Server-side requests are not allowed on your plan».
     (url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
-    // Retorna els bytes tal qual i amb `Access-Control-Allow-Origin: *`.
-    (url) => `https://proxy.cors.sh/${url}`,
+    // proxy.cors.sh hi era fins a l'octubre de 2026, quan el domini va deixar de resoldre.
     (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
 ];
@@ -63,10 +62,10 @@ export const descarregaBC3 = async (url) => {
         const avortador = new AbortController();
         const rellotge = setTimeout(() => avortador.abort(), TEMPS_MAXIM);
         try {
-            const resposta = await fetch(adreca, {
-                signal: avortador.signal,
-                headers: { 'x-requested-with': 'XMLHttpRequest' }, // cors.sh el demana sense clau
-            });
+            // Cap capçalera pròpia: amb qualsevol que no sigui «simple» el navegador fa abans
+            // un OPTIONS de verificació, corsproxy.io no el contesta amb un 200 i la petició
+            // es talla abans de sortir (§33 de docs/estat-actual.md).
+            const resposta = await fetch(adreca, { signal: avortador.signal });
             if (!resposta.ok) {
                 problemes.push(`${amfitrio}: HTTP ${resposta.status}`);
                 continue;

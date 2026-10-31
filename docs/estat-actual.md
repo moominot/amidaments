@@ -2,7 +2,7 @@
 
 Inventari fet llegint el codi (agost 2026).
 
-**Estat: els trenta-dos defectes estan corregits.** Es conserva la descripció de cadascun
+**Estat: els trenta-tres defectes estan corregits.** Es conserva la descripció de cadascun
 perquè expliquen decisions del codi actual i serveixen de referència si tornen a aparèixer.
 El deute tècnic de la segona meitat del document continua obert.
 
@@ -584,6 +584,26 @@ existia per a `didParseCell` però que no s'arribava a fer servir mai) i la fila
 de capítol (`chapter-total`), que ja tenia estil definit però cap fila que el disparés.
 
 ---
+
+### 33. La importació des d'URL tornava a fallar amb tots els proxys ✅
+
+Arrossegant un enllaç del Generador de Preus, la consola deia:
+
+```
+Access to fetch at 'https://corsproxy.io/?url=…' … has been blocked by CORS policy:
+Response to preflight request doesn't pass access control check: It does not have HTTP ok status.
+proxy.cors.sh/…  net::ERR_NAME_NOT_RESOLVED
+```
+
+Eren dues coses. La primera, la nostra: la correcció del §28 havia afegit una capçalera
+`x-requested-with` a **totes** les peticions perquè proxy.cors.sh la demanava. Una capçalera
+pròpia converteix la petició en no simple i el navegador fa abans un `OPTIONS` de
+verificació; corsproxy.io no el contesta amb un 200 i la descàrrega es talla abans de sortir.
+La segona, de fora: el domini de proxy.cors.sh ha deixat d'existir.
+
+Es treu la capçalera i el proxy mort. La solució que no depèn de tercers continua essent el
+worker de `worker/` amb `VITE_CORS_PROXY`: si la consola no mostra cap intent contra el
+worker, és que el secret no és al repositori o el worker no està desplegat.
 
 ## Deute tècnic
 
