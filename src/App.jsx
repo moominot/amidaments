@@ -224,6 +224,9 @@ const flattenBudget = (nodes, level = 0, parentRef = '', counterObj = { val: 0 }
 const PrintView = ({ budget, priceDatabase, budgetTotal, config, setConfig, onOpenConfig, onClose, onExportPDF, onExportSummaryPDF, handleExportXLSX }) => {
     const date = pdfDateText(config);
     const [viewMode, setViewMode] = useState('amidaments'); // 'amidaments' | 'resum'
+    // Per sota d'xl les accions van en un menú, com al capçal de l'editor
+    const [menuObert, setMenuObert] = useState(false);
+    const exportaPDF = () => (viewMode === 'amidaments' ? onExportPDF(config) : onExportSummaryPDF(config));
     // Sense preus la taula d'amidaments perd Preu i Import: 8 columnes en comptes de 10
     const prices = config.showPrices !== false;
     const cols = prices ? 10 : 8;
@@ -386,21 +389,18 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, setConfig, onOp
 
     return (
         <div className="fixed inset-0 z-[100] bg-white overflow-auto flex flex-col print:relative print:z-0 print:overflow-visible print:h-auto print:bg-transparent print:block">
-            {/* Al mòbil la barra es reparteix en tres files: títol i tancar, vista i opcions, accions */}
-            <div className="print:hidden bg-slate-900 p-3 md:p-4 flex flex-wrap md:flex-nowrap justify-between items-center text-white border-b border-slate-700 shadow-2xl z-20 gap-2 md:gap-6">
-                <div className="flex items-center gap-3 flex-1 md:flex-none min-w-0">
-                    <div className="bg-blue-600 p-1.5 rounded-lg">
+            {/* Com al capçal de l'editor: els botons sencers a partir d'xl i, per sota, un menú.
+                Al mòbil fa dues files: títol i menú, vista i opcions. */}
+            <div className="print:hidden bg-slate-900 p-3 md:p-4 flex flex-wrap md:flex-nowrap justify-between items-center text-white border-b border-slate-700 shadow-2xl z-20 gap-2 md:gap-4 xl:gap-6">
+                <div className="flex items-center gap-3 flex-1 xl:flex-none min-w-0">
+                    <div className="bg-blue-600 p-1.5 rounded-lg shrink-0">
                         <Printer size={18} />
                     </div>
                     <h2 className="font-bold uppercase tracking-widest text-xs truncate">Ajustaments de Sortida</h2>
                 </div>
 
-                <button onClick={onClose} className="md:hidden bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-lg" title="Tancar" aria-label="Tancar">
-                    <X size={18} />
-                </button>
-
-                <div className="flex items-center gap-2 md:gap-6 w-full md:w-auto md:flex-1 justify-between md:justify-center bg-slate-800/50 p-1.5 md:p-2 rounded-xl border border-slate-700/50 backdrop-blur-sm">
-                    <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-700 md:mr-4 shadow-inner">
+                <div className="order-last md:order-none flex items-center gap-2 md:gap-3 min-[1400px]:gap-6 w-full md:w-auto xl:flex-1 justify-between md:justify-center bg-slate-800/50 p-1.5 md:p-2 rounded-xl border border-slate-700/50 backdrop-blur-sm">
+                    <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-700 min-[1400px]:mr-4 shadow-inner">
                         <button
                             onClick={() => setViewMode('amidaments')}
                             className={`px-3 md:px-4 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all duration-300 ${viewMode === 'amidaments' ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40' : 'text-slate-400 hover:text-white'}`}
@@ -425,30 +425,77 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, setConfig, onOp
                         </button>
                     )}
 
-                    <div className="hidden md:block h-4 w-[1px] bg-slate-700 mx-2"></div>
+                    <div className="hidden min-[1400px]:block h-4 w-[1px] bg-slate-700 mx-2"></div>
 
                     <button
                         onClick={onOpenConfig}
                         title="Configuració"
                         aria-label="Configuració"
-                        className="flex items-center gap-2 px-2.5 md:px-4 py-1.5 rounded-md text-[10px] font-bold uppercase bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all"
+                        className="flex items-center gap-2 px-2.5 xl:px-4 py-1.5 rounded-md text-[10px] font-bold uppercase bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all"
                     >
                         <Settings size={14} className="text-blue-400" />
-                        <span className="hidden sm:inline">Configuració</span>
+                        <span className="hidden sm:inline md:hidden lg:inline">Configuració</span>
                     </button>
                 </div>
 
-                <div className="grid grid-cols-3 md:flex gap-2 md:gap-3 w-full md:w-auto">
-                    <button onClick={handleExportXLSX} className="bg-emerald-600 hover:bg-emerald-500 text-white px-2 md:px-6 py-2 rounded-lg text-xs font-bold uppercase md:tracking-widest flex items-center justify-center gap-2 transition-all md:hover:scale-105 active:scale-95 shadow-lg shadow-emerald-500/25">
+                {/* Escriptori ample: tots els botons */}
+                <div className="hidden xl:flex gap-3">
+                    <button onClick={handleExportXLSX} className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 min-[1400px]:px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-emerald-500/25">
                         <FileSpreadsheet size={14} />
                         Excel
                     </button>
-                    <button onClick={() => viewMode === 'amidaments' ? onExportPDF(config) : onExportSummaryPDF(config)} className="bg-blue-600 hover:bg-blue-500 text-white px-2 md:px-6 py-2 rounded-lg text-xs font-bold uppercase md:tracking-widest flex items-center justify-center gap-2 transition-all md:hover:scale-105 active:scale-95 shadow-lg shadow-blue-500/25 whitespace-nowrap">
+                    <button onClick={exportaPDF} className="bg-blue-600 hover:bg-blue-500 text-white px-4 min-[1400px]:px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-blue-500/25 whitespace-nowrap">
                         <FileDown size={14} />
-                        <span><span className="hidden sm:inline">Exporta </span>PDF</span>
+                        Exporta PDF
                     </button>
-                    <button onClick={() => window.print()} className="bg-slate-700 hover:bg-slate-600 text-white px-2 md:px-6 py-2 rounded-lg text-xs font-bold uppercase md:tracking-widest">Imprimir</button>
-                    <button onClick={onClose} className="hidden md:block bg-slate-800 hover:bg-slate-700 text-slate-300 px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-widest">Tancar</button>
+                    <button onClick={() => window.print()} className="bg-slate-700 hover:bg-slate-600 text-white px-4 min-[1400px]:px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-widest">Imprimir</button>
+                    <button onClick={onClose} className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 min-[1400px]:px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-widest">Tancar</button>
+                </div>
+
+                {/* Mòbil i tauleta: menú i tancar */}
+                <div className="xl:hidden flex items-center gap-2 shrink-0">
+                    <div className="relative">
+                        <button
+                            onClick={() => setMenuObert(!menuObert)}
+                            className="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-lg"
+                            title="Exportar i imprimir"
+                            aria-label="Exportar i imprimir"
+                            aria-expanded={menuObert}
+                        >
+                            <Menu size={18} />
+                        </button>
+                        {menuObert && (
+                            <>
+                                <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setMenuObert(false)} />
+                                <div className="absolute top-full right-0 mt-2 bg-slate-900 border border-slate-700 shadow-2xl z-50 min-w-[220px] max-w-[90vw]">
+                                    <button
+                                        onClick={() => { setMenuObert(false); handleExportXLSX(); }}
+                                        className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 transition-colors flex items-center gap-3 border-b border-slate-800"
+                                    >
+                                        <FileSpreadsheet size={18} className="text-emerald-400" />
+                                        <span className="font-medium">Excel</span>
+                                    </button>
+                                    <button
+                                        onClick={() => { setMenuObert(false); exportaPDF(); }}
+                                        className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 transition-colors flex items-center gap-3 border-b border-slate-800"
+                                    >
+                                        <FileDown size={18} className="text-blue-400" />
+                                        <span className="font-medium">Exporta PDF</span>
+                                    </button>
+                                    <button
+                                        onClick={() => { setMenuObert(false); window.print(); }}
+                                        className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 transition-colors flex items-center gap-3"
+                                    >
+                                        <Printer size={18} className="text-slate-400" />
+                                        <span className="font-medium">Imprimir</span>
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                    <button onClick={onClose} className="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-lg" title="Tancar" aria-label="Tancar">
+                        <X size={18} />
+                    </button>
                 </div>
             </div>
 
