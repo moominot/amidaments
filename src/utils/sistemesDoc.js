@@ -8,7 +8,7 @@ import { referencies } from './formules';
  *
  * Un **sistema** és un document d'amidaments sencer —capítols, subcapítols, partides, línies i
  * preus— amb **paràmetres**: les línies hi tenen fórmules (`L+2*e`) i els paràmetres, valors
- * per defecte. Pot ser des d'un detall (un envà, una piscina) fins a un edifici sencer.
+ * per defecte. Pot ser des d'un detall (un envà, un banc d'obra) fins a un edifici sencer.
  *
  * - **Crear-ne un** és desar un projecte com a sistema (`documentDeProjecte`): el que hi ha a
  *   l'arbre i a la barra de paràmetres.
