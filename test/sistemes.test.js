@@ -263,3 +263,54 @@ describe('exportació BC3 d\'un projecte amb fórmules', () => {
         expect(quantitats(r.chapters)['RF22.01.05']).toBe(10.2);   // sense costats curts
     });
 });
+
+describe('condicions dels sistemes', () => {
+    it('la piscina porta els límits i les condicions del generador anterior', () => {
+        const L = PISCINA.parametres.find(p => p.nom === 'L');
+        expect(L.min).toBe(0.5);
+        expect(PISCINA.parametres.find(p => p.nom === 'nAmple')).toMatchObject({ min: 0, max: 2, enter: true });
+        expect(PISCINA.condicions.map(c => c.expressio)).toEqual(['P2>=P1', 'o(hT>0; tLlargs+tCurts=0)']);
+        expect(previsualitza(PISCINA).incomplertes).toBe(0);
+    });
+
+    it('la previsualització diu què no es compleix, pel nom del sistema', () => {
+        const v = previsualitza(PISCINA, {
+            parametresProjecte: [{ id: 'q', nom: 'L', valor: 30 }],
+            respostes: new Map([['P1', { valor: 1.5 }], ['P2', { valor: 1.2 }], ['nAmple', { valor: 3 }], ['L', { valor: 0.2 }]]),
+        });
+        expect(v.condicions[0]).toMatchObject({ ok: false, missatge: 'La fondària màxima no pot ser menor que la mínima' });
+        expect(v.limitsPerNom.get('nAmple')).toEqual(['Ha de ser com a màxim 2']);
+        // L s'ha reanomenat a L_2 (el projecte ja en té un), però l'avís surt pel nom del sistema.
+        expect(v.limitsPerNom.get('L')).toEqual(['Ha de ser com a mínim 0,5']);
+        expect(v.incomplertes).toBe(3);
+    });
+
+    it('en inserir, les condicions es reanomenen amb els paràmetres i es marquen', () => {
+        const r = instancia(PISCINA, {
+            nomInstancia: 'Piscina B', id: 'I9',
+            parametresProjecte: [{ id: 'q', nom: 'P2', valor: 3 }],
+        });
+        expect(r.condicions[0]).toMatchObject({ expressio: 'P2_2>=P1', sistema: 'I9', grup: 'Piscina B' });
+        expect(r.condicions[0].id).not.toBe('c1');
+    });
+
+    it('extreure i treure una instància fan el mateix amb les seves condicions', () => {
+        const inst = instancia(PISCINA, { parametresProjecte: [{ id: 'q', nom: 'P2', valor: 3 }], id: 'I1' });
+        const budget = {
+            parametres: [{ id: 'q', nom: 'P2', valor: 3 }, ...inst.parametres],
+            condicions: [{ id: 'propia', expressio: 'P2>0' }, ...inst.condicions],
+            sistemes: [inst.instancia],
+            chapters: inst.chapters,
+        };
+        const doc = extreuInstancia(budget, inst.prices, 'I1');
+        expect(doc.condicions.map(c => c.expressio)).toEqual(['P2>=P1', 'o(hT>0; tLlargs+tCurts=0)']);
+        expect(doc.condicions[0].sistema).toBeUndefined();
+        expect(treuInstancia(budget, 'I1').condicions.map(c => c.id)).toEqual(['propia']);
+    });
+
+    it('desar un projecte com a sistema hi porta les condicions', () => {
+        const doc = documentDeProjecte({ chapters: [], parametres: [], condicions: [{ id: 'k', expressio: 'A>0', sistema: 'x', grup: 'g' }] });
+        expect(doc.condicions).toEqual([{ id: 'k', expressio: 'A>0' }]);
+        expect(llegeixDocument({ budget: { chapters: [], condicions: [{ id: 'k', expressio: 'A>0' }] } }).condicions).toHaveLength(1);
+    });
+});

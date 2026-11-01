@@ -141,8 +141,8 @@ export const resolveFormules = (chapters = [], parametres = []) => {
     return { chapters: chapters.map(resolNode), liniesAmbError, parametres: resolts };
 };
 
-/** Quantes vegades surt cada paramètre: a línies i a fórmules d'altres paràmetres. */
-export const usosDeParametres = (chapters = [], parametres = []) => {
+/** Quantes vegades surt cada paràmetre: a línies, a fórmules d'altres paràmetres i a condicions. */
+export const usosDeParametres = (chapters = [], parametres = [], condicions = []) => {
     const usos = new Map();
     const compta = (text) => referencies(text).forEach(nom => usos.set(nom, (usos.get(nom) || 0) + 1));
     const recorre = (nodes) => nodes.forEach(n => {
@@ -153,12 +153,16 @@ export const usosDeParametres = (chapters = [], parametres = []) => {
     });
     recorre(chapters);
     parametres.forEach(p => { if (p.formula) compta(p.formula); });
+    condicions.forEach(c => { if (c.expressio) compta(c.expressio); });
     return usos;
 };
 
-/** Reescriu totes les fórmules (de línies i de paràmetres) amb `canvis`: Map nom vell → nom nou. */
-export const reescriuFormules = ({ chapters = [], parametres = [] }, canvis) => {
-    if (!canvis.size) return { chapters, parametres };
+/**
+ * Reescriu totes les fórmules (de línies, de paràmetres i de condicions) amb `canvis`:
+ * `Map` nom vell → nom nou.
+ */
+export const reescriuFormules = ({ chapters = [], parametres = [], condicions = [] }, canvis) => {
+    if (!canvis.size) return { chapters, parametres, condicions };
     const reescriu = (text) => {
         let t = text;
         canvis.forEach((nou, vell) => { t = reanomenaA(t, vell, nou); });
@@ -195,7 +199,71 @@ export const reescriuFormules = ({ chapters = [], parametres = [] }, canvis) => 
     return {
         chapters: chapters.map(node),
         parametres: parametres.map(p => (p.formula ? { ...p, formula: fn(p.formula) } : p)),
+        condicions: condicions.map(c => (c.expressio ? { ...c, expressio: fn(c.expressio) } : c)),
     };
+};
+
+// ─── Condicions ───
+//
+// Dues menes, totes dues opcionals:
+// - **De cada paràmetre**: `min`, `max` i `enter` (nombre enter). Les més habituals, i es
+//   posen sense escriure cap fórmula.
+// - **Entre paràmetres**: `budget.condicions`, una llista de `{ id, expressio, missatge }` on
+//   `expressio` és una fórmula que ha de donar cert (diferent de 0): `P2>=P1`,
+//   `i(nAmple>=0; nAmple<=2)`. El missatge és el que es mostra quan no es compleix.
+//
+// Al projecte, una condició que no es compleix és un avís: el càlcul continua. En inserir un
+// sistema, en canvi, no es deixa inserir fins que es compleixen totes.
+
+const esEnter = (v) => Math.abs(v - Math.round(v)) < 1e-9;
+const num = (v) => (v === '' || v === null || v === undefined || !Number.isFinite(Number(v)) ? null : Number(v));
+const text = (v) => String(v).replace('.', ',');
+
+/** Els límits d'un paràmetre en text curt: «≥ 0 · ≤ 2 · enter». Buit si no en té. */
+export const resumLimits = (p) => [
+    num(p.min) !== null && `≥ ${text(num(p.min))}`,
+    num(p.max) !== null && `≤ ${text(num(p.max))}`,
+    p.enter && 'enter',
+].filter(Boolean).join(' · ');
+
+/**
+ * Comprova les condicions amb els valors ja resolts (`resolParametres`).
+ *
+ * Torna `{ perParametre, generals, incomplertes }`:
+ * - `perParametre`: `Map` id → llista de missatges dels límits que no compleix;
+ * - `generals`: cada condició entre paràmetres amb `ok` i, si no, `missatge` (o `error` si la
+ *   fórmula no es pot avaluar, que també compta com a no complerta);
+ * - `incomplertes`: quantes en total no es compleixen.
+ *
+ * Un paràmetre sense valor (per un error de fórmula) no es comprova: l'error ja surt a part.
+ */
+export const comprovaCondicions = (parametres = [], condicions = [], resolts = resolParametres(parametres)) => {
+    const perParametre = new Map();
+    parametres.forEach(p => {
+        const v = resolts.valors.get(p.nom);
+        if (v === undefined || resolts.errors.has(p.id)) return;
+        const msgs = [];
+        const min = num(p.min);
+        const max = num(p.max);
+        // Amb marge per al soroll de la coma flotant: 0,1 + 0,2 no és menys de 0,3.
+        if (min !== null && v < min - 1e-9) msgs.push(`Ha de ser com a mínim ${text(min)}`);
+        if (max !== null && v > max + 1e-9) msgs.push(`Ha de ser com a màxim ${text(max)}`);
+        if (p.enter && !esEnter(v)) msgs.push('Ha de ser un nombre enter');
+        if (msgs.length) perParametre.set(p.id, msgs);
+    });
+
+    const valorDe = (nom) => resolts.valorDe(nom);
+    const generals = condicions.map(c => {
+        const r = avalua(c.expressio, valorDe);
+        if (r.error) return { ...c, ok: false, error: r.error };
+        return r.valor !== 0
+            ? { ...c, ok: true }
+            : { ...c, ok: false, missatge: c.missatge || `No es compleix: ${c.expressio}` };
+    });
+
+    const incomplertes = [...perParametre.values()].reduce((a, m) => a + m.length, 0)
+        + generals.filter(g => !g.ok).length;
+    return { perParametre, generals, incomplertes };
 };
 
 /** `base` si no és a `ocupats`; si no, `base_2`, `base_3`... */

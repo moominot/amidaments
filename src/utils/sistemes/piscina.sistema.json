@@ -11,7 +11,8 @@
       "formula": "",
       "unitat": "m",
       "descripcio": "Llargària interior",
-      "grup": "Vas (interior)"
+      "grup": "Vas (interior)",
+      "min": 0.5
     },
     {
       "id": "p2",
@@ -20,7 +21,8 @@
       "formula": "",
       "unitat": "m",
       "descripcio": "Amplada interior",
-      "grup": "Vas (interior)"
+      "grup": "Vas (interior)",
+      "min": 0.5
     },
     {
       "id": "p3",
@@ -29,7 +31,8 @@
       "formula": "",
       "unitat": "m",
       "descripcio": "Fondària mínima",
-      "grup": "Vas (interior)"
+      "grup": "Vas (interior)",
+      "min": 0.2
     },
     {
       "id": "p4",
@@ -38,7 +41,8 @@
       "formula": "",
       "unitat": "m",
       "descripcio": "Fondària màxima (igual que la mínima si el fons és pla)",
-      "grup": "Vas (interior)"
+      "grup": "Vas (interior)",
+      "min": 0.2
     },
     {
       "id": "p5",
@@ -65,7 +69,9 @@
       "formula": "",
       "unitat": "m",
       "descripcio": "Gruix del mur",
-      "grup": "Estructura"
+      "grup": "Estructura",
+      "min": 0,
+      "max": 1
     },
     {
       "id": "p8",
@@ -74,7 +80,9 @@
       "formula": "",
       "unitat": "m",
       "descripcio": "Sobreample del formigó de neteja, per costat",
-      "grup": "Estructura"
+      "grup": "Estructura",
+      "min": 0,
+      "max": 1
     },
     {
       "id": "p9",
@@ -83,7 +91,9 @@
       "formula": "",
       "unitat": "m",
       "descripcio": "El que allarga cada costat del coronament per extrem",
-      "grup": "Coronament"
+      "grup": "Coronament",
+      "min": 0,
+      "max": 1
     },
     {
       "id": "p10",
@@ -92,7 +102,10 @@
       "formula": "",
       "unitat": "ut",
       "descripcio": "Costats llargs amb peça de 40 (la resta, de 30)",
-      "grup": "Coronament"
+      "grup": "Coronament",
+      "min": 0,
+      "max": 2,
+      "enter": true
     },
     {
       "id": "p11",
@@ -101,7 +114,8 @@
       "formula": "",
       "unitat": "m",
       "descripcio": "Alçada del suport de tubs",
-      "grup": "Suport de tubs"
+      "grup": "Suport de tubs",
+      "min": 0
     },
     {
       "id": "p12",
@@ -110,7 +124,10 @@
       "formula": "",
       "unitat": "ut",
       "descripcio": "Costats llargs amb suport de tubs",
-      "grup": "Suport de tubs"
+      "grup": "Suport de tubs",
+      "min": 0,
+      "max": 2,
+      "enter": true
     },
     {
       "id": "p13",
@@ -119,7 +136,10 @@
       "formula": "",
       "unitat": "ut",
       "descripcio": "Costats curts amb suport de tubs",
-      "grup": "Suport de tubs"
+      "grup": "Suport de tubs",
+      "min": 0,
+      "max": 2,
+      "enter": true
     },
     {
       "id": "p14",
@@ -128,7 +148,9 @@
       "formula": "",
       "unitat": "ut",
       "descripcio": "Banc i escala",
-      "grup": "Equipament"
+      "grup": "Equipament",
+      "min": 0,
+      "enter": true
     },
     {
       "id": "p15",
@@ -137,7 +159,9 @@
       "formula": "",
       "unitat": "ut",
       "descripcio": "Equip de depuració",
-      "grup": "Equipament"
+      "grup": "Equipament",
+      "min": 0,
+      "enter": true
     },
     {
       "id": "p16",
@@ -146,7 +170,9 @@
       "formula": "",
       "unitat": "ut",
       "descripcio": "Focus",
-      "grup": "Equipament"
+      "grup": "Equipament",
+      "min": 0,
+      "enter": true
     },
     {
       "id": "p17",
@@ -155,7 +181,21 @@
       "formula": "",
       "unitat": "ut",
       "descripcio": "Electròlisi salina",
-      "grup": "Equipament"
+      "grup": "Equipament",
+      "min": 0,
+      "enter": true
+    }
+  ],
+  "condicions": [
+    {
+      "id": "c1",
+      "expressio": "P2>=P1",
+      "missatge": "La fondària màxima no pot ser menor que la mínima"
+    },
+    {
+      "id": "c2",
+      "expressio": "o(hT>0; tLlargs+tCurts=0)",
+      "missatge": "El suport de tubs necessita una alçada"
     }
   ],
   "chapters": [

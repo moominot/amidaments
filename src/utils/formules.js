@@ -18,6 +18,9 @@ import { parseDecimal } from './decimal';
  *   `alçada_planta`). Distingeixen majúscules.
  * - Funcions: `min`, `max`, `abs`, `arrel` (`sqrt`), `sostre` (`ceil`), `terra` (`floor`),
  *   `arrod(x; decimals)` (`round`). La constant `pi`, si no hi ha cap paràmetre amb aquest nom.
+ * - Comparacions `= <> < > <= >=` (i `≠ ≤ ≥ !=`), que donen 1 o 0, i les funcions `si(c; a; b)`
+ *   (`if`), `i(...)` (`and`), `o(...)` (`or`) i `no(x)` (`not`). Serveixen per a les condicions
+ *   dels paràmetres (`P2>=P1`) i per a fórmules com `si(P1=P2; 2; 1)`.
  * - Un `=` al davant s'ignora: qui ve del full de càlcul l'escriu per costum.
  */
 
@@ -38,8 +41,26 @@ const FUNCIONS = {
         min: 1, max: 2,
         fn: (x, d = 0) => { const f = 10 ** Math.round(d); return Math.round((x + Number.EPSILON) * f) / f; },
     },
+    // Lògiques: 0 és fals i qualsevol altre valor, cert. `si` s'avalua a part (veure
+    // `avaluaArbre`): només calcula la branca que toca, perquè l'altra pot dividir per zero.
+    si: { min: 3, max: 3 },
+    i: { min: 1, fn: (...a) => (a.every(x => x !== 0) ? 1 : 0) },
+    o: { min: 1, fn: (...a) => (a.some(x => x !== 0) ? 1 : 0) },
+    no: { min: 1, max: 1, fn: (x) => (x === 0 ? 1 : 0) },
 };
-const ALIES = { sqrt: 'arrel', ceil: 'sostre', floor: 'terra', round: 'arrod' };
+const ALIES = { sqrt: 'arrel', ceil: 'sostre', floor: 'terra', round: 'arrod', if: 'si', and: 'i', or: 'o', not: 'no' };
+
+// Comparacions: tornen 1 o 0. La igualtat té marge per al soroll de la coma flotant
+// (0,1 + 0,2 = 0,3).
+const IGUALS = (a, b) => Math.abs(a - b) < 1e-9;
+const COMPARACIONS = {
+    '=': (a, b) => IGUALS(a, b),
+    '<>': (a, b) => !IGUALS(a, b),
+    '<': (a, b) => a < b && !IGUALS(a, b),
+    '>': (a, b) => a > b && !IGUALS(a, b),
+    '<=': (a, b) => a < b || IGUALS(a, b),
+    '>=': (a, b) => a > b || IGUALS(a, b),
+};
 const nomFuncio = (nom) => {
     const n = nom.toLowerCase();
     return FUNCIONS[n] ? n : ALIES[n] || null;
@@ -65,8 +86,14 @@ const tokenitza = (text) => {
             i = j;
             continue;
         }
-        const op = { '×': '*', '÷': '/' }[c] || c;
-        if ('+-*/^();'.includes(op)) {
+        const dos = text.slice(i, i + 2);
+        if (['>=', '<=', '<>', '!='].includes(dos)) {
+            fitxes.push({ t: 'op', v: dos === '!=' ? '<>' : dos, ini: i, fi: i + 2 });
+            i += 2;
+            continue;
+        }
+        const op = { '×': '*', '÷': '/', '≥': '>=', '≤': '<=', '≠': '<>' }[c] || c;
+        if ('+-*/^();<>='.includes(op) || ['>=', '<=', '<>'].includes(op)) {
             fitxes.push({ t: 'op', v: op, ini: i, fi: i + 1 });
             i++;
             continue;
@@ -85,6 +112,16 @@ const analitza = (fitxes) => {
         k++;
     };
 
+    // Una comparació per nivell (`a < b < c` no vol dir el que sembla): per encadenar-ne, `i(...)`.
+    const comparacio = () => {
+        const a = expressio();
+        const f = mira();
+        if (f?.t === 'op' && COMPARACIONS[f.v]) {
+            k++;
+            return { t: 'c', op: f.v, a, b: expressio() };
+        }
+        return a;
+    };
     const expressio = () => {
         let a = terme();
         while (esOp('+') || esOp('-')) { const op = fitxes[k++].v; a = { t: 'b', op, a, b: terme() }; }
@@ -118,8 +155,8 @@ const analitza = (fitxes) => {
                 k++;
                 const args = [];
                 if (!esOp(')')) {
-                    args.push(expressio());
-                    while (esOp(';')) { k++; args.push(expressio()); }
+                    args.push(comparacio());
+                    while (esOp(';')) { k++; args.push(comparacio()); }
                 }
                 espera(')');
                 const def = FUNCIONS[nom];
@@ -130,11 +167,11 @@ const analitza = (fitxes) => {
             }
             return { t: 'p', nom: f.v };
         }
-        if (esOp('(')) { k++; const e = expressio(); espera(')'); return e; }
+        if (esOp('(')) { k++; const e = comparacio(); espera(')'); return e; }
         throw new ErrorFormula(`No s'esperava «${f.v}»`);
     };
 
-    const arbre = expressio();
+    const arbre = comparacio();
     if (k < fitxes.length) throw new ErrorFormula(`No s'esperava «${fitxes[k].v}»`);
     return arbre;
 };
@@ -184,7 +221,10 @@ const avaluaArbre = (n, valorDe) => {
             return v;
         }
         case 'u': return -avaluaArbre(n.a, valorDe);
-        case 'f': return FUNCIONS[n.nom].fn(...n.args.map(a => avaluaArbre(a, valorDe)));
+        case 'c': return COMPARACIONS[n.op](avaluaArbre(n.a, valorDe), avaluaArbre(n.b, valorDe)) ? 1 : 0;
+        case 'f':
+            if (n.nom === 'si') return avaluaArbre(n.args[avaluaArbre(n.args[0], valorDe) !== 0 ? 1 : 2], valorDe);
+            return FUNCIONS[n.nom].fn(...n.args.map(a => avaluaArbre(a, valorDe)));
         case 'b': {
             const a = avaluaArbre(n.a, valorDe);
             const b = avaluaArbre(n.b, valorDe);
@@ -258,7 +298,12 @@ export const reanomenaA = (text, vell, nou) => {
     return out + String(text).slice(pos);
 };
 
+// Noms que no poden ser paràmetre perquè es confondrien amb una funció de càlcul. Els de les
+// lògiques (`i`, `o`, `si`, `no`) sí que poden: són noms curts que algú pot voler fer servir, i el
+// parèntesi ja diu quan és la funció.
+const RESERVATS = new Set(['min', 'max', 'abs', 'arrel', 'sostre', 'terra', 'arrod', 'sqrt', 'ceil', 'floor', 'round']);
+
 /** Un nom de paràmetre vàlid: comença per lletra o `_`, sense espais ni signes. */
 export const esNomValid = (nom) =>
     typeof nom === 'string' && LLETRA.test(nom[0] || '') && [...nom].every(c => ALFANUM.test(c))
-    && !nomFuncio(nom);
+    && !RESERVATS.has(nom.toLowerCase());
