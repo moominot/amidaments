@@ -44,13 +44,10 @@ const TEMPS_MAXIM = 15000;
 const semblaBC3 = (text) => /^\s*~[VKCDTMFNLPQ]\|/.test(text || '');
 
 /**
- * Descarrega un BC3 i el retorna descodificat en Windows-1252, que és com s'escriu el format.
- *
- * @param {string} url URL del fitxer
- * @returns {Promise<{text: string, via: string}>}
- * @throws {Error} amb un missatge per ensenyar a l'usuari si no se n'ha sortit cap
+ * Prova els intermediaris per ordre i torna el primer contingut que `valida` dona per bo.
+ * `descodifica` passa de bytes a text (el BC3 és Windows-1252; les pàgines web, UTF-8).
  */
-export const descarregaBC3 = async (url) => {
+const descarregaAmbProxy = async (url, { valida, descodifica, quinaCosa }) => {
     const net = (url || '').trim();
     if (!net) throw new Error('URL buida');
 
@@ -70,9 +67,9 @@ export const descarregaBC3 = async (url) => {
                 problemes.push(`${amfitrio}: HTTP ${resposta.status}`);
                 continue;
             }
-            const text = new TextDecoder('windows-1252').decode(await resposta.arrayBuffer());
-            if (!semblaBC3(text)) {
-                problemes.push(`${amfitrio}: la resposta no és un BC3`);
+            const text = descodifica(await resposta.arrayBuffer());
+            if (!valida(text)) {
+                problemes.push(`${amfitrio}: la resposta no és ${quinaCosa}`);
                 continue;
             }
             return { text, via: amfitrio };
@@ -90,3 +87,26 @@ export const descarregaBC3 = async (url) => {
     error.detall = problemes;
     throw error;
 };
+
+/**
+ * Descarrega un BC3 i el retorna descodificat en Windows-1252, que és com s'escriu el format.
+ *
+ * @param {string} url URL del fitxer
+ * @returns {Promise<{text: string, via: string}>}
+ * @throws {Error} amb un missatge per ensenyar a l'usuari si no se n'ha sortit cap
+ */
+export const descarregaBC3 = (url) => descarregaAmbProxy(url, {
+    valida: semblaBC3,
+    descodifica: (bytes) => new TextDecoder('windows-1252').decode(bytes),
+    quinaCosa: 'un BC3',
+});
+
+/**
+ * Descarrega una pàgina web (la fa servir l'assistent per navegar pel Generador de Preus).
+ * Els proxys que refusen contesten sovint 200 amb un JSON: es comprova que sigui HTML.
+ */
+export const descarregaPagina = (url) => descarregaAmbProxy(url, {
+    valida: (text) => /<html|<!doctype html/i.test((text || '').slice(0, 2000)),
+    descodifica: (bytes) => new TextDecoder('utf-8').decode(bytes),
+    quinaCosa: 'una pàgina web',
+});

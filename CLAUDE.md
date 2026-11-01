@@ -11,7 +11,7 @@ npm install
 npm run dev
 npm run build     # ha de passar sempre abans de donar una feina per acabada
 npm run lint      # cobreix .js i .jsx; l'arbre ha de quedar amb 0 errors
-npm test          # Vitest; 186 tests sobre els càlculs, el parser i l'escriptor
+npm test          # Vitest; 201 tests sobre els càlculs, el parser i l'escriptor
 npm run test:watch
 ```
 
@@ -96,6 +96,11 @@ del sector: *amidament*, *partida*, *capítol*, *descomposat*, *rendiment*, *cer
   de la instància, a `budget.sistemes`), que és el que permet filtrar-la, extreure-la i treure-la.
   Entren per `insereixNodes`, el camí d'enganxar, amb els paràmetres i la instància dins del
   resultat de la importació perquè cancel·lar no deixi res a mitges.
+- **L'assistent** (`utils/assistent/`, `components/AssistentPanel.jsx`) crida l'API d'Anthropic
+  des del navegador amb la clau de l'usuari (a `localStorage`). Les eines reben i tornen
+  `{ budget, priceDatabase }`; qualsevol eina nova ha de validar l'input (`validaInput`), perquè
+  amb `eager_input_streaming` el servidor no ho fa. Les indicacions són un text fix: no hi posis
+  res que canviï a cada crida o es perd la memòria cau. Veure `docs/assistent.md`.
 - **Qualsevol fitxer que entri passa per `obreFitxer`** (`App.jsx`): selector, arrossegament,
   `launchQueue` d'escriptori i fitxers compartits des d'Android. Si hi afegeixes un camí nou,
   fes-lo passar per aquí i no repeteixis la comprovació: tenir-ne tres de diferents va deixar

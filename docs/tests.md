@@ -5,7 +5,7 @@ npm test          # una passada
 npm run test:watch
 ```
 
-**Vitest**, 186 tests en onze fitxers, poc més d'un segon. `vitest.config.js` és a part de
+**Vitest**, 201 tests en dotze fitxers, poc més d'un segon. `vitest.config.js` és a part de
 `vite.config.js` a posta: els tests són tots de lògica de càlcul i no munten cap component, de
 manera que no els cal ni el plugin de React ni l'entorn de navegador.
 
@@ -39,6 +39,7 @@ que has canviat és correcte abans de moure el número esperat.
 | `projecte.test.js` | El fitxer `.amid`, `safeFileName` i la migració d'esquema |
 | `formules.test.js` | Sintaxi de les fórmules, errors, paràmetres amb cicles i en cadena, línies amb fórmula (una dimensió a 0 val 0), vincles sobre fórmules, reanomenar, comparacions i lògica, límits i condicions dels paràmetres |
 | `sistemes.test.js` | Un sistema de prova (un mur genèric) amb les xifres fetes a mà; crear un sistema d'un projecte, inserir-lo (reanomenar, enllaçar, respostes amb fórmula, vincles), filtrar, extreure i treure instàncies, condicions, ometre les partides a zero i el cicle BC3 ×3 amb fórmules |
+| `assistent.test.js` | Lectura de la navegació i les fitxes de CYPE, validació dels inputs, les eines d'edició (quantitats, descomposat, errors de fórmula, condicions) i la importació d'una partida de CYPE amb `cype-pilar.bc3` (fusió de capítols, preus del projecte que manen). La xarxa s'injecta |
 | `cad.test.js` | El text del LISP `AMIDA` i què en surt segons la unitat (m2, m, ud, m3). Sense fitxer real: el text el genera el LISP |
 
 ## Per què aquests i no uns altres

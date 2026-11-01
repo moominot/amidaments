@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from 'react';
 import {
-    X, Blocks, ArrowLeft, Upload, Download, Trash2, Pencil, Save, AlertCircle, CheckCircle2, Link as LinkIcon, ChevronRight,
+    X, Blocks, ArrowLeft, Upload, Download, Trash2, Pencil, Save, AlertCircle, CheckCircle2, Link as LinkIcon, ChevronRight, Sparkles,
 } from 'lucide-react';
 import FormulaInput from './FormulaInput';
 import { formatCurrency, formatNumber } from '../utils/calculations';
@@ -94,6 +94,13 @@ const SistemesModal = ({
                                 className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest touch-manipulation"
                             >
                                 <Save size={13} /> Desa aquest projecte com a sistema
+                            </button>
+                            <button
+                                onClick={() => window.open(`${window.location.pathname}?assistent`, '_blank', 'noopener')}
+                                className="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest touch-manipulation"
+                                title="Obre una finestra nova amb un projecte buit i l'assistent, per muntar-hi un sistema"
+                            >
+                                <Sparkles size={13} /> Nou sistema amb l&apos;assistent
                             </button>
                             <button
                                 onClick={() => fitxer.current?.click()}

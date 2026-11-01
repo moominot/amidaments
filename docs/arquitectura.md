@@ -34,7 +34,7 @@ Navegador
 | `src/components/PriceBankPicker.jsx` | 160 | Selector d'un concepte del banc de preus, compartit pel descomposat, la creació de partides i els residus. |
 | `src/utils/wasteStudy.js` | 108 | Fraccions i llindars de l'article 5.5 del RD 105/2008, i valoració del cost. |
 | `src/utils/wasteStudyPdf.js` | 300 | L'estudi de gestió de residus en PDF, amb els set apartats. |
-| `src/utils/corsProxy.js` | 95 | Descàrrega d'un BC3 des d'una URL, amb la cadena de proxys CORS. |
+| `src/utils/corsProxy.js` | — | Descàrrega d'un BC3 o d'una pàgina des d'una URL, amb la cadena de proxys CORS. |
 | `src/utils/googleDrive.js` | 260 | Wrapper de Drive API + Picker + codificació Windows-1252. |
 | `src/hooks/useCertification.js` | 163 | Mutacions d'estat de certificacions. |
 | `src/hooks/useGoogleDrive.js` | 347 | Cicle de vida OAuth, obrir/desar a Drive, "Open with…". |
@@ -52,7 +52,9 @@ Navegador
 | `src/components/ParametresPanel.jsx` | — | Barra de paràmetres a l'esquerra (calaix al mòbil). |
 | `src/components/FormulaInput.jsx` | — | Camp d'amidament que accepta número o fórmula. |
 | `src/components/SistemesModal.jsx` | — | Galeria de sistemes, inserció amb paràmetres i desar com a sistema. |
-| `test/` | 186 tests | Vitest sobre els càlculs, el parser i l'escriptor. Veure [`docs/tests.md`](tests.md). |
+| `src/utils/assistent/` | — | Assistent amb Claude: bucle amb l'API (`agent.js`), eines (`eines.js`), lectura del Generador de Preus (`cype.js`) i indicacions. Veure [`docs/assistent.md`](assistent.md). |
+| `src/components/AssistentPanel.jsx` | — | Xat de l'assistent (columna de l'esquerra o calaix). |
+| `test/` | 201 tests | Vitest sobre els càlculs, el parser i l'escriptor. Veure [`docs/tests.md`](tests.md). |
 
 ## Estructura interna d'`App.jsx`
 

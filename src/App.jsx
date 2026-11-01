@@ -4,6 +4,7 @@ import {
     FolderPlus,
     Blocks,
     Variable,
+    Sparkles,
     ListPlus,
     FileText,
     Trash2,
@@ -88,6 +89,7 @@ import { migrateBudget } from './utils/migrateBudget';
 import { resolveMeasurementRefs, isRefLine, refLabel } from './utils/measurementRefs';
 import { resolveFormules, usosDeParametres, reescriuFormules, comprovaCondicions } from './utils/parametres';
 import ParametresPanel from './components/ParametresPanel';
+import AssistentPanel from './components/AssistentPanel';
 import { processBC3Data } from './utils/bc3Parser';
 import { generateBC3, nomFitxerCertificacio } from './utils/bc3Writer';
 import { numberToTextCatalan } from './utils/numberToText';
@@ -1057,10 +1059,21 @@ export default function App() {
     // anterior) per copiar-ne capítols i partides cap a la finestra on es treballa. No desa
     // res: si ho fes, ompliria la biblioteca i passaria a ser «l'últim projecte» del navegador.
     const [consulta] = useState(() => new URLSearchParams(window.location.search).has('consulta'));
-    const [inicial] = useState(() => (consulta ? null : initialProject()));
+    // Una finestra oberta per fer un sistema amb l'assistent (`?assistent`) comença amb un
+    // projecte buit i l'assistent obert. Si es recarrega, continua amb el que tenia: la marca
+    // de sessionStorage diu que la finestra ja ha arrencat.
+    const [finestraAssistent] = useState(() => {
+        if (!new URLSearchParams(window.location.search).has('assistent')) return false;
+        try {
+            if (sessionStorage.getItem('amidaments:assistent-iniciat')) return 'recarregada';
+            sessionStorage.setItem('amidaments:assistent-iniciat', '1');
+        } catch { /* res */ }
+        return 'nova';
+    });
+    const [inicial] = useState(() => (consulta || finestraAssistent === 'nova' ? null : initialProject()));
 
     const [budget, setBudget] = useState(() => {
-        const nou = { id: crypto.randomUUID(), name: consulta ? 'Banc de consulta' : 'Projecte BC3', chapters: [], certifications: [] };
+        const nou = { id: crypto.randomUUID(), name: consulta ? 'Banc de consulta' : finestraAssistent ? 'Sistema nou' : 'Projecte BC3', chapters: [], certifications: [] };
         try {
             const data = inicial?.budget ? { ...inicial.budget } : nou;
             if (!data.id) data.id = crypto.randomUUID();
@@ -1445,15 +1458,33 @@ export default function App() {
         [budget.parametres, budget.condicions, ambFormules],
     );
 
-    // --- Paràmetres (veure `utils/parametres.js` i `components/ParametresPanel.jsx`) ---
-    // Si la barra és visible és una preferència de qui mira, no del projecte.
-    const [mostraParametres, setMostraParametres] = useState(() => {
-        try { return localStorage.getItem('amidaments:parametres-visibles') === '1'; } catch { return false; }
+    // --- Columna de l'esquerra: paràmetres o assistent ---
+    // Quin hi ha obert és una preferència de qui mira, no del projecte. L'assistent, un cop
+    // obert, es queda muntat encara que s'amagui: si no, la conversa es perdria.
+    const [panellEsquerre, setPanellEsquerre] = useState(() => {
+        if (finestraAssistent) return 'assistent';
+        try { return localStorage.getItem('amidaments:parametres-visibles') === '1' ? 'parametres' : null; } catch { return null; }
     });
-    const commutaParametres = (visible) => {
-        setMostraParametres(visible);
-        try { localStorage.setItem('amidaments:parametres-visibles', visible ? '1' : '0'); } catch { /* res */ }
+    const [assistentMuntat, setAssistentMuntat] = useState(() => !!finestraAssistent);
+    const obrePanell = (quin) => {
+        setPanellEsquerre(quin);
+        if (quin === 'assistent') setAssistentMuntat(true);
+        try { localStorage.setItem('amidaments:parametres-visibles', quin === 'parametres' ? '1' : '0'); } catch { /* res */ }
     };
+    const mostraParametres = panellEsquerre === 'parametres';
+    const commutaParametres = (visible) => obrePanell(visible ? 'parametres' : null);
+
+    // L'assistent llegeix i escriu el projecte per aquí. La referència es posa al dia a cada
+    // render i també en aplicar un canvi, perquè les eines que s'executen seguides en una
+    // mateixa volta vegin el canvi de l'anterior sense esperar el render.
+    const estatAssistent = useRef({ budget, priceDatabase });
+    estatAssistent.current = { budget, priceDatabase };
+    const getEstatAssistent = useCallback(() => estatAssistent.current, []);
+    const aplicaEstatAssistent = useCallback((e) => {
+        estatAssistent.current = e;
+        setBudget(e.budget);
+        setPriceDatabase(e.priceDatabase);
+    }, []);
 
     /** Torna l'id del paràmetre nou, perquè el panell en posi el focus al nom. */
     const afegeixParametre = (grup = '') => {
@@ -5539,9 +5570,21 @@ export default function App() {
             />
 
             <main className={`flex-1 flex ${panellAlCostat ? 'flex-row' : 'flex-col'} overflow-hidden`}>
-                {/* Paràmetres: columna a l'esquerra quan hi ha lloc; si no, calaix per sobre. */}
-                {mostraParametres && !panellAlCostat && (
-                    <div className="fixed inset-0 bg-black/50 z-40" onClick={() => commutaParametres(false)} />
+                {/* Paràmetres o assistent: columna a l'esquerra quan hi ha lloc; si no, calaix per sobre. */}
+                {panellEsquerre && !panellAlCostat && (
+                    <div className="fixed inset-0 bg-black/50 z-40" onClick={() => obrePanell(null)} />
+                )}
+                {assistentMuntat && (
+                    <div className={panellEsquerre !== 'assistent' ? 'hidden' : panellAlCostat
+                        ? 'w-96 flex-shrink-0 border-r border-slate-200 overflow-hidden'
+                        : 'fixed inset-y-0 left-0 z-50 w-[92vw] max-w-md shadow-2xl'}
+                    >
+                        <AssistentPanel
+                            getEstat={getEstatAssistent}
+                            aplicaEstat={aplicaEstatAssistent}
+                            onTanca={() => obrePanell(null)}
+                        />
+                    </div>
                 )}
                 {mostraParametres && (
                     <div className={panellAlCostat
@@ -5621,6 +5664,15 @@ export default function App() {
                                         {budget.sistemes.map(i => <option key={i.id} value={i.id}>{i.nom}</option>)}
                                     </select>
                                 )}
+                                <button
+                                    onClick={() => obrePanell(panellEsquerre === 'assistent' ? null : 'assistent')}
+                                    className={`p-1.5 md:px-2 md:py-1 border flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest transition-colors touch-manipulation ${panellEsquerre === 'assistent' ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                                    title="Assistent: munta sistemes, amidaments i partides"
+                                    aria-pressed={panellEsquerre === 'assistent'}
+                                >
+                                    <Sparkles size={14} />
+                                    <span className="hidden 2xl:inline">Assistent</span>
+                                </button>
                                 <button
                                     onClick={() => commutaParametres(!mostraParametres)}
                                     className={`p-1.5 md:px-2 md:py-1 border flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest transition-colors touch-manipulation ${mostraParametres ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}

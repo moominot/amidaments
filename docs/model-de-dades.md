@@ -189,6 +189,7 @@ mateix descomposat. Es divideix per 100 només si la unitat és realment `%`
     summary: "Demolició de fàbrica…",
     unit: "m2",
     breakdown: [ BreakdownLine, ... ]   // opcional; el parser BC3 NO l'omple
+    font: "https://… (2026-11-01)"     // opcional: d'on surt el preu (assistent)
   }
 }
 ```
