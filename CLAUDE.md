@@ -90,6 +90,10 @@ del sector: *amidament*, *partida*, *capítol*, *descomposat*, *rendiment*, *cer
   «12,5» es converteix en 125 sense avisar. Fes servir `components/NumberInput.jsx`.
 - **Res d'`opacity-0 group-hover:`**: al tacte no hi ha hover i el control queda inabastable.
   El patró correcte és `opacity-60 md:opacity-0 md:group-hover:opacity-100`.
+- **Punts de tall de la interfície**: el panell de detall és un full inferior fins a `lg`
+  (1024) i una columna a partir d'aquí, limitada al 40% fins a `xl`; el capçal posa els
+  botons a partir d'`xl` i fins aleshores ho porta tot el menú. Per a l'amplada al render, fes
+  servir `ampladaFinestra` (es refresca en girar la tauleta), no `window.innerWidth`.
 - `scrollIntoView` arrossega també els contenidors superiors. Per desplaçar una llista
   horitzontal, fes `contenidor.scrollTo({ left })` a mà.
 - **Els residus es desen amb les magnituds primitives** (`quantity`, `massPerUnit`,

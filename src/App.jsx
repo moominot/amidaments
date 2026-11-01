@@ -1124,6 +1124,15 @@ export default function App() {
         certification: true
     });
 
+    // Amplada de la finestra en estat: llegir `window.innerWidth` al render no es
+    // refrescava en girar una tauleta o canviar la mida de la finestra.
+    const [ampladaFinestra, setAmpladaFinestra] = useState(() => window.innerWidth);
+    useEffect(() => {
+        const onResize = () => setAmpladaFinestra(window.innerWidth);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    }, []);
+
     // Mobile state
     const [showMobileMenu, setShowMobileMenu] = useState(false);
     const [showMobileSidebar, setShowMobileSidebar] = useState(false);
@@ -1297,6 +1306,10 @@ export default function App() {
         deleteProject(id);
         setLibrary(listProjects());
     }, [library]);
+
+    // El panell de detall només té sentit a l'editor: a les altres pestanyes ocupava un terç
+    // de la pantalla amb un «selecciona una partida».
+    const mostraDetall = activeTab === 'editor';
 
     // Els darrers projectes, sense el que ja és obert, per obrir-los des del menú d'un clic.
     const recents = useMemo(() => library.filter(p => p.id !== budget.id).slice(0, 5), [library, budget.id]);
@@ -3479,11 +3492,8 @@ export default function App() {
 
         return (
             <div className="bg-white border border-slate-300 animate-in fade-in duration-300">
-                <div className="bg-slate-100 px-4 py-1.5 border-b border-slate-300 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <Tag size={12} className="text-blue-500" />
-                        <span className="text-[11px] font-black uppercase tracking-widest text-slate-500">Justificació de Preu Unitari: {node.code}</span>
-                    </div>
+                {/* El títol ja el porta la secció del panell: aquí només hi van les accions. */}
+                <div className="bg-slate-100 px-3 py-1.5 border-b border-slate-300 flex items-center justify-end gap-2">
                     <button
                         onClick={() => setPicker({
                             titol: 'Afegir al descomposat',
@@ -3495,7 +3505,7 @@ export default function App() {
                     >
                         <Database size={11} /> Del banc
                     </button>
-                    <button onClick={() => addBreakdownLine(node.id)} className="text-[10px] bg-white border border-slate-300 px-2 py-0.5 hover:bg-slate-50 flex items-center gap-1 uppercase font-bold">
+                    <button onClick={() => addBreakdownLine(node.id)} className="text-[10px] bg-white border border-slate-300 px-2.5 py-2 md:py-0.5 hover:bg-slate-50 flex items-center gap-1 uppercase font-bold">
                         <Plus size={10} /> Afegir Component
                     </button>
                 </div>
@@ -3816,7 +3826,7 @@ export default function App() {
                                 toggleChapter(node.id);
                                 return;
                             }
-                            if (window.innerWidth < 768) {
+                            if (window.innerWidth < 1024) {
                                 setShowMobileSidebar(true);
                             }
                         }}
@@ -4465,7 +4475,7 @@ export default function App() {
                                     return (
                                         <React.Fragment key={group.id}>
                                             <tr className={`${group.bg} border-y border-slate-200`}>
-                                                <td colSpan={window.innerWidth < 768 ? 3 : 6} className="p-2 pl-4 md:pl-4">
+                                                <td colSpan={ampladaFinestra < 768 ? 3 : 6} className="p-2 pl-4 md:pl-4">
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex items-center gap-2">
                                                             <Icon size={14} className={group.color} />
@@ -4527,7 +4537,7 @@ export default function App() {
                             </tbody>
                             <tfoot className="hidden md:table-footer-group bg-slate-900 text-white font-bold sticky bottom-0 z-10">
                                 <tr>
-                                    <td colSpan={window.innerWidth < 768 ? 2 : 5} className="p-3 text-right text-[10px] uppercase tracking-widest whitespace-nowrap">Total Recursos</td>
+                                    <td colSpan={ampladaFinestra < 768 ? 2 : 5} className="p-3 text-right text-[10px] uppercase tracking-widest whitespace-nowrap">Total Recursos</td>
                                     <td className="p-3 text-right font-mono text-lg text-green-400">
                                         {formatCurrency(totalAmount)}
                                     </td>
@@ -4687,7 +4697,7 @@ export default function App() {
                         <Calculator size={20} className="md:w-6 md:h-6 text-white" />
                     </div>
                     <div className="flex flex-col">
-                        <h1 className="hidden sm:block font-bold text-xl tracking-tighter leading-none uppercase">PreuArq <span className="text-blue-400 font-light">BIM</span></h1>
+                        <h1 className="hidden sm:block font-bold text-xl tracking-tighter leading-none uppercase whitespace-nowrap">PreuArq <span className="text-blue-400 font-light">BIM</span></h1>
                         {/* Drive Status Indicator */}
                         <div className="hidden sm:flex items-center gap-2 mt-1">
                             {drive.isSignedIn ? (
@@ -4775,19 +4785,20 @@ export default function App() {
                         </div>
                     </button>
 
-                    {/* Desktop: All buttons visible */}
-                    <div className="hidden md:flex items-center gap-2 flex-wrap">
+                    {/* Escriptori ample: tots els botons. Per sota d'xl no hi caben i fan dues o
+                        tres files (o surten de la pantalla a 768 px): hi va el menú. */}
+                    <div className="hidden xl:flex items-center gap-2">
                         {/* Nou */}
-                        <button onClick={handleNewProject} className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-4 py-2 border border-slate-700 transition-colors" title="Nou Projecte">
+                        <button onClick={handleNewProject} className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-3 min-[1400px]:px-4 py-2 border border-slate-700 transition-colors" title="Nou Projecte">
                             <FilePlus size={16} className="text-slate-400" />
-                            <span className="text-[10px] font-bold uppercase tracking-widest">Nou</span>
+                            <span className="hidden min-[1400px]:inline text-[10px] font-bold uppercase tracking-widest">Nou</span>
                         </button>
 
                         {/* Obrir (Dropdown) */}
                         <div className="relative">
                             <button
                                 onClick={() => setShowOpenDropdown(!showOpenDropdown)}
-                                className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-4 py-2 border border-slate-700 transition-colors"
+                                className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-3 min-[1400px]:px-4 py-2 border border-slate-700 transition-colors"
                                 title="Obrir"
                             >
                                 <FolderOpen size={16} className="text-slate-400" />
@@ -4795,7 +4806,7 @@ export default function App() {
                                 <ChevronDown size={12} className="text-slate-500" />
                             </button>
                             {showOpenDropdown && (
-                                <div className="absolute top-full left-0 mt-1 bg-slate-900 border border-slate-700 shadow-2xl z-50 min-w-[180px]">
+                                <div className="absolute top-full left-0 mt-1 bg-slate-900 border border-slate-700 shadow-2xl z-50 min-w-[260px]">
                                     <button
                                         onClick={() => { handleOpenProject(); setShowOpenDropdown(false); }}
                                         className="w-full text-left px-4 py-2 text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-colors flex items-center gap-2"
@@ -4847,7 +4858,7 @@ export default function App() {
                         <div className="relative">
                             <button
                                 onClick={() => setShowSaveDropdown(!showSaveDropdown)}
-                                className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-4 py-2 border border-slate-700 transition-colors"
+                                className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-3 min-[1400px]:px-4 py-2 border border-slate-700 transition-colors"
                                 title="Desar Projecte"
                             >
                                 <Save size={16} className="text-emerald-400" />
@@ -4915,29 +4926,29 @@ export default function App() {
                         {/* Importar BC3 */}
                         <button
                             onClick={() => document.getElementById('bc3-import-input')?.click()}
-                            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-4 py-2 border border-slate-700 transition-colors"
+                            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-3 min-[1400px]:px-4 py-2 border border-slate-700 transition-colors"
                             title="Importar BC3"
                         >
                             <Upload size={16} className="text-blue-400" />
-                            <span className="text-[10px] font-bold uppercase tracking-widest">Importar</span>
+                            <span className="hidden min-[1400px]:inline text-[10px] font-bold uppercase tracking-widest">Importar</span>
                         </button>
 
                         {/* Imprimir: segueix el mode actiu, com la resta de la interfície.
                             Abans sempre obria el pressupost, també quan s'estava certificant. */}
                         <button
                             onClick={obreImpressio}
-                            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-4 py-2 border border-slate-700 transition-colors"
+                            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-3 min-[1400px]:px-4 py-2 border border-slate-700 transition-colors"
                             title={appMode === 'certification'
                                 ? (activeCertId ? `Imprimir ${activeCert?.name || 'la certificació'}` : 'Cap certificació activa')
                                 : 'Imprimir el pressupost i els amidaments'}
                         >
                             <Printer size={16} className="text-slate-300" />
-                            <span className="text-[10px] font-bold uppercase tracking-widest">Imprimir</span>
+                            <span className="hidden min-[1400px]:inline text-[10px] font-bold uppercase tracking-widest">Imprimir</span>
                         </button>
                     </div>
 
-                    {/* Mobile: Hamburger Menu */}
-                    <div className="md:hidden relative">
+                    {/* Mòbil i tauleta: menú */}
+                    <div className="xl:hidden relative">
                         <button
                             onClick={() => setShowMobileMenu(!showMobileMenu)}
                             className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 p-2 border border-slate-700 transition-colors"
@@ -4955,7 +4966,7 @@ export default function App() {
                                 />
 
                                 {/* Menu Dropdown */}
-                                <div className="fixed top-14 right-2 bg-slate-900 border border-slate-700 shadow-2xl z-50 min-w-[200px] max-w-[90vw]">
+                                <div className="fixed top-14 md:top-20 right-2 md:right-4 bg-slate-900 border border-slate-700 shadow-2xl z-50 min-w-[200px] md:min-w-[320px] max-w-[90vw] max-h-[calc(100vh-4rem)] md:max-h-[calc(100vh-6rem)] overflow-y-auto">
                                     <button
                                         onClick={() => { handleNewProject(); setShowMobileMenu(false); }}
                                         className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 transition-colors flex items-center gap-3 border-b border-slate-800"
@@ -5145,44 +5156,44 @@ export default function App() {
                 style={{ display: 'none' }}
             />
 
-            <main className="flex-1 flex flex-col md:flex-row overflow-hidden">
+            <main className="flex-1 flex flex-col lg:flex-row overflow-hidden">
                 {/* Taula Principal Flat */}
                 <section className="flex-1 flex flex-col bg-white overflow-hidden relative">
                     <div className="border-b border-slate-200 p-2 bg-slate-50">
                         {/* Top row: Tabs + Search icon */}
                         <div className="flex justify-between items-center gap-2">
                             {/* Tabs - Wider on mobile */}
-                            <div className="flex bg-white border border-slate-200 p-0.5 md:p-1 flex-1 md:flex-initial">
+                            <div className="flex bg-white border border-slate-200 p-0.5 md:p-1 flex-1 md:flex-initial min-w-0 overflow-x-auto">
                                 <button
                                     onClick={() => setActiveTab('editor')}
-                                    className={`flex-1 md:flex-initial px-3 md:px-4 py-3.5 md:py-1.5 text-[10px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-widest transition-colors ${activeTab === 'editor' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
+                                    className={`flex-1 md:flex-initial px-2 md:px-4 py-3.5 md:py-1.5 text-[10px] font-bold uppercase tracking-wide md:tracking-widest whitespace-nowrap transition-colors ${activeTab === 'editor' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
                                 >
-                                    <span className="hidden md:inline">Editor de Partides</span>
-                                    <span className="md:hidden">Editor</span>
+                                    <span className="hidden xl:inline">Editor de Partides</span>
+                                    <span className="xl:hidden">Editor</span>
                                 </button>
                                 <button
                                     onClick={() => setActiveTab('prices')}
-                                    className={`flex-1 md:flex-initial px-3 md:px-4 py-3.5 md:py-1.5 text-[10px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-widest transition-colors ${activeTab === 'prices' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
+                                    className={`flex-1 md:flex-initial px-2 md:px-4 py-3.5 md:py-1.5 text-[10px] font-bold uppercase tracking-wide md:tracking-widest whitespace-nowrap transition-colors ${activeTab === 'prices' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
                                 >
-                                    <span className="hidden md:inline">Base de Preus</span>
-                                    <span className="md:hidden">Preus</span>
+                                    <span className="hidden xl:inline">Base de Preus</span>
+                                    <span className="xl:hidden">Preus</span>
                                 </button>
                                 <button
                                     onClick={() => setActiveTab('recursos')}
-                                    className={`flex-1 md:flex-initial px-3 md:px-4 py-3.5 md:py-1.5 text-[10px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-widest transition-colors ${activeTab === 'recursos' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
+                                    className={`flex-1 md:flex-initial px-2 md:px-4 py-3.5 md:py-1.5 text-[10px] font-bold uppercase tracking-wide md:tracking-widest whitespace-nowrap transition-colors ${activeTab === 'recursos' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
                                 >
-                                    <span className="hidden md:inline">Llistat de Recursos</span>
-                                    <span className="md:hidden">Recursos</span>
+                                    <span className="hidden xl:inline">Llistat de Recursos</span>
+                                    <span className="xl:hidden">Recursos</span>
                                 </button>
                                 <button
                                     onClick={() => setActiveTab('residus')}
-                                    className={`flex-1 md:flex-initial px-3 md:px-4 py-3.5 md:py-1.5 text-[10px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-widest transition-colors ${activeTab === 'residus' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
+                                    className={`flex-1 md:flex-initial px-2 md:px-4 py-3.5 md:py-1.5 text-[10px] font-bold uppercase tracking-wide md:tracking-widest whitespace-nowrap transition-colors ${activeTab === 'residus' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
                                 >
                                     Residus
                                 </button>
                                 <button
                                     onClick={() => setActiveTab('petjada')}
-                                    className={`flex-1 md:flex-initial px-3 md:px-4 py-3.5 md:py-1.5 text-[10px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-widest transition-colors ${activeTab === 'petjada' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
+                                    className={`flex-1 md:flex-initial px-2 md:px-4 py-3.5 md:py-1.5 text-[10px] font-bold uppercase tracking-wide md:tracking-widest whitespace-nowrap transition-colors ${activeTab === 'petjada' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
                                 >
                                     Petjada
                                 </button>
@@ -5335,22 +5346,22 @@ export default function App() {
 
                 {/* Resizer Handle - Hide on mobile */}
                 <div
-                    className="hidden md:block w-1 bg-slate-200 hover:bg-blue-400 cursor-col-resize transition-colors z-30"
+                    className={`${mostraDetall ? 'hidden lg:block' : 'hidden'} w-1 bg-slate-200 hover:bg-blue-400 cursor-col-resize transition-colors z-30`}
                     onMouseDown={startResizing}
                 />
 
                 {/* Mobile: Bottom Sheet Backdrop */}
-                {showMobileSidebar && selectedId && (
+                {mostraDetall && showMobileSidebar && selectedId && (
                     <div
-                        className="md:hidden fixed inset-0 bg-black/50 z-40"
+                        className="lg:hidden fixed inset-0 bg-black/50 z-40"
                         onClick={() => setShowMobileSidebar(false)}
                     />
                 )}
 
                 {/* Mobile: Bottom Sheet Toggle Tab (only when item selected) */}
-                {selectedId && !showMobileSidebar && (
+                {mostraDetall && selectedId && !showMobileSidebar && (
                     <button
-                        className="md:hidden fixed bottom-0 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white px-6 py-2 rounded-t-lg shadow-lg z-50 flex items-center gap-2"
+                        className="lg:hidden fixed bottom-0 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white px-6 py-2 rounded-t-lg shadow-lg z-50 flex items-center gap-2"
                         onClick={() => setShowMobileSidebar(!showMobileSidebar)}
                     >
                         <ChevronDown className={showMobileSidebar ? 'rotate-180' : ''} size={16} />
@@ -5361,20 +5372,25 @@ export default function App() {
                 <aside
                     className={`
                         bg-slate-50 border-l border-slate-200 overflow-y-auto flex flex-col
-                        ${selectedId ? 'fixed md:relative' : 'hidden md:block'}
-                        ${showMobileSidebar ? 'max-md:bottom-0 max-md:left-0 max-md:right-0' : 'max-md:-bottom-full'}
+                        ${!mostraDetall ? 'hidden' : selectedId ? 'fixed lg:relative' : 'hidden lg:block'}
+                        ${showMobileSidebar ? 'max-lg:bottom-0 max-lg:left-0 max-lg:right-0' : 'max-lg:-bottom-full'}
                         transition-all duration-300 ease-in-out
-                        z-50 md:z-auto
-                        max-h-[80vh] md:max-h-none
-                        rounded-t-2xl md:rounded-none
-                        shadow-2xl md:shadow-none
+                        z-50 lg:z-auto
+                        max-h-[80vh] lg:max-h-none
+                        rounded-t-2xl lg:rounded-none
+                        shadow-2xl lg:shadow-none
                     `}
-                    style={{ width: window.innerWidth < 768 ? '100%' : `${sidebarWidth}px` }}
+                    // Fins a xl el panell es limita al 40%: amb 450 px fixos, a 1024 la taula
+                    // quedava a 570 i les descripcions ocupaven tres línies.
+                    style={{
+                        width: ampladaFinestra < 1024 ? '100%'
+                            : `${ampladaFinestra < 1280 ? Math.min(sidebarWidth, Math.round(ampladaFinestra * 0.4)) : sidebarWidth}px`
+                    }}
                 >
                     {/* Mobile: Close button */}
                     {selectedId && (
                         <button
-                            className="md:hidden sticky top-0 bg-slate-200 p-3 flex items-center justify-center z-10"
+                            className="lg:hidden sticky top-0 bg-slate-200 p-3 flex items-center justify-center z-10"
                             onClick={() => setShowMobileSidebar(false)}
                         >
                             <div className="w-12 h-1 bg-slate-400 rounded-full"></div>
@@ -5462,57 +5478,18 @@ export default function App() {
                                                             onChange={(e) => updateDescription(node.id, e.target.value)}
                                                         />
                                                     </div>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Unitats Section - Only for items */}
-                                        {node.unit && (
-                                            <div className="bg-white border border-slate-200 rounded shadow-sm overflow-hidden">
-                                                <button
-                                                    onClick={() => toggleSidebarSection('unit')}
-                                                    className="w-full px-3 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between hover:bg-slate-100 transition-colors"
-                                                >
-                                                    <div className="flex items-center gap-2">
-                                                        <FileText size={12} className="text-slate-400" />
-                                                        <span className="text-[10px] font-bold uppercase text-slate-600 tracking-wider">Unitats de Mesura</span>
-                                                    </div>
-                                                    {expandedSidebarSections.unit ? <ChevronDown size={12} className="text-slate-400" /> : <ChevronRight size={12} className="text-slate-400" />}
-                                                </button>
-                                                {expandedSidebarSections.unit && (
-                                                    <div className="p-3">
-                                                        <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Unitat</label>
-                                                        <input
-                                                            className="w-full p-2 text-xs border border-slate-200 rounded focus:border-blue-500 outline-none transition-all font-medium text-slate-700"
-                                                            value={node.unit}
-                                                            onChange={(e) => updateUnit(node.id, e.target.value)}
-                                                            placeholder="m², m³, ut, kg..."
-                                                        />
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-
-                                        {/* Descripció Section */}
-                                        <div className="bg-white border border-slate-200 rounded shadow-sm overflow-hidden">
-                                            <button
-                                                onClick={() => toggleSidebarSection('description')}
-                                                className="w-full px-3 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between hover:bg-slate-100 transition-colors"
-                                            >
-                                                <div className="flex items-center gap-2">
-                                                    <AlignLeft size={12} className="text-slate-400" />
-                                                    <span className="text-[10px] font-bold uppercase text-slate-600 tracking-wider">Descripció Tècnica</span>
-                                                </div>
-                                                {expandedSidebarSections.description ? <ChevronDown size={12} className="text-slate-400" /> : <ChevronRight size={12} className="text-slate-400" />}
-                                            </button>
-                                            {expandedSidebarSections.description && (
-                                                <div className="p-3">
-                                                    <textarea
-                                                        className="w-full p-3 text-xs border border-slate-200 rounded focus:border-blue-500 outline-none transition-all min-h-[150px] font-sans text-slate-600 leading-relaxed"
-                                                        value={node.fullDescription || ''}
-                                                        onChange={(e) => updateFullDescription(node.id, e.target.value)}
-                                                        placeholder="Escriu la descripció detallada..."
-                                                    />
+                                                    {/* La unitat tenia una secció pròpia, plegada per defecte, per a un sol camp */}
+                                                    {node.unit && (
+                                                        <div className="flex items-center gap-2">
+                                                            <label className="text-[10px] md:text-[9px] font-bold text-slate-400 uppercase flex-shrink-0">Unitat</label>
+                                                            <input
+                                                                className="w-24 p-1.5 text-xs border border-slate-200 rounded focus:border-blue-500 outline-none transition-all font-medium text-slate-700"
+                                                                value={node.unit}
+                                                                onChange={(e) => updateUnit(node.id, e.target.value)}
+                                                                placeholder="m², m³, ut..."
+                                                            />
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
@@ -5672,6 +5649,30 @@ export default function App() {
                                                 )}
                                             </div>
                                         )}
+
+                                        {/* Descripció Section */}
+                                        <div className="bg-white border border-slate-200 rounded shadow-sm overflow-hidden">
+                                            <button
+                                                onClick={() => toggleSidebarSection('description')}
+                                                className="w-full px-3 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between hover:bg-slate-100 transition-colors"
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <AlignLeft size={12} className="text-slate-400" />
+                                                    <span className="text-[10px] font-bold uppercase text-slate-600 tracking-wider">Descripció Tècnica</span>
+                                                </div>
+                                                {expandedSidebarSections.description ? <ChevronDown size={12} className="text-slate-400" /> : <ChevronRight size={12} className="text-slate-400" />}
+                                            </button>
+                                            {expandedSidebarSections.description && (
+                                                <div className="p-3">
+                                                    <textarea
+                                                        className="w-full p-3 text-xs border border-slate-200 rounded focus:border-blue-500 outline-none transition-all min-h-[150px] font-sans text-slate-600 leading-relaxed"
+                                                        value={node.fullDescription || ''}
+                                                        onChange={(e) => updateFullDescription(node.id, e.target.value)}
+                                                        placeholder="Escriu la descripció detallada..."
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             );
