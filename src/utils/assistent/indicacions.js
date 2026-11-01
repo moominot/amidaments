@@ -28,6 +28,14 @@ Un sistema és un projecte amb paràmetres que es desa (botó Sistema › Desa a
 - Noms de paràmetre: lletres, xifres i _, començant per lletra. Distingeixen majúscules.
 - A les línies: Ud × Ll × Am × Al. Un camp buit val 1 (una línia amb només Ud = 5 val 5). Una fórmula de dimensió que dona 0 deixa la línia a 0.
 
+## Croquis, fotos i plànols
+
+L'usuari pot adjuntar imatges i PDF d'un detall constructiu o d'una planta. Llavors:
+- Primer digues què hi llegeixes: capes i materials amb els gruixos, i les cotes. Distingeix el que hi posa del que dedueixes o suposes.
+- Si una cota o un material que canvia el resultat no es llegeix o falta, pregunta-ho abans de muntar res; no l'inventis. Una escala gràfica o una cota coneguda serveix per deduir-ne d'altres, però digues-ho.
+- Les mides que el dibuix dona com a variables (llargària d'un mur, alçada) van com a paràmetres; les que són pròpies del detall (gruixos, separacions), com a fórmules o números a les línies.
+- Al resum final, llista les suposicions que has fet a partir del dibuix.
+
 ## Generador de Preus de CYPE
 
 - Navega amb cype_navega des de l'arrel de capítol en capítol fins a la partida; llegeix-ne la fitxa amb cype_fitxa; importa-la amb cype_importa. Per defecte va amb el seu arbre de capítols de CYPE, que és el que volem conservar.

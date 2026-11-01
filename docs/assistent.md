@@ -18,8 +18,10 @@ continua amb el que tenia (marca `amidaments:assistent-iniciat` a `sessionStorag
 | `src/utils/assistent/agent.js` | Bucle amb l'API (streaming, eines, `pause_turn`, refús). Es carrega a part (`import()`), amb el SDK |
 | `src/utils/assistent/eines.js` | Definició, validació i execució de les eines sobre `{ budget, priceDatabase }` |
 | `src/utils/assistent/cype.js` | Lectura de la navegació, les fitxes i els BC3 del Generador de Preus |
+| `src/utils/assistent/adjunts.js` | Imatges i PDF adjunts: reducció, blocs de l'API i límits de la conversa |
 | `src/utils/assistent/indicacions.js` | Indicacions de sistema (text fix: si canvia, s'invalida la memòria cau) |
 | `test/assistent.test.js` | Lectura de CYPE, validació i eines, importació amb `test/fixtures/cype-pilar.bc3` |
+| `test/adjunts.test.js` | Mida de les imatges, contingut del missatge i límits de la conversa |
 
 ## La clau
 
@@ -70,6 +72,29 @@ enganxa l'enllaç del BC3 (botó «Copiar BC3», veure [`generador-preus.md`](ge
 Una partida importada entra amb el seu arbre de capítols de CYPE, fusionat per codi de capítol
 amb el que ja hi hagi, i sense els fills de `items` (el preu el fa el descomposat). Els preus que
 ja eren al projecte manen sobre els del BC3.
+
+## Imatges i PDF
+
+Al xat s'hi poden adjuntar croquis, fotos i plànols: amb el clip, enganxant-los al camp de text
+o arrossegant-los al panell (`utils/assistent/adjunts.js`). Van al missatge de l'usuari en
+base64, davant del text i amb la llista de noms perquè el model s'hi pugui referir.
+
+- **Imatges**: es redueixen al navegador a 2576 px al costat llarg i 3,75 MP com a màxim (el
+  que llegeix Claude Opus 5.5; més gran no hi veu més) i es tornen a codificar en JPEG, amb fons
+  blanc per a les transparències.
+- **PDF**: tal qual, fins a 20 MB. El model en llegeix el text i cada pàgina com a imatge; un PDF
+  llarg costa molt, millor enviar-ne només les pàgines que calen.
+- **Límits de conversa**: tota la conversa es torna a enviar a cada volta (amb memòria cau),
+  així que es compten les imatges (20) i el pes en base64 (24 MB, dins dels 32 MB de la petició)
+  de tota la conversa. Passat, cal començar-ne una de nova.
+- DWG i DXF no: s'han d'exportar a PDF o enviar-ne una captura.
+
+L'arrossegament de fitxers de l'aplicació (obrir un BC3 o un projecte) no s'activa damunt del
+panell: `App.jsx` ho mira amb la marca `data-assistent-adjunts`.
+
+Les indicacions demanen que primer digui què hi llegeix, que distingeixi el que hi posa del que
+suposa, que pregunti les cotes que falten en comptes d'inventar-les i que llisti les suposicions
+al resum final.
 
 ## Preus d'internet
 

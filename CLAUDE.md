@@ -11,7 +11,7 @@ npm install
 npm run dev
 npm run build     # ha de passar sempre abans de donar una feina per acabada
 npm run lint      # cobreix .js i .jsx; l'arbre ha de quedar amb 0 errors
-npm test          # Vitest; 202 tests sobre els càlculs, el parser i l'escriptor
+npm test          # Vitest; 213 tests sobre els càlculs, el parser i l'escriptor
 npm run test:watch
 ```
 
@@ -103,7 +103,9 @@ del sector: *amidament*, *partida*, *capítol*, *descomposat*, *rendiment*, *cer
   des del navegador amb la clau de l'usuari (a `localStorage`). Les eines reben i tornen
   `{ budget, priceDatabase }`; qualsevol eina nova ha de validar l'input (`validaInput`), perquè
   amb `eager_input_streaming` el servidor no ho fa. Les indicacions són un text fix: no hi posis
-  res que canviï a cada crida o es perd la memòria cau. Veure `docs/assistent.md`.
+  res que canviï a cada crida o es perd la memòria cau. Les imatges i els PDF adjunts
+  (`utils/assistent/adjunts.js`) es reenvien a cada volta: els límits es compten sobre tota la
+  conversa, no sobre el missatge. Veure `docs/assistent.md`.
 - **Qualsevol fitxer que entri passa per `obreFitxer`** (`App.jsx`): selector, arrossegament,
   `launchQueue` d'escriptori i fitxers compartits des d'Android. Si hi afegeixes un camí nou,
   fes-lo passar per aquí i no repeteixis la comprovació: tenir-ne tres de diferents va deixar

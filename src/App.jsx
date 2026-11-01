@@ -3078,6 +3078,7 @@ export default function App() {
         if (draggedNodeId) return; // Ignorar drop intern
         e.preventDefault();
         setIsDragging(false);
+        if (e.target.closest?.('[data-assistent-adjunts]')) return; // l'agafa el xat
 
         const html = e.dataTransfer.getData('text/html');
 
@@ -5036,7 +5037,9 @@ export default function App() {
             className="flex flex-col h-screen bg-slate-50 overflow-hidden font-sans selection:bg-blue-100 selection:text-blue-900 print:h-auto print:overflow-visible"
             onDragOver={(e) => {
                 e.preventDefault();
-                if (!draggedNodeId) setIsDragging(true);
+                // Damunt de l'assistent, el fitxer és un adjunt del xat i no s'obre.
+                if (e.target.closest?.('[data-assistent-adjunts]')) setIsDragging(false);
+                else if (!draggedNodeId) setIsDragging(true);
             }}
             onDragLeave={() => setIsDragging(false)}
             onDrop={handleDrop}

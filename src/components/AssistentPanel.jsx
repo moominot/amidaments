@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Sparkles, Send, Square, KeyRound, Wrench, RotateCcw, AlertCircle } from 'lucide-react';
+import { X, Sparkles, Send, Square, KeyRound, Wrench, RotateCcw, AlertCircle, Paperclip, FileText } from 'lucide-react';
 import { executaEina } from '../utils/assistent/eines';
 import * as xarxa from '../utils/assistent/cype';
+import { ACCEPTA, tipusAdmes, preparaAdjunt, comprovaAdjunts, contingutMissatge } from '../utils/assistent/adjunts';
 
 /**
  * Xat amb l'assistent (veure `docs/assistent.md`).
@@ -10,6 +11,9 @@ import * as xarxa from '../utils/assistent/cype';
  * `aplicaEstat(estat)` el desa (i passa per l'historial de desfer, com qualsevol canvi). El
  * SDK d'Anthropic i el bucle es carreguen només quan s'envia el primer missatge, perquè no
  * engreixin l'aplicació per a qui no fa servir l'assistent.
+ *
+ * S'hi poden adjuntar imatges i PDF (croquis, fotos, plànols) amb el clip, enganxant-los al
+ * camp de text o arrossegant-los al panell: veure `utils/assistent/adjunts.js`.
  *
  * La clau de l'API és de l'usuari i es desa en aquest navegador (`localStorage`). No passa
  * per cap servidor nostre: va directament a Anthropic.
@@ -24,6 +28,27 @@ const SUGGERIMENTS = [
     'Crea una partida de vorada de formigó aprofitant la mà d\'obra i els materials que ja tenim.',
     'Revisa el projecte i digues-me quines partides no tenen amidament.',
 ];
+
+const mida = (bytes) => (bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} kB` : `${(bytes / 1024 / 1024).toLocaleString('ca-ES', { maximumFractionDigits: 1 })} MB`);
+
+/** Un adjunt al xat: la miniatura de la imatge o el nom del PDF. */
+const Adjunt = ({ a, onTreu, clar }) => (
+    <div className={`relative flex items-center gap-1 border text-[10px] max-w-[10rem] ${clar ? 'border-violet-300 bg-violet-500/40 text-white' : 'border-slate-200 bg-slate-50 text-slate-600'}`}>
+        {a.tipus === 'imatge'
+            ? <img src={a.miniatura} alt={a.nom} title={a.nom} className="h-14 w-auto max-w-[10rem] object-contain bg-white" />
+            : <span className="flex items-center gap-1 px-1.5 py-1 min-w-0" title={a.nom}><FileText size={12} className="flex-shrink-0" /><span className="truncate">{a.nom}</span><span className="flex-shrink-0 opacity-70">{mida(a.mida)}</span></span>}
+        {onTreu && (
+            <button
+                onClick={onTreu}
+                className="absolute -top-1.5 -right-1.5 bg-slate-700 text-white rounded-full p-0.5 touch-manipulation"
+                title={`Treu ${a.nom}`}
+                aria-label={`Treu ${a.nom}`}
+            >
+                <X size={10} />
+            </button>
+        )}
+    </div>
+);
 
 const NOMS_EINES = {
     llegeix_projecte: 'Llegeix el projecte', llegeix_partida: 'Llegeix una partida', consulta_preus: 'Consulta la base de preus',
@@ -65,7 +90,12 @@ const FormulariClau = ({ onDesa }) => {
 
 const Element = ({ e }) => {
     if (e.tipus === 'usuari') {
-        return <div className="ml-6 bg-violet-600 text-white px-3 py-2 text-[12px] leading-snug whitespace-pre-wrap break-words">{e.text}</div>;
+        return (
+            <div className="ml-6 bg-violet-600 text-white px-3 py-2 text-[12px] leading-snug whitespace-pre-wrap break-words space-y-1.5">
+                {e.adjunts?.length > 0 && <div className="flex flex-wrap gap-1.5">{e.adjunts.map(a => <Adjunt key={a.id} a={a} clar />)}</div>}
+                {e.text && <div>{e.text}</div>}
+            </div>
+        );
     }
     if (e.tipus === 'assistent') {
         return <div className="mr-2 text-[12px] text-slate-800 leading-relaxed whitespace-pre-wrap break-words">{e.text}</div>;
@@ -91,6 +121,10 @@ const AssistentPanel = ({ getEstat, aplicaEstat, onTanca }) => {
     const [entrada, setEntrada] = useState('');
     const [treballant, setTreballant] = useState(false);
     const [cost, setCost] = useState({ dolars: 0, cerques: 0 });
+    const [adjunts, setAdjunts] = useState([]);
+    const [preparant, setPreparant] = useState(0);
+    const [sobre, setSobre] = useState(false);
+    const selector = useRef(null);
     const historial = useRef([]);
     const control = useRef(null);
     const caixa = useRef(null);
@@ -107,12 +141,37 @@ const AssistentPanel = ({ getEstat, aplicaEstat, onTanca }) => {
 
     const afegeix = (e) => setElements(prev => [...prev, { id: crypto.randomUUID(), ...e }]);
 
+    /** Llegeix i redueix els fitxers triats, enganxats o arrossegats i els deixa a punt. */
+    const afegeixFitxers = async (fitxers) => {
+        const llista = Array.from(fitxers || []);
+        if (!llista.length) return;
+        setPreparant(n => n + llista.length);
+        for (const f of llista) {
+            try {
+                const a = await preparaAdjunt(f);
+                setAdjunts(prev => [...prev, a]);
+            } catch (err) {
+                afegeix({ tipus: 'error', text: err.message || String(err) });
+            } finally {
+                setPreparant(n => n - 1);
+            }
+        }
+    };
+
     const envia = async (text) => {
         const t = (text ?? entrada).trim();
-        if (!t || treballant) return;
+        if ((!t && !adjunts.length) || treballant || preparant) return;
+        const motiu = comprovaAdjunts(historial.current, adjunts);
+        if (motiu) {
+            afegeix({ tipus: 'error', text: motiu });
+            return;
+        }
+        const enviats = adjunts;
         setEntrada('');
-        afegeix({ tipus: 'usuari', text: t });
-        historial.current.push({ role: 'user', content: t });
+        setAdjunts([]);
+        // Al xat només hi queden la miniatura i el nom; les dades van a l'historial de l'API.
+        afegeix({ tipus: 'usuari', text: t, adjunts: enviats.map(({ id, tipus, nom, mida: m, miniatura }) => ({ id, tipus, nom, mida: m, miniatura })) });
+        historial.current.push({ role: 'user', content: contingutMissatge(t, enviats) });
         setTreballant(true);
         const ctrl = new AbortController();
         control.current = ctrl;
@@ -178,11 +237,25 @@ const AssistentPanel = ({ getEstat, aplicaEstat, onTanca }) => {
         if (treballant) return;
         historial.current = [];
         setElements([]);
+        setAdjunts([]);
         setCost({ dolars: 0, cerques: 0 });
     };
 
     return (
-        <div className="h-full flex flex-col bg-white">
+        <div
+            className={`h-full flex flex-col bg-white ${sobre ? 'ring-2 ring-inset ring-violet-500' : ''}`}
+            // L'arrossegament de fitxers de l'aplicació (obrir un BC3) no s'activa aquí: App.jsx
+            // ho mira amb aquesta marca.
+            data-assistent-adjunts
+            onDragOver={(e) => { if (clau && e.dataTransfer?.types?.includes('Files')) { e.preventDefault(); setSobre(true); } }}
+            onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setSobre(false); }}
+            onDrop={(e) => {
+                setSobre(false);
+                if (!clau || !e.dataTransfer?.files?.length) return;
+                e.preventDefault();
+                afegeixFitxers(e.dataTransfer.files);
+            }}
+        >
             <div className="bg-slate-950 text-white px-3 py-2.5 flex items-center gap-2 flex-shrink-0">
                 <Sparkles size={14} className="text-violet-400" />
                 <h3 className="flex-1 text-[11px] font-bold uppercase tracking-widest">Assistent</h3>
@@ -216,6 +289,7 @@ const AssistentPanel = ({ getEstat, aplicaEstat, onTanca }) => {
                                     projecte d&apos;aquesta finestra: veuràs els canvis a l&apos;arbre i els pots corregir a mà.
                                 </p>
                                 <p className="text-slate-400">
+                                    Pots adjuntar-hi croquis, fotos o plànols en PDF perquè n&apos;interpreti el detall i l&apos;amidi.
                                     Busca partides al Generador de Preus de CYPE (amb la configuració per defecte: per a una altra, et
                                     demanarà l&apos;enllaç del BC3) i, si cal, preus a internet amb la font.
                                 </p>
@@ -233,10 +307,38 @@ const AssistentPanel = ({ getEstat, aplicaEstat, onTanca }) => {
                     </div>
 
                     <div className="border-t border-slate-200 p-2 flex-shrink-0">
+                        {(adjunts.length > 0 || preparant > 0) && (
+                            <div className="flex flex-wrap gap-2 pb-2 pt-1">
+                                {adjunts.map(a => <Adjunt key={a.id} a={a} onTreu={() => setAdjunts(prev => prev.filter(x => x.id !== a.id))} />)}
+                                {preparant > 0 && <span className="self-center text-[10px] text-violet-500 animate-pulse">Preparant…</span>}
+                            </div>
+                        )}
                         <div className="flex items-end gap-2">
+                            <input
+                                ref={selector}
+                                type="file"
+                                accept={ACCEPTA}
+                                multiple
+                                className="hidden"
+                                onChange={(e) => { afegeixFitxers(e.target.files); e.target.value = ''; }}
+                            />
+                            <button
+                                onClick={() => selector.current?.click()}
+                                className="border border-slate-200 hover:border-violet-400 hover:bg-violet-50 text-slate-500 p-2.5 touch-manipulation"
+                                title="Adjunta imatges o PDF (croquis, fotos, plànols). També els pots enganxar o arrossegar aquí."
+                                aria-label="Adjunta imatges o PDF"
+                            >
+                                <Paperclip size={14} />
+                            </button>
                             <textarea
                                 value={entrada}
                                 onChange={e => setEntrada(e.target.value)}
+                                onPaste={(e) => {
+                                    const fitxers = Array.from(e.clipboardData?.files || []).filter(f => tipusAdmes(f.type));
+                                    if (!fitxers.length) return;
+                                    e.preventDefault();
+                                    afegeixFitxers(fitxers);
+                                }}
                                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); envia(); } }}
                                 rows={3}
                                 placeholder="Què vols que faci?"
@@ -248,7 +350,7 @@ const AssistentPanel = ({ getEstat, aplicaEstat, onTanca }) => {
                                     <Square size={14} />
                                 </button>
                             ) : (
-                                <button onClick={() => envia()} disabled={!entrada.trim()} className="bg-violet-600 hover:bg-violet-500 disabled:bg-slate-300 text-white p-2.5 touch-manipulation" title="Envia (Enter)">
+                                <button onClick={() => envia()} disabled={(!entrada.trim() && !adjunts.length) || preparant > 0} className="bg-violet-600 hover:bg-violet-500 disabled:bg-slate-300 text-white p-2.5 touch-manipulation" title="Envia (Enter)">
                                     <Send size={14} />
                                 </button>
                             )}
