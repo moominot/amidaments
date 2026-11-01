@@ -3,6 +3,7 @@ import { X, Sparkles, Send, Square, KeyRound, Wrench, RotateCcw, AlertCircle, Pa
 import { executaEina } from '../utils/assistent/eines';
 import * as xarxa from '../utils/assistent/cype';
 import { ACCEPTA, tipusAdmes, preparaAdjunt, comprovaAdjunts, contingutMissatge } from '../utils/assistent/adjunts';
+import { MODELS, ESFORCOS, MODEL_PER_DEFECTE, ESFORC_PER_DEFECTE, model as infoModel, esforcValid, costUs } from '../utils/assistent/models';
 
 /**
  * Xat amb l'assistent (veure `docs/assistent.md`).
@@ -22,6 +23,12 @@ const CLAU = 'amidaments:clau-anthropic';
 
 const llegeixClau = () => { try { return localStorage.getItem(CLAU) || ''; } catch { return ''; } };
 const desaClau = (v) => { try { if (v) localStorage.setItem(CLAU, v); else localStorage.removeItem(CLAU); } catch { /* res */ } };
+
+// El model i l'esforç triats són una preferència d'aquest navegador.
+const PREF_MODEL = 'amidaments:assistent-model';
+const PREF_ESFORC = 'amidaments:assistent-esforc';
+const llegeixPref = (clau, perDefecte) => { try { return localStorage.getItem(clau) || perDefecte; } catch { return perDefecte; } };
+const desaPref = (clau, v) => { try { localStorage.setItem(clau, v); } catch { /* res */ } };
 
 const SUGGERIMENTS = [
     'Fes un sistema d\'envà de placa de guix de 15+48+15 amb la llargària i l\'alçada com a paràmetres.',
@@ -121,6 +128,8 @@ const AssistentPanel = ({ getEstat, aplicaEstat, onTanca }) => {
     const [entrada, setEntrada] = useState('');
     const [treballant, setTreballant] = useState(false);
     const [cost, setCost] = useState({ dolars: 0, cerques: 0 });
+    const [idModel, setIdModel] = useState(() => infoModel(llegeixPref(PREF_MODEL, MODEL_PER_DEFECTE)).id);
+    const [esforc, setEsforc] = useState(() => esforcValid(llegeixPref(PREF_ESFORC, ESFORC_PER_DEFECTE)));
     const [adjunts, setAdjunts] = useState([]);
     const [preparant, setPreparant] = useState(0);
     const [sobre, setSobre] = useState(false);
@@ -184,6 +193,8 @@ const AssistentPanel = ({ getEstat, aplicaEstat, onTanca }) => {
                 client,
                 historial: historial.current,
                 signal: ctrl.signal,
+                model: idModel,
+                esforc,
                 executa: async (nom, input) => {
                     const r = await executaEina(nom, input, getEstat, { xarxa });
                     if (r.estat !== getEstat()) aplicaEstat(r.estat);
@@ -213,7 +224,7 @@ const AssistentPanel = ({ getEstat, aplicaEstat, onTanca }) => {
                     setElements(prev => [...prev, { id, tipus: 'eina', nom, input, enCurs, resum, error }]);
                 },
                 onUs: (usage) => setCost(prev => ({
-                    dolars: prev.dolars + agent.costUs(usage),
+                    dolars: prev.dolars + costUs(usage, idModel),
                     cerques: prev.cerques + (usage?.server_tool_use?.web_search_requests || 0),
                 })),
             });
@@ -355,8 +366,29 @@ const AssistentPanel = ({ getEstat, aplicaEstat, onTanca }) => {
                                 </button>
                             )}
                         </div>
-                        <div className="flex justify-between mt-1 text-[9px] text-slate-400 font-mono">
-                            <span>Claude Opus 5.5</span>
+                        <div className="flex items-center justify-between gap-2 mt-1 text-[9px] text-slate-400 font-mono">
+                            <div className="flex items-center gap-1 min-w-0">
+                                <select
+                                    value={idModel}
+                                    onChange={(e) => { setIdModel(e.target.value); desaPref(PREF_MODEL, e.target.value); }}
+                                    disabled={treballant}
+                                    className="bg-transparent border border-slate-200 hover:border-violet-400 px-1 py-0.5 text-[10px] text-slate-500 font-mono outline-none disabled:opacity-50 touch-manipulation"
+                                    title={`${infoModel(idModel).descripcio}. Canviar-lo a mitja conversa refà la memòria cau: la volta següent es paga sencera.`}
+                                    aria-label="Model de l'assistent"
+                                >
+                                    {MODELS.map(m => <option key={m.id} value={m.id}>{m.curt}</option>)}
+                                </select>
+                                <select
+                                    value={esforc}
+                                    onChange={(e) => { setEsforc(e.target.value); desaPref(PREF_ESFORC, e.target.value); }}
+                                    disabled={treballant}
+                                    className="bg-transparent border border-slate-200 hover:border-violet-400 px-1 py-0.5 text-[10px] text-slate-500 font-mono outline-none disabled:opacity-50 touch-manipulation"
+                                    title={`Esforç: ${ESFORCOS.find(x => x.id === esforc)?.descripcio}. Com més alt, més pensa i més costa.`}
+                                    aria-label="Esforç de l'assistent"
+                                >
+                                    {ESFORCOS.map(x => <option key={x.id} value={x.id}>{x.nom}</option>)}
+                                </select>
+                            </div>
                             <span title="Estimació a partir dels tòquens; les cerques web es facturen a part">
                                 ≈ {cost.dolars.toLocaleString('ca-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $
                                 {cost.cerques ? ` · ${cost.cerques} cerques` : ''}

@@ -54,7 +54,7 @@ Navegador
 | `src/components/SistemesModal.jsx` | — | Galeria de sistemes, inserció amb paràmetres i desar com a sistema. |
 | `src/utils/assistent/` | — | Assistent amb Claude: bucle amb l'API (`agent.js`), eines (`eines.js`), lectura del Generador de Preus (`cype.js`) i indicacions. Veure [`docs/assistent.md`](assistent.md). |
 | `src/components/AssistentPanel.jsx` | — | Xat de l'assistent (columna de l'esquerra o calaix). |
-| `test/` | 213 tests | Vitest sobre els càlculs, el parser i l'escriptor. Veure [`docs/tests.md`](tests.md). |
+| `test/` | 217 tests | Vitest sobre els càlculs, el parser i l'escriptor. Veure [`docs/tests.md`](tests.md). |
 
 ## Estructura interna d'`App.jsx`
 

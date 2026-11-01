@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { DEFINICIONS, validaInput } from './eines';
 import { INDICACIONS } from './indicacions';
+import { opcionsPeticio, einesWeb, costUs, MODEL_PER_DEFECTE, ESFORC_PER_DEFECTE } from './models';
 
 /**
  * Conversa amb Claude amb les eines de l'assistent (veure `docs/assistent.md`).
@@ -19,35 +20,18 @@ import { INDICACIONS } from './indicacions';
  * - **El que torna el model s'afegeix sense tocar-ho** (`content` sencer, amb els blocs de
  *   raonament i, si n'hi ha, el de canvi de model): el model valida aquests blocs i una
  *   conversa editada els invalida.
- * - **Reintent en un altre model si es declina** (`fallbacks: "default"`): si els filtres de
- *   seguretat declinen una petició legítima, el servidor la torna a fer amb el model que
- *   Anthropic recomana per a aquell cas en comptes de tornar un refús.
+ * - **Reintent en un altre model si es declina** (`fallbacks: "default"`, a Opus i Sonnet): si
+ *   els filtres de seguretat declinen una petició legítima, el servidor la torna a fer amb el
+ *   model que Anthropic recomana per a aquell cas en comptes de tornar un refús.
  * - **Validació dels inputs**: amb `eager_input_streaming` l'input de cada eina arriba a
  *   mesura que es genera i el servidor ja no el valida; es comprova aquí contra l'esquema.
  */
 
-export const MODEL = 'claude-opus-5-5';
-export { Anthropic };
-
-// Preus de Claude Opus 5.5 per milió de tòquens, en dòlars: per ensenyar una estimació del cost
-// de la conversa. Les cerques web es compten a part.
-const PREU = { entrada: 4, sortida: 20, escripturaCau: 5, lecturaCau: 0.2 };
-
-export const costUs = (usage) => {
-    if (!usage) return 0;
-    return ((usage.input_tokens || 0) * PREU.entrada
-        + (usage.output_tokens || 0) * PREU.sortida
-        + (usage.cache_creation_input_tokens || 0) * PREU.escripturaCau
-        + (usage.cache_read_input_tokens || 0) * PREU.lecturaCau) / 1e6;
-};
+export { Anthropic, costUs };
 
 export const creaClient = (apiKey) => new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
 
-const EINES = [
-    ...DEFINICIONS.map(d => ({ ...d, eager_input_streaming: true })),
-    { type: 'web_search_20260209', name: 'web_search', max_uses: 8 },
-    { type: 'web_fetch_20260209', name: 'web_fetch', max_uses: 8 },
-];
+const EINES_CLIENT = DEFINICIONS.map(d => ({ ...d, eager_input_streaming: true }));
 
 const MAX_VOLTES = 60;
 
@@ -58,10 +42,11 @@ export class Refus extends Error {}
  *
  * `historial` és l'array de missatges de l'API i **s'hi afegeix directament**, de manera que
  * si la crida falla o s'atura a mitges qui l'ha cridat té la conversa tal com ha quedat.
- * `executa(nom, input)` executa una eina i torna `{ resultat, resum }` o llança.
+ * `executa(nom, input)` executa una eina i torna `{ resultat, resum }` o llança. `model` i
+ * `esforc` són els triats al panell (veure `models.js`).
  */
 export const avanca = async ({
-    client, historial, executa, signal,
+    client, historial, executa, signal, model = MODEL_PER_DEFECTE, esforc = ESFORC_PER_DEFECTE,
     onText = () => {}, onEina = () => {}, onUs = () => {}, onVolta = () => {},
 }) => {
     let reintents = 0;
@@ -69,15 +54,11 @@ export const avanca = async ({
         if (signal?.aborted) return { motiu: 'aturat' };
         onVolta(volta);
         const stream = client.beta.messages.stream({
-            model: MODEL,
+            ...opcionsPeticio(model, esforc),
             max_tokens: 64000,
             system: [{ type: 'text', text: INDICACIONS, cache_control: { type: 'ephemeral' } }],
-            thinking: { type: 'adaptive' },
-            output_config: { effort: 'high' },
-            betas: ['server-side-fallback-2026-07-01'],
-            fallbacks: 'default',
             cache_control: { type: 'ephemeral' },
-            tools: EINES,
+            tools: [...EINES_CLIENT, ...einesWeb(model)],
             messages: historial,
         }, { signal });
         stream.on('text', (delta) => onText(delta));

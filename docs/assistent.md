@@ -18,6 +18,7 @@ continua amb el que tenia (marca `amidaments:assistent-iniciat` a `sessionStorag
 | `src/utils/assistent/agent.js` | Bucle amb l'API (streaming, eines, `pause_turn`, refús). Es carrega a part (`import()`), amb el SDK |
 | `src/utils/assistent/eines.js` | Definició, validació i execució de les eines sobre `{ budget, priceDatabase }` |
 | `src/utils/assistent/cype.js` | Lectura de la navegació, les fitxes i els BC3 del Generador de Preus |
+| `src/utils/assistent/models.js` | Models i esforç que es poden triar: camps de la petició, eines web i preus |
 | `src/utils/assistent/adjunts.js` | Imatges i PDF adjunts: reducció, blocs de l'API i límits de la conversa |
 | `src/utils/assistent/indicacions.js` | Indicacions de sistema (text fix: si canvia, s'invalida la memòria cau) |
 | `test/assistent.test.js` | Lectura de CYPE, validació i eines, importació amb `test/fixtures/cype-pilar.bc3` |
@@ -33,10 +34,24 @@ s'esborra sola.
 
 ## La crida
 
-- Model `claude-opus-5-5`, raonament adaptatiu, `effort: "high"`.
-- `fallbacks: "default"` (beta `server-side-fallback-2026-07-01`): si els filtres declinen una
-  petició legítima, Anthropic la torna a fer amb el model que recomana en comptes de tornar un
-  refús. Si tot i així hi ha refús, surt com a error al xat.
+- Model i esforç es trien al peu del panell i es desen al navegador
+  (`amidaments:assistent-model`, `amidaments:assistent-esforc`). Per defecte, Claude Opus 5.5
+  amb esforç alt. Tot el que depèn del model és a `utils/assistent/models.js`:
+
+  | Model | Preu (entrada / sortida, $/MTok) | Reintent si es declina | Eines web |
+  |---|---|---|---|
+  | Claude Opus 5.5 | 4 / 20 | Sí | `_20260209` (amb filtratge) |
+  | Claude Sonnet 5.5 | 2 / 10 | Sí | `_20260209` (amb filtratge) |
+  | Claude Haiku 5.5 | 0,10 / 0,50 (0,50 / 2,50 per sobre de 100.000 tòquens d'entrada) | No | bàsiques |
+
+  L'esforç (`output_config.effort`: baix, mitjà, alt, molt alt, màxim) diu quant pensa abans de
+  fer; com més alt, més tòquens. Canviar model o esforç a mitja conversa funciona, però la
+  memòria cau es refà i la volta següent es paga sencera. Els blocs de raonament d'un model que
+  l'altre no pot llegir l'API els descarta sola: no s'han de treure.
+- `fallbacks: "default"` (beta `server-side-fallback-2026-07-01`), a Opus i Sonnet: si els
+  filtres declinen una petició legítima, Anthropic la torna a fer amb el model que recomana en
+  comptes de tornar un refús. Haiku no en té (amb `fallbacks` seguiria declinada): el refús surt
+  com a error al xat.
 - Memòria cau a les indicacions i a la conversa (`cache_control`).
 - Eines del client amb `eager_input_streaming`: l'input arriba a mesura que es genera i el
   servidor ja no el valida; ho fa `validaInput` contra l'esquema abans d'executar res.

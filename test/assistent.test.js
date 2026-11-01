@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { llegeixNavegacio, llegeixFitxa, llegeixPartidaBC3 } from '../src/utils/assistent/cype';
 import { executaEina, validaInput, posaPartidaCype, ErrorEina, DEFINICIONS } from '../src/utils/assistent/eines';
 import { calcItemTotalQty, getItemUnitPrice, normalizeCode } from '../src/utils/calculations';
+import { opcionsPeticio, einesWeb, costUs } from '../src/utils/assistent/models';
 import { llegeixBC3, FITXERS } from './ajuda';
 
 /**
@@ -235,5 +236,36 @@ describe('importar una partida de CYPE', () => {
         const r = await executaEina('cype_importa', { url_bc3: 'https://x/_bc3/EHS010.bc3' }, buit(), { xarxa });
         expect(r.resum).toMatch(/Importada EHS010/);
         expect(calcItemTotalQty(r.estat.budget.chapters[0].subChapters[0].subChapters[0].items[0])).toBe(0);
+    });
+});
+
+describe('model i esforç', () => {
+    it('Opus i Sonnet porten el reintent en un altre model; Haiku no', () => {
+        const o = opcionsPeticio('claude-opus-5-5', 'high');
+        expect(o).toMatchObject({ model: 'claude-opus-5-5', thinking: { type: 'adaptive' }, output_config: { effort: 'high' }, fallbacks: 'default', betas: ['server-side-fallback-2026-07-01'] });
+        expect(opcionsPeticio('claude-sonnet-5-5', 'low')).toMatchObject({ model: 'claude-sonnet-5-5', fallbacks: 'default', output_config: { effort: 'low' } });
+        const h = opcionsPeticio('claude-haiku-5-5', 'max');
+        expect(h.model).toBe('claude-haiku-5-5');
+        expect(h.fallbacks).toBeUndefined();
+        expect(h.betas).toBeUndefined();
+    });
+
+    it('un model o un esforç desconeguts tornen als de per defecte', () => {
+        expect(opcionsPeticio('model-antic', 'molt').model).toBe('claude-opus-5-5');
+        expect(opcionsPeticio('model-antic', 'molt').output_config.effort).toBe('high');
+    });
+
+    it('Haiku fa servir les eines web bàsiques', () => {
+        expect(einesWeb('claude-opus-5-5').map(e => e.type)).toEqual(['web_search_20260209', 'web_fetch_20260209']);
+        expect(einesWeb('claude-haiku-5-5').map(e => e.type)).toEqual(['web_search_20250305', 'web_fetch_20250910']);
+    });
+
+    it('el cost va amb els preus del model, i Haiku canvia de tarifa passats 100.000 tòquens', () => {
+        const us = { input_tokens: 1e6, output_tokens: 1e6 };
+        expect(costUs(us, 'claude-opus-5-5')).toBeCloseTo(24);
+        expect(costUs(us, 'claude-sonnet-5-5')).toBeCloseTo(12);
+        expect(costUs(us, 'claude-haiku-5-5')).toBeCloseTo(3); // > 100.000: 0,50 + 2,50
+        expect(costUs({ input_tokens: 50000, output_tokens: 1e6 }, 'claude-haiku-5-5')).toBeCloseTo(0.005 + 0.5);
+        expect(costUs({ cache_read_input_tokens: 1e6 }, 'claude-opus-5-5')).toBeCloseTo(0.2);
     });
 });
