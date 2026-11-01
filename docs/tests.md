@@ -5,7 +5,7 @@ npm test          # una passada
 npm run test:watch
 ```
 
-**Vitest**, 184 tests en onze fitxers, poc més d'un segon. `vitest.config.js` és a part de
+**Vitest**, 188 tests en onze fitxers, poc més d'un segon. `vitest.config.js` és a part de
 `vite.config.js` a posta: els tests són tots de lògica de càlcul i no munten cap component, de
 manera que no els cal ni el plugin de React ni l'entorn de navegador.
 

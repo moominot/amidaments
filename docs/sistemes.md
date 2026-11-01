@@ -129,6 +129,13 @@ En inserir:
 - si una partida ja hi és, el quadre de duplicats té una opció nova, **«Afegir-hi les
   línies»**: la partida és la mateixa i només s'hi sumen les línies (marcades). És el que es vol
   en inserir la segona piscina. Serveix també per enganxar;
+- amb **«No insereixis les partides que surten a zero»**, les partides que amb els valors triats
+  tenen quantitat 0 (i els capítols que es queden buits per això) no entren. És per als
+  sistemes amb variants: un paràmetre `perfil` i, a cada partida de perfil, Ud =
+  `si(perfil=48;1;0)`. El codi i la descripció d'una partida no canvien amb els paràmetres (un
+  codi és un concepte, amb una descripció i un preu), així que cada variant és una partida. El
+  preu de l'opció: si després es canvia el paràmetre, la partida que no s'ha inserit no
+  apareix i cal tornar a inserir el sistema;
 - els paràmetres i la instància viatgen amb la importació i només s'afegeixen si s'acaba:
   cancel·lar el quadre de duplicats no deixa paràmetres orfes.
 

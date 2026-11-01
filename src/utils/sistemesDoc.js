@@ -1,4 +1,4 @@
-import { normalizeCode, calcChapterTotal } from './calculations';
+import { normalizeCode, calcChapterTotal, calcItemTotalQty } from './calculations';
 import { resolveFormules, reescriuFormules, nomLliure, CAMPS_FORMULA, teFormules, comprovaCondicions } from './parametres';
 import { resolveMeasurementRefs } from './measurementRefs';
 import { referencies } from './formules';
@@ -187,14 +187,22 @@ const grupDe = (nomInstancia, grup) => (grup ? `${nomInstancia} · ${grup}` : no
  * nom), `{ valor }` o `{ formula }` (fórmula sobre paràmetres **del projecte**, p. ex. `H-0,3`).
  * Sense resposta, el paràmetre entra amb el valor del sistema.
  *
- * Torna `{ chapters, parametres, prices, instancia }`: l'arbre amb ids nous i marcat, els
- * paràmetres nous que s'han d'afegir al projecte, els preus i l'entrada per a `budget.sistemes`.
+ * Torna `{ chapters, parametres, condicions, prices, instancia, omeses }`: l'arbre amb ids nous
+ * i marcat, els paràmetres i les condicions que s'han d'afegir al projecte, els preus, l'entrada
+ * per a `budget.sistemes` i les partides que s'han deixat fora.
+ *
+ * Amb `ometZero` no s'insereixen les partides que, amb aquests valors, surten a zero (ni els
+ * capítols que es queden buits per això). És el que es vol en un sistema amb variants, on un
+ * paràmetre posa a zero les partides de les variants que no es trien: si no, es quedarien al
+ * pressupost amb quantitat 0. El preu és que, si després es canvia el paràmetre, la partida
+ * que no s'ha inserit no apareix: cal tornar a inserir el sistema.
  */
 export const instancia = (doc, {
     respostes = new Map(),
     nomInstancia = doc.nom,
     parametresProjecte = [],
     id = crypto.randomUUID(),
+    ometZero = false,
 } = {}) => {
     const ocupats = new Set(parametresProjecte.map(p => p.nom));
     const canvis = new Map();
@@ -253,12 +261,35 @@ export const instancia = (doc, {
         return p;
     });
 
+    let chapters = reescrit.chapters;
+    const omeses = [];
+    if (ometZero) {
+        const resolt = resolveMeasurementRefs(resolveFormules(chapters, [...parametresProjecte, ...nous]).chapters).chapters;
+        const quantitat = new Map();
+        recorre(resolt, n => { if (n.unit) quantitat.set(n.id, calcItemTotalQty(n)); });
+        const poda = (nodes) => nodes.map(n => {
+            if (n.unit) {
+                if (quantitat.get(n.id) !== 0) return n;
+                omeses.push({ code: n.code, description: n.description || '' });
+                return null;
+            }
+            const subChapters = poda(n.subChapters || []);
+            const items = poda(n.items || []);
+            // Un capítol que ja era buit al sistema es respecta; el que s'ha buidat ara, fora.
+            const teniaContingut = (n.subChapters || []).length + (n.items || []).length > 0;
+            if (teniaContingut && !subChapters.length && !items.length) return null;
+            return { ...n, subChapters, items };
+        }).filter(Boolean);
+        chapters = poda(chapters);
+    }
+
     return {
-        chapters: reescrit.chapters,
+        chapters,
         parametres: nous,
         condicions: reescrit.condicions,
-        prices: doc.prices || {},
+        prices: ometZero ? preusDe(chapters, doc.prices || {}) : (doc.prices || {}),
         instancia: { id, nom: nomInstancia, sistema: doc.nom },
+        omeses,
     };
 };
 
@@ -285,6 +316,7 @@ export const previsualitza = (doc, opcions = {}, priceDatabase = {}) => {
         limitsPerNom,
         condicions: comprovacio.generals,
         incomplertes: comprovacio.incomplertes,
+        omeses: inst.omeses,
         chapters: resolt,
         preus,
     };

@@ -52,7 +52,7 @@ Navegador
 | `src/components/ParametresPanel.jsx` | — | Barra de paràmetres a l'esquerra (calaix al mòbil). |
 | `src/components/FormulaInput.jsx` | — | Camp d'amidament que accepta número o fórmula. |
 | `src/components/SistemesModal.jsx` | — | Galeria de sistemes, inserció amb paràmetres i desar com a sistema. |
-| `test/` | 184 tests | Vitest sobre els càlculs, el parser i l'escriptor. Veure [`docs/tests.md`](tests.md). |
+| `test/` | 188 tests | Vitest sobre els càlculs, el parser i l'escriptor. Veure [`docs/tests.md`](tests.md). |
 
 ## Estructura interna d'`App.jsx`
 

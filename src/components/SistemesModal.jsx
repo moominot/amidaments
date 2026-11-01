@@ -176,6 +176,7 @@ const VistaParametres = ({ doc, budget, priceDatabase, destiLabel, onInsereix, o
     const demanats = useMemo(() => parametresADemanar(doc, parametresProjecte), [doc, parametresProjecte]);
     const [nomInstancia, setNomInstancia] = useState(() => nomInstanciaLliure(doc.nom, budget.sistemes || []));
     const [aLArrel, setALArrel] = useState(true);
+    const [ometZero, setOmetZero] = useState(false);
     // Per defecte es fa servir el paràmetre del projecte amb el mateix nom si és del projecte
     // (una «alçada de planta» comuna), però no si és d'una altra instància: la segona piscina
     // no ha de tenir per força les mides de la primera.
@@ -184,8 +185,8 @@ const VistaParametres = ({ doc, budget, priceDatabase, destiLabel, onInsereix, o
     ));
     const canvia = (nom, r) => setRespostes(prev => { const m = new Map(prev); if (r) m.set(nom, r); else m.delete(nom); return m; });
 
-    const opcions = useMemo(() => ({ respostes, nomInstancia, parametresProjecte, id: 'previsualitzacio' }),
-        [respostes, nomInstancia, parametresProjecte]);
+    const opcions = useMemo(() => ({ respostes, nomInstancia, parametresProjecte, ometZero, id: 'previsualitzacio' }),
+        [respostes, nomInstancia, parametresProjecte, ometZero]);
     const vista = useMemo(() => previsualitza(doc, opcions, priceDatabase), [doc, opcions, priceDatabase]);
 
     const grups = useMemo(() => {
@@ -211,7 +212,7 @@ const VistaParametres = ({ doc, budget, priceDatabase, destiLabel, onInsereix, o
     ];
 
     const insereix = () => {
-        const inst = instancia(doc, { respostes, nomInstancia: nomInstancia.trim() || doc.nom, parametresProjecte });
+        const inst = instancia(doc, { respostes, nomInstancia: nomInstancia.trim() || doc.nom, parametresProjecte, ometZero });
         onInsereix(inst, { aLArrel });
     };
 
@@ -240,6 +241,18 @@ const VistaParametres = ({ doc, budget, priceDatabase, destiLabel, onInsereix, o
                             {destiLabel ? <>Dins de <span className="font-bold truncate">{destiLabel}</span></> : 'Dins del capítol seleccionat (no n\'hi ha cap)'}
                         </label>
                     </div>
+                    <label className="sm:col-span-2 flex items-start gap-2 text-xs cursor-pointer select-none touch-manipulation">
+                        <input type="checkbox" checked={ometZero} onChange={e => setOmetZero(e.target.checked)} className="w-4 h-4 mt-0.5 accent-blue-600 flex-shrink-0" />
+                        <span>
+                            No insereixis les partides que surten a zero
+                            {ometZero && vista.omeses.length > 0 && (
+                                <span className="text-slate-500"> · se&apos;n deixen fora {vista.omeses.length}: <span className="font-mono">{vista.omeses.map(o => o.code).join(', ')}</span></span>
+                            )}
+                            <span className="block text-[10px] text-slate-400 mt-0.5">
+                                Per a sistemes amb variants. Si després canvies un paràmetre, les partides que no s&apos;han inserit no apareixeran: caldrà tornar a inserir el sistema.
+                            </span>
+                        </span>
+                    </label>
                 </div>
 
                 {vista.condicions.length > 0 && (

@@ -314,3 +314,51 @@ describe('condicions dels sistemes', () => {
         expect(llegeixDocument({ budget: { chapters: [], condicions: [{ id: 'k', expressio: 'A>0' }] } }).condicions).toHaveLength(1);
     });
 });
+
+describe('ometre les partides que surten a zero', () => {
+    const sense = new Map([['focus', { valor: 0 }], ['nAmple', { valor: 0 }], ['depuracio', { valor: 0 }], ['electrolisi', { valor: 0 }]]);
+
+    it('no les insereix, ni els capítols que es queden buits', () => {
+        const r = instancia(PISCINA, { respostes: sense, ometZero: true });
+        const codis = Object.keys(partides(r.chapters));
+        expect(codis).not.toContain('RF22.02.02');
+        expect(codis).not.toContain('RF22.01.10');
+        expect(codis).toContain('RF22.01.11');
+        expect(r.omeses.map(o => o.code).sort()).toEqual(['RF22.01.10', 'RF22.02.01', 'RF22.02.02', 'RF22.02.03']);
+        // Instal·lacions s'ha quedat sense res: fora.
+        expect(r.chapters[0].subChapters.map(c => c.code)).toEqual(['PISC.01']);
+        expect(r.prices['RF22.02.02']).toBeUndefined();
+        expect(r.prices['RF22.01.11']).toBeTruthy();
+    });
+
+    it('el total és el mateix que inserint-les a zero', () => {
+        const amb = previsualitza(PISCINA, { respostes: sense });
+        const sen = previsualitza(PISCINA, { respostes: sense, ometZero: true });
+        expect(Math.round(sen.total * 100) / 100).toBe(Math.round(amb.total * 100) / 100);
+        expect(sen.omeses).toHaveLength(4);
+        expect(amb.omeses).toHaveLength(0);
+    });
+
+    it('sense l\'opció, les insereix totes', () => {
+        const r = instancia(PISCINA, { respostes: sense });
+        expect(Object.keys(partides(r.chapters))).toHaveLength(14);
+    });
+
+    it('té en compte els paràmetres del projecte i els vincles', () => {
+        const doc = {
+            ...PISCINA,
+            parametres: [{ id: 'v', nom: 'var', valor: 1 }],
+            condicions: [],
+            chapters: [{
+                id: 'c', code: 'X', subChapters: [], items: [
+                    { id: 'a', code: 'A48', unit: 'm2', measurements: [{ id: 'la', units: 0, length: 3, formules: { units: 'si(var=1;1;0)' } }] },
+                    { id: 'b', code: 'A70', unit: 'm2', measurements: [{ id: 'lb', units: 0, length: 3, formules: { units: 'si(var=2;1;0)' } }] },
+                    { id: 'k', code: 'PLACA', unit: 'm2', measurements: [{ id: 'lk', units: 0, length: 0, formules: { units: 'H', length: 2 } }] },
+                    { id: 'r', code: 'CINTA', unit: 'm2', measurements: [{ id: 'lr', refCode: 'A70', factor: 1 }] },
+                ],
+            }],
+        };
+        const r = instancia(doc, { respostes: new Map([['var', { valor: 1 }]]), parametresProjecte: [{ id: 'h', nom: 'H', valor: 3 }], ometZero: true });
+        expect(Object.keys(partides(r.chapters)).sort()).toEqual(['A48', 'PLACA']);
+    });
+});
