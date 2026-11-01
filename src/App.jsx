@@ -580,6 +580,8 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, setConfig, onOp
 
 // --- Modal de Confirmació d'Importació ---
 const ImportConfirmModal = ({ code, description, index, total, onConfirm, onSkip, onCancel }) => {
+    const [aTots, setATots] = useState(false);
+    const restants = total - index;
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
             <div className="bg-white rounded-none shadow-2xl w-full max-w-[450px] border border-slate-300 animate-in zoom-in-95 duration-200">
@@ -598,18 +600,29 @@ const ImportConfirmModal = ({ code, description, index, total, onConfirm, onSkip
                     <div className="bg-slate-50 p-3 border border-slate-200 mb-6 font-medium text-xs text-slate-500 italic">
                         "{description}"
                     </div>
+                    {restants > 1 && (
+                        <label className="flex items-center gap-2 mb-4 -mt-2 py-1 text-xs text-slate-600 cursor-pointer select-none touch-manipulation">
+                            <input
+                                type="checkbox"
+                                checked={aTots}
+                                onChange={(e) => setATots(e.target.checked)}
+                                className="w-4 h-4 accent-blue-600 flex-shrink-0"
+                            />
+                            <span>Aplica a tots (<span className="font-mono font-bold">{restants}</span> codis repetits, inclòs aquest)</span>
+                        </label>
+                    )}
                     <div className="flex flex-col gap-3">
                         <button
-                            onClick={onConfirm}
+                            onClick={() => onConfirm(aTots && restants > 1)}
                             className="w-full bg-blue-600 hover:bg-blue-500 text-white p-3 text-xs font-bold uppercase tracking-widest flex justify-center items-center gap-2 transition-colors"
                         >
-                            <Plus size={16} /> Afegir com a partida nova (amb sufix)
+                            <Plus size={16} /> {aTots && restants > 1 ? 'Afegir-les totes com a noves (amb sufix)' : 'Afegir com a partida nova (amb sufix)'}
                         </button>
                         <button
-                            onClick={onSkip}
+                            onClick={() => onSkip(aTots && restants > 1)}
                             className="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 p-3 text-xs font-bold uppercase tracking-widest flex justify-center items-center gap-2 transition-colors"
                         >
-                            <ChevronRight size={16} /> Mantenir existent i mostrar capítol
+                            <ChevronRight size={16} /> {aTots && restants > 1 ? 'Mantenir totes les existents' : 'Mantenir existent i mostrar capítol'}
                         </button>
                         <button
                             onClick={onCancel}
@@ -2601,92 +2614,86 @@ export default function App() {
         return null;
     };
 
-    const handleConfirmDuplicate = (asNew) => {
+    /**
+     * Resol el duplicat actual: `asNew` l'afegeix amb sufix, si no es manté l'existent i el
+     * que arriba es descarta. Amb `aTots`, la mateixa resposta val per a tots els que queden.
+     */
+    const handleConfirmDuplicate = (asNew, aTots = false) => {
         setImportPending(prev => {
             if (!prev) return null;
-            const { chapters, duplicates, currentIdx } = prev;
-            const currentDup = duplicates[currentIdx];
-            let nextChapters = chapters;
-            let prices = prev.prices;
+            const { duplicates, currentIdx } = prev;
+            const fins = aTots ? duplicates.length : currentIdx + 1;
 
-            if (asNew) {
-                // Add suffix to the imported item
-                const existingCodes = new Set();
-                const collectExisting = (nodes) => {
-                    nodes.forEach(n => {
-                        existingCodes.add(normalizeCode(n.code));
-                        if (n.subChapters) collectExisting(n.subChapters);
-                        if (n.items) collectExisting(n.items);
-                    });
-                };
-                collectExisting(budget.chapters);
+            // Codis ocupats: els del projecte i també els del que arriba. Si el fragment porta
+            // dues vegades el mateix codi, la segona no pot rebre el mateix sufix que la primera.
+            const ocupats = new Set();
+            const recull = (nodes) => nodes.forEach(n => {
+                ocupats.add(normalizeCode(n.code));
+                recull([...(n.subChapters || []), ...(n.items || [])]);
+            });
+            recull(budget.chapters);
+            recull(prev.chapters);
 
-                const newCode = generateUniqueCode(currentDup.code, existingCodes);
-
-                const updateCodeInTree = (nodes) => {
-                    return nodes.map(n => {
-                        if (n.id === currentDup.id) {
-                            return { ...n, code: newCode };
-                        }
-                        return {
-                            ...n,
-                            subChapters: updateCodeInTree(n.subChapters || []),
-                            items: updateCodeInTree(n.items || [])
-                        };
-                    });
-                };
-                nextChapters = updateCodeInTree(chapters);
-                // El codi nou ha de dur el preu de la partida importada: sense entrada a la
-                // base, una partida sense descomposat quedaria a zero.
-                const vell = prices?.[normalizeCode(currentDup.code)];
-                if (vell) prices = { ...prices, [normalizeCode(newCode)]: { ...vell, code: newCode } };
-            } else {
-                // Remove from imported tree and mark for expansion
-                const findAndExpand = (nodes, targetCode) => {
-                    for (const node of nodes) {
-                        if (normalizeCode(node.code) === normalizeCode(targetCode)) {
-                            return node.id;
-                        }
-                        const found = findAndExpand([...(node.subChapters || []), ...(node.items || [])], targetCode);
-                        if (found) return found;
-                    }
-                    return null;
-                };
-
-                const existingItemId = findAndExpand(budget.chapters, currentDup.code);
-                if (existingItemId) {
-                    const path = findParentPath(budget.chapters, existingItemId);
-                    if (path) {
-                        setExpandedChapters(prevExpanded => {
-                            const next = { ...prevExpanded };
-                            path.forEach(id => next[id] = true);
-                            return next;
-                        });
-                    }
+            const mapeja = (nodes, fn) => nodes.map(n => fn({
+                ...n,
+                subChapters: mapeja(n.subChapters || [], fn),
+                items: mapeja(n.items || [], fn),
+            }));
+            const treu = (nodes, id) => nodes.filter(n => n.id !== id).map(n => ({
+                ...n,
+                subChapters: treu(n.subChapters || [], id),
+                items: treu(n.items || [], id),
+            }));
+            const idPerCodi = (nodes, codi) => {
+                for (const n of nodes) {
+                    if (normalizeCode(n.code) === codi) return n.id;
+                    const dins = idPerCodi([...(n.subChapters || []), ...(n.items || [])], codi);
+                    if (dins) return dins;
                 }
+                return null;
+            };
 
-                const removeFromTree = (nodes) => {
-                    return nodes.filter(n => n.id !== currentDup.id).map(n => ({
-                        ...n,
-                        subChapters: removeFromTree(n.subChapters || []),
-                        items: removeFromTree(n.items || [])
-                    }));
-                };
-                nextChapters = removeFromTree(chapters);
+            let chapters = prev.chapters;
+            let prices = prev.prices;
+            const aDesplegar = [];
+
+            for (let i = currentIdx; i < fins; i++) {
+                const dup = duplicates[i];
+                if (asNew) {
+                    const newCode = generateUniqueCode(dup.code, ocupats);
+                    ocupats.add(normalizeCode(newCode));
+                    chapters = mapeja(chapters, n => (n.id === dup.id ? { ...n, code: newCode } : n));
+                    // El codi nou ha de dur el preu de la partida importada: sense entrada a la
+                    // base, una partida sense descomposat quedaria a zero.
+                    const vell = prices?.[normalizeCode(dup.code)];
+                    if (vell) prices = { ...prices, [normalizeCode(newCode)]: { ...vell, code: newCode } };
+                } else {
+                    // Es manté l'existent: es treu de la importació i se'n desplega el capítol
+                    // perquè es vegi quina és la que queda.
+                    const existent = idPerCodi(budget.chapters, normalizeCode(dup.code));
+                    const cami = existent && findParentPath(budget.chapters, existent);
+                    if (cami) aDesplegar.push(...cami);
+                    chapters = treu(chapters, dup.id);
+                }
             }
 
-            const updatedPending = { ...prev, prices, chapters: nextChapters };
-
-            if (currentIdx + 1 < duplicates.length) {
-                return { ...updatedPending, currentIdx: currentIdx + 1 };
-            } else {
-                // Schedule finalization after state update completes
-                setTimeout(() => {
-                    finalizeImport(updatedPending);
-                    setImportPending(null);
-                }, 0);
-                return updatedPending;
+            if (aDesplegar.length) {
+                setExpandedChapters(prevExpanded => {
+                    const next = { ...prevExpanded };
+                    aDesplegar.forEach(id => { next[id] = true; });
+                    return next;
+                });
             }
+
+            const updatedPending = { ...prev, prices, chapters };
+            if (fins < duplicates.length) return { ...updatedPending, currentIdx: fins };
+
+            // La fusió es fa fora de l'updater, un cop resolt l'últim.
+            setTimeout(() => {
+                finalizeImport(updatedPending);
+                setImportPending(null);
+            }, 0);
+            return updatedPending;
         });
     };
 
@@ -5694,8 +5701,8 @@ export default function App() {
                 <ImportConfirmModal
                     code={importPending.duplicates[importPending.currentIdx].code}
                     description={importPending.duplicates[importPending.currentIdx].description}
-                    onConfirm={() => handleConfirmDuplicate(true)}
-                    onSkip={() => handleConfirmDuplicate(false)}
+                    onConfirm={(aTots) => handleConfirmDuplicate(true, aTots)}
+                    onSkip={(aTots) => handleConfirmDuplicate(false, aTots)}
                     index={importPending.currentIdx}
                     total={importPending.duplicates.length}
                     // No s'ha aplicat res encara: la fusió només es fa en resoldre l'últim
