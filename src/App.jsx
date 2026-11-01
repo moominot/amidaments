@@ -20,6 +20,7 @@ import {
     Database,
     MousePointer2,
     AlertCircle,
+    AlertTriangle,
     FileCode,
     Box,
     Tag,
@@ -85,7 +86,7 @@ import LinkItemModal from './components/LinkItemModal';
 import { listProjects, getProject, saveProject, deleteProject, markProjectOpen, initialProject, dropLegacySlot, projectStorageKey } from './utils/projectLibrary';
 import { migrateBudget } from './utils/migrateBudget';
 import { resolveMeasurementRefs, isRefLine, refLabel } from './utils/measurementRefs';
-import { resolveFormules, usosDeParametres, reescriuFormules } from './utils/parametres';
+import { resolveFormules, usosDeParametres, reescriuFormules, comprovaCondicions } from './utils/parametres';
 import ParametresPanel from './components/ParametresPanel';
 import { processBC3Data } from './utils/bc3Parser';
 import { generateBC3, nomFitxerCertificacio } from './utils/bc3Writer';
@@ -1435,8 +1436,13 @@ export default function App() {
     const resolvedChapters = resolt.chapters;
     const teParametres = (budget.parametres || []).length > 0;
     const usosParametres = useMemo(
-        () => usosDeParametres(budget.chapters, budget.parametres || []),
-        [budget.chapters, budget.parametres],
+        () => usosDeParametres(budget.chapters, budget.parametres || [], budget.condicions || []),
+        [budget.chapters, budget.parametres, budget.condicions],
+    );
+    // Condicions dels paràmetres: al projecte són avisos, no aturen el càlcul.
+    const comprovacioParametres = useMemo(
+        () => comprovaCondicions(budget.parametres || [], budget.condicions || [], ambFormules.parametres),
+        [budget.parametres, budget.condicions, ambFormules],
     );
 
     // --- Paràmetres (veure `utils/parametres.js` i `components/ParametresPanel.jsx`) ---
@@ -1475,9 +1481,22 @@ export default function App() {
             const vell = (prev.parametres || []).find(x => x.id === id);
             if (!vell || vell.nom === nou) return prev;
             const parametres = prev.parametres.map(x => (x.id === id ? { ...x, nom: nou } : x));
-            const r = reescriuFormules({ chapters: prev.chapters, parametres }, new Map([[vell.nom, nou]]));
-            return { ...prev, chapters: r.chapters, parametres: r.parametres };
+            const r = reescriuFormules({ chapters: prev.chapters, parametres, condicions: prev.condicions || [] }, new Map([[vell.nom, nou]]));
+            return { ...prev, chapters: r.chapters, parametres: r.parametres, condicions: r.condicions };
         });
+    };
+
+    const afegeixCondicio = () => {
+        setBudget(prev => ({
+            ...prev,
+            condicions: [...(prev.condicions || []), { id: crypto.randomUUID(), expressio: '', missatge: '' }],
+        }));
+    };
+    const canviaCondicio = (id, canvis) => {
+        setBudget(prev => ({ ...prev, condicions: (prev.condicions || []).map(c => (c.id === id ? { ...c, ...canvis } : c)) }));
+    };
+    const esborraCondicio = (id) => {
+        setBudget(prev => ({ ...prev, condicions: (prev.condicions || []).filter(c => c.id !== id) }));
     };
 
     const esborraParametre = (id) => {
@@ -2942,6 +2961,7 @@ export default function App() {
                 certifications: [...(prev.certifications || []), ...importedPhases],
                 // Un sistema hi afegeix els seus paràmetres i la instància (veure `utils/sistemesDoc.js`).
                 ...(result.parametres?.length ? { parametres: [...(prev.parametres || []), ...result.parametres] } : {}),
+                ...(result.condicions?.length ? { condicions: [...(prev.condicions || []), ...result.condicions] } : {}),
                 ...(result.instancia ? { sistemes: [...(prev.sistemes || []), result.instancia] } : {}),
             }));
             notify(result.missatge || "Dades importades correctament");
@@ -3471,7 +3491,7 @@ export default function App() {
     const insereixSistema = (inst, { aLArrel = true } = {}) => {
         insereixNodes(inst.chapters, inst.prices, aLArrel ? null : (capitolDesti?.id || null),
             `Sistema inserit: ${inst.instancia.nom}`,
-            { parametres: inst.parametres, instancia: inst.instancia });
+            { parametres: inst.parametres, condicions: inst.condicions, instancia: inst.instancia });
         setQuadreSistemes(null);
         if (inst.parametres.length) commutaParametres(true);
     };
@@ -3487,6 +3507,7 @@ export default function App() {
             descripcioSistema: doc.descripcio || '',
             chapters: doc.chapters,
             parametres: doc.parametres,
+            condicions: doc.condicions || [],
             certifications: [],
             // En desar-lo com a sistema, es proposarà substituir l'original (si no és integrat).
             sistemaGaleria: idGaleria && !String(idGaleria).startsWith('integrat:') ? { id: idGaleria, nom: doc.nom } : null,
@@ -5529,7 +5550,12 @@ export default function App() {
                     >
                         <ParametresPanel
                             parametres={budget.parametres || []}
+                            condicions={budget.condicions || []}
                             resolts={ambFormules.parametres}
+                            comprovacio={comprovacioParametres}
+                            onAfegeixCondicio={afegeixCondicio}
+                            onCanviaCondicio={canviaCondicio}
+                            onEsborraCondicio={esborraCondicio}
                             usos={usosParametres}
                             onAfegeix={afegeixParametre}
                             onCanvia={canviaParametre}
@@ -5604,6 +5630,9 @@ export default function App() {
                                     <Variable size={14} />
                                     <span className="hidden 2xl:inline">Paràmetres</span>
                                     {teParametres && <span className="font-mono">{budget.parametres.length}</span>}
+                                    {comprovacioParametres.incomplertes > 0 && (
+                                        <AlertTriangle size={12} className={mostraParametres ? 'text-amber-200' : 'text-amber-500'} aria-label="Hi ha condicions que no es compleixen" />
+                                    )}
                                 </button>
                                 {/* Mobile: Search icon only, expands downward */}
                                 <div className="md:hidden relative">

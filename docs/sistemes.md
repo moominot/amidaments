@@ -55,6 +55,36 @@ paràmetres són del projecte d'origen.
 Al mòbil, el teclat decimal no té lletres: el camp fa servir el teclat de text quan el projecte
 té paràmetres.
 
+## Condicions
+
+Dues menes, totes dues opcionals (`comprovaCondicions`, a `utils/parametres.js`):
+
+- **Límits de cada paràmetre**: `min`, `max` i `enter`. Es posen des de la barra, amb el botó
+  «límits» de cada paràmetre, sense escriure cap fórmula.
+- **Condicions entre paràmetres** (`budget.condicions`): `{ id, expressio, missatge }`, on
+  `expressio` és una fórmula que ha de donar cert (diferent de 0): `P2>=P1`,
+  `o(hT>0; tLlargs+tCurts=0)`. Van a la secció «Condicions entre paràmetres» de la barra.
+
+Per escriure-les, les fórmules tenen comparacions (`= <> < > <= >=`, també `≠ ≤ ≥ !=`), que
+donen 1 o 0, i les funcions `si(c; a; b)`, `i(...)`, `o(...)` i `no(x)` (`if`, `and`, `or`,
+`not`). `si` només calcula la branca que toca. La igualtat i els límits tenen marge per al soroll
+de la coma flotant (`0,1+0,2=0,3` és cert). No es poden encadenar comparacions (`1<A<3`): es
+fa amb `i(A>1; A<3)`.
+
+**Al projecte són avisos**: el paràmetre o la condició es marquen en ambre, la barra en mostra
+el recompte i el botó de paràmetres porta un triangle, però el càlcul continua. **En inserir un
+sistema, bloquegen**: el quadre marca en vermell els camps que no compleixen els seus límits i
+els que surten en una condició que falla, posa el missatge al peu i no deixa inserir fins que
+tot es compleix.
+
+Les condicions viatgen amb el sistema: en inserir-lo es reanomenen com els paràmetres
+(`P2_2>=P1`) i es marquen amb la instància; extreure-la les recupera amb els noms originals i
+treure-la les esborra. Un paràmetre enllaçat amb el del projecte no es comprova pels límits del
+sistema (és del projecte), però sí per les condicions entre paràmetres.
+
+La piscina porta els mateixos límits que tenia el generador anterior i dues condicions:
+`P2>=P1` i que el suport de tubs tingui alçada si n'hi ha.
+
 ## Sistemes
 
 | Fitxer | Què hi ha |
@@ -99,6 +129,13 @@ En inserir:
 - si una partida ja hi és, el quadre de duplicats té una opció nova, **«Afegir-hi les
   línies»**: la partida és la mateixa i només s'hi sumen les línies (marcades). És el que es vol
   en inserir la segona piscina. Serveix també per enganxar;
+- amb **«No insereixis les partides que surten a zero»**, les partides que amb els valors triats
+  tenen quantitat 0 (i els capítols que es queden buits per això) no entren. És per als
+  sistemes amb variants: un paràmetre `perfil` i, a cada partida de perfil, Ud =
+  `si(perfil=48;1;0)`. El codi i la descripció d'una partida no canvien amb els paràmetres (un
+  codi és un concepte, amb una descripció i un preu), així que cada variant és una partida. El
+  preu de l'opció: si després es canvia el paràmetre, la partida que no s'ha inserit no
+  apareix i cal tornar a inserir el sistema;
 - els paràmetres i la instància viatgen amb la importació i només s'afegeixen si s'acaba:
   cancel·lar el quadre de duplicats no deixa paràmetres orfes.
 
@@ -142,7 +179,6 @@ va sense descomposat, i un test comprova que cada partida valgui el preu del seu
 
 ## Què falta
 
-- **Condicions** sobre els paràmetres (P2 ≥ P1, enters, mínims): ara qualsevol valor és vàlid.
 - **Desar a Drive** la galeria, per tenir-la a tots els dispositius.
 - **Vincle amb AutoCAD**: una galeria de detalls constructius amb el seu amidament.
 - Un sistema dins d'un altre: ara les instàncies d'un projecte desat com a sistema es

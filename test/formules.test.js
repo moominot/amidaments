@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { avalua, compila, interpretaCamp, reanomenaA, referencies, esNomValid } from '../src/utils/formules';
-import { resolParametres, resolveFormules, usosDeParametres, reescriuFormules, nomLliure } from '../src/utils/parametres';
+import { resolParametres, resolveFormules, usosDeParametres, reescriuFormules, nomLliure, comprovaCondicions, resumLimits } from '../src/utils/parametres';
 import { calcItemTotalQty, calcMeasureTotal } from '../src/utils/calculations';
 import { resolveMeasurementRefs } from '../src/utils/measurementRefs';
 
@@ -177,5 +177,96 @@ describe('línies amb fórmula', () => {
     it('reescriu canvis encadenats sense trepitjar-se', () => {
         const r = reescriuFormules({ chapters: [], parametres: [{ id: 'x', nom: 'X', formula: 'A+B' }] }, new Map([['A', 'B'], ['B', 'C']]));
         expect(r.parametres[0].formula).toBe('B+C');
+    });
+});
+
+describe('comparacions i lògica', () => {
+    it('les comparacions donen 1 o 0, amb marge per a la coma flotant', () => {
+        expect(avalua('2>=1').valor).toBe(1);
+        expect(avalua('2<1').valor).toBe(0);
+        expect(avalua('0,1+0,2=0,3').valor).toBe(1);
+        expect(avalua('0,1+0,2<0,3').valor).toBe(0);
+        expect(avalua('1<>2').valor).toBe(1);
+        expect(avalua('1!=1').valor).toBe(0);
+        expect(avalua('3≥3').valor).toBe(1);
+        expect(avalua('3≤2').valor).toBe(0);
+        expect(avalua('2≠2').valor).toBe(0);
+        expect(avalua('L+1>L', vals({ L: 5 })).valor).toBe(1);
+    });
+
+    it('un = al davant continua sent opcional', () => {
+        expect(avalua('=2=2').valor).toBe(1);
+    });
+
+    it('si només calcula la branca que toca', () => {
+        expect(avalua('si(P1=P2;2;1)', vals({ P1: 1, P2: 1 })).valor).toBe(2);
+        expect(avalua('si(A>0;10/A;0)', vals({ A: 0 })).valor).toBe(0);
+        expect(avalua('if(1;5;1/0)').valor).toBe(5);
+        expect(avalua('si(1;2)').error).toMatch(/arguments/);
+    });
+
+    it('i, o i no', () => {
+        expect(avalua('i(A>0;A<=2)', vals({ A: 1 })).valor).toBe(1);
+        expect(avalua('i(A>0;A<=2)', vals({ A: 3 })).valor).toBe(0);
+        expect(avalua('o(h>0;n=0)', vals({ h: 0, n: 0 })).valor).toBe(1);
+        expect(avalua('no(0)').valor).toBe(1);
+        expect(avalua('and(1;0)').valor).toBe(0);
+    });
+
+    it('no deixa encadenar comparacions', () => {
+        expect(avalua('1<2<3').error).toMatch(/No s'esperava/);
+    });
+
+    it('i, o, si i no poden ser noms de paràmetre', () => {
+        expect(esNomValid('i')).toBe(true);
+        expect(esNomValid('si')).toBe(true);
+        expect(avalua('i*2', vals({ i: 0.02 })).valor).toBe(0.04);
+        expect(reanomenaA('i(i>0;1)', 'i', 'pendent')).toBe('i(pendent>0;1)');
+    });
+});
+
+describe('condicions dels paràmetres', () => {
+    const ps = [
+        { id: 'a', nom: 'P1', valor: 1.5, min: 0.2 },
+        { id: 'b', nom: 'P2', valor: 1.2, min: 0.2 },
+        { id: 'c', nom: 'n', valor: 2.5, min: 0, max: 2, enter: true },
+        { id: 'd', nom: 'x', valor: 0.30000000000000004, max: 0.3 },
+        { id: 'e', nom: 'L', valor: 8, min: '', max: null },
+    ];
+    const conds = [
+        { id: 'k1', expressio: 'P2>=P1', missatge: 'La fondària màxima no pot ser menor que la mínima' },
+        { id: 'k2', expressio: 'L>0' },
+        { id: 'k3', expressio: 'Z>0' },
+        { id: 'k4', expressio: 'L<0' },
+    ];
+
+    it('comprova els límits de cada paràmetre', () => {
+        const r = comprovaCondicions(ps, []);
+        expect(r.perParametre.get('c')).toEqual(['Ha de ser com a màxim 2', 'Ha de ser un nombre enter']);
+        expect(r.perParametre.has('a')).toBe(false);
+        expect(r.perParametre.has('d')).toBe(false);   // soroll de coma flotant
+        expect(r.perParametre.has('e')).toBe(false);   // límits buits
+    });
+
+    it('comprova les condicions entre paràmetres', () => {
+        const r = comprovaCondicions(ps, conds);
+        const [k1, k2, k3, k4] = r.generals;
+        expect(k1).toMatchObject({ ok: false, missatge: 'La fondària màxima no pot ser menor que la mínima' });
+        expect(k2.ok).toBe(true);
+        expect(k3).toMatchObject({ ok: false, error: 'Paràmetre desconegut: Z' });
+        expect(k4).toMatchObject({ ok: false, missatge: 'No es compleix: L<0' });
+        expect(r.incomplertes).toBe(2 + 3);
+    });
+
+    it('resumeix els límits', () => {
+        expect(resumLimits(ps[2])).toBe('≥ 0 · ≤ 2 · enter');
+        expect(resumLimits(ps[4])).toBe('');
+        expect(resumLimits({ min: 0.5 })).toBe('≥ 0,5');
+    });
+
+    it('les condicions compten com a ús i es reescriuen en reanomenar', () => {
+        expect(usosDeParametres([], [], conds).get('L')).toBe(2);
+        const r = reescriuFormules({ condicions: conds }, new Map([['P2', 'Pmax']]));
+        expect(r.condicions[0].expressio).toBe('Pmax>=P1');
     });
 });

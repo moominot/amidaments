@@ -263,3 +263,102 @@ describe('exportació BC3 d\'un projecte amb fórmules', () => {
         expect(quantitats(r.chapters)['RF22.01.05']).toBe(10.2);   // sense costats curts
     });
 });
+
+describe('condicions dels sistemes', () => {
+    it('la piscina porta els límits i les condicions del generador anterior', () => {
+        const L = PISCINA.parametres.find(p => p.nom === 'L');
+        expect(L.min).toBe(0.5);
+        expect(PISCINA.parametres.find(p => p.nom === 'nAmple')).toMatchObject({ min: 0, max: 2, enter: true });
+        expect(PISCINA.condicions.map(c => c.expressio)).toEqual(['P2>=P1', 'o(hT>0; tLlargs+tCurts=0)']);
+        expect(previsualitza(PISCINA).incomplertes).toBe(0);
+    });
+
+    it('la previsualització diu què no es compleix, pel nom del sistema', () => {
+        const v = previsualitza(PISCINA, {
+            parametresProjecte: [{ id: 'q', nom: 'L', valor: 30 }],
+            respostes: new Map([['P1', { valor: 1.5 }], ['P2', { valor: 1.2 }], ['nAmple', { valor: 3 }], ['L', { valor: 0.2 }]]),
+        });
+        expect(v.condicions[0]).toMatchObject({ ok: false, missatge: 'La fondària màxima no pot ser menor que la mínima' });
+        expect(v.limitsPerNom.get('nAmple')).toEqual(['Ha de ser com a màxim 2']);
+        // L s'ha reanomenat a L_2 (el projecte ja en té un), però l'avís surt pel nom del sistema.
+        expect(v.limitsPerNom.get('L')).toEqual(['Ha de ser com a mínim 0,5']);
+        expect(v.incomplertes).toBe(3);
+    });
+
+    it('en inserir, les condicions es reanomenen amb els paràmetres i es marquen', () => {
+        const r = instancia(PISCINA, {
+            nomInstancia: 'Piscina B', id: 'I9',
+            parametresProjecte: [{ id: 'q', nom: 'P2', valor: 3 }],
+        });
+        expect(r.condicions[0]).toMatchObject({ expressio: 'P2_2>=P1', sistema: 'I9', grup: 'Piscina B' });
+        expect(r.condicions[0].id).not.toBe('c1');
+    });
+
+    it('extreure i treure una instància fan el mateix amb les seves condicions', () => {
+        const inst = instancia(PISCINA, { parametresProjecte: [{ id: 'q', nom: 'P2', valor: 3 }], id: 'I1' });
+        const budget = {
+            parametres: [{ id: 'q', nom: 'P2', valor: 3 }, ...inst.parametres],
+            condicions: [{ id: 'propia', expressio: 'P2>0' }, ...inst.condicions],
+            sistemes: [inst.instancia],
+            chapters: inst.chapters,
+        };
+        const doc = extreuInstancia(budget, inst.prices, 'I1');
+        expect(doc.condicions.map(c => c.expressio)).toEqual(['P2>=P1', 'o(hT>0; tLlargs+tCurts=0)']);
+        expect(doc.condicions[0].sistema).toBeUndefined();
+        expect(treuInstancia(budget, 'I1').condicions.map(c => c.id)).toEqual(['propia']);
+    });
+
+    it('desar un projecte com a sistema hi porta les condicions', () => {
+        const doc = documentDeProjecte({ chapters: [], parametres: [], condicions: [{ id: 'k', expressio: 'A>0', sistema: 'x', grup: 'g' }] });
+        expect(doc.condicions).toEqual([{ id: 'k', expressio: 'A>0' }]);
+        expect(llegeixDocument({ budget: { chapters: [], condicions: [{ id: 'k', expressio: 'A>0' }] } }).condicions).toHaveLength(1);
+    });
+});
+
+describe('ometre les partides que surten a zero', () => {
+    const sense = new Map([['focus', { valor: 0 }], ['nAmple', { valor: 0 }], ['depuracio', { valor: 0 }], ['electrolisi', { valor: 0 }]]);
+
+    it('no les insereix, ni els capítols que es queden buits', () => {
+        const r = instancia(PISCINA, { respostes: sense, ometZero: true });
+        const codis = Object.keys(partides(r.chapters));
+        expect(codis).not.toContain('RF22.02.02');
+        expect(codis).not.toContain('RF22.01.10');
+        expect(codis).toContain('RF22.01.11');
+        expect(r.omeses.map(o => o.code).sort()).toEqual(['RF22.01.10', 'RF22.02.01', 'RF22.02.02', 'RF22.02.03']);
+        // Instal·lacions s'ha quedat sense res: fora.
+        expect(r.chapters[0].subChapters.map(c => c.code)).toEqual(['PISC.01']);
+        expect(r.prices['RF22.02.02']).toBeUndefined();
+        expect(r.prices['RF22.01.11']).toBeTruthy();
+    });
+
+    it('el total és el mateix que inserint-les a zero', () => {
+        const amb = previsualitza(PISCINA, { respostes: sense });
+        const sen = previsualitza(PISCINA, { respostes: sense, ometZero: true });
+        expect(Math.round(sen.total * 100) / 100).toBe(Math.round(amb.total * 100) / 100);
+        expect(sen.omeses).toHaveLength(4);
+        expect(amb.omeses).toHaveLength(0);
+    });
+
+    it('sense l\'opció, les insereix totes', () => {
+        const r = instancia(PISCINA, { respostes: sense });
+        expect(Object.keys(partides(r.chapters))).toHaveLength(14);
+    });
+
+    it('té en compte els paràmetres del projecte i els vincles', () => {
+        const doc = {
+            ...PISCINA,
+            parametres: [{ id: 'v', nom: 'var', valor: 1 }],
+            condicions: [],
+            chapters: [{
+                id: 'c', code: 'X', subChapters: [], items: [
+                    { id: 'a', code: 'A48', unit: 'm2', measurements: [{ id: 'la', units: 0, length: 3, formules: { units: 'si(var=1;1;0)' } }] },
+                    { id: 'b', code: 'A70', unit: 'm2', measurements: [{ id: 'lb', units: 0, length: 3, formules: { units: 'si(var=2;1;0)' } }] },
+                    { id: 'k', code: 'PLACA', unit: 'm2', measurements: [{ id: 'lk', units: 0, length: 0, formules: { units: 'H', length: 2 } }] },
+                    { id: 'r', code: 'CINTA', unit: 'm2', measurements: [{ id: 'lr', refCode: 'A70', factor: 1 }] },
+                ],
+            }],
+        };
+        const r = instancia(doc, { respostes: new Map([['var', { valor: 1 }]]), parametresProjecte: [{ id: 'h', nom: 'H', valor: 3 }], ometZero: true });
+        expect(Object.keys(partides(r.chapters)).sort()).toEqual(['A48', 'PLACA']);
+    });
+});

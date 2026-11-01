@@ -1,5 +1,5 @@
-import { normalizeCode, calcChapterTotal } from './calculations';
-import { resolveFormules, reescriuFormules, nomLliure, CAMPS_FORMULA, teFormules } from './parametres';
+import { normalizeCode, calcChapterTotal, calcItemTotalQty } from './calculations';
+import { resolveFormules, reescriuFormules, nomLliure, CAMPS_FORMULA, teFormules, comprovaCondicions } from './parametres';
 import { resolveMeasurementRefs } from './measurementRefs';
 import { referencies } from './formules';
 
@@ -72,14 +72,22 @@ const netejaArbre = (nodes, podaLinia = () => true) => nodes.map(n => {
     };
 });
 
-/** Paràmetres que fan servir les fórmules d'unes línies i d'uns paràmetres. */
-const nomsReferits = (chapters, parametres) => {
+/** Paràmetres que fan servir les fórmules d'unes línies, d'uns paràmetres i d'unes condicions. */
+const nomsReferits = (chapters, parametres, condicions = []) => {
     const noms = new Set();
     recorre(chapters, n => (n.measurements || []).forEach(m => {
         if (teFormules(m)) CAMPS_FORMULA.forEach(c => m.formules[c] && referencies(m.formules[c]).forEach(x => noms.add(x)));
     }));
     parametres.forEach(p => p.formula && referencies(p.formula).forEach(x => noms.add(x)));
+    condicions.forEach(c => c.expressio && referencies(c.expressio).forEach(x => noms.add(x)));
     return noms;
+};
+
+/** Condició sense res del projecte d'on surt. */
+const netejaCondicio = (c) => {
+    // eslint-disable-next-line no-unused-vars
+    const { sistema, grup, ...resta } = c;
+    return resta;
 };
 
 // ─── Crear ───
@@ -88,7 +96,7 @@ const nomsReferits = (chapters, parametres) => {
  * Document de sistema a partir d'un projecte: tot l'arbre i tots els paràmetres.
  * `chapters` ha de ser `budget.chapters` (amb les fórmules i els vincles), no el resolt.
  */
-export const documentDeProjecte = ({ chapters = [], parametres = [], name } = {}, priceDatabase = {}, { nom, descripcio } = {}) => {
+export const documentDeProjecte = ({ chapters = [], parametres = [], condicions = [], name } = {}, priceDatabase = {}, { nom, descripcio } = {}) => {
     const arbre = netejaArbre(chapters);
     return {
         format: FORMAT_SISTEMA,
@@ -100,6 +108,7 @@ export const documentDeProjecte = ({ chapters = [], parametres = [], name } = {}
             const { sistema, nomOriginal, ...resta } = p;
             return resta;
         }),
+        condicions: condicions.map(netejaCondicio),
         chapters: arbre,
         prices: preusDe(arbre, priceDatabase),
     };
@@ -116,6 +125,7 @@ export const projecteDeDocument = (doc) => ({
         descripcioSistema: doc.descripcio || '',
         chapters: doc.chapters,
         parametres: doc.parametres,
+        condicions: doc.condicions || [],
         certifications: [],
     },
     priceDatabase: doc.prices || {},
@@ -132,6 +142,7 @@ export const llegeixDocument = (dades) => {
         return {
             ...dades,
             parametres: Array.isArray(dades.parametres) ? dades.parametres : [],
+            condicions: Array.isArray(dades.condicions) ? dades.condicions : [],
             prices: dades.prices && typeof dades.prices === 'object' ? dades.prices : {},
         };
     }
@@ -176,14 +187,22 @@ const grupDe = (nomInstancia, grup) => (grup ? `${nomInstancia} · ${grup}` : no
  * nom), `{ valor }` o `{ formula }` (fórmula sobre paràmetres **del projecte**, p. ex. `H-0,3`).
  * Sense resposta, el paràmetre entra amb el valor del sistema.
  *
- * Torna `{ chapters, parametres, prices, instancia }`: l'arbre amb ids nous i marcat, els
- * paràmetres nous que s'han d'afegir al projecte, els preus i l'entrada per a `budget.sistemes`.
+ * Torna `{ chapters, parametres, condicions, prices, instancia, omeses }`: l'arbre amb ids nous
+ * i marcat, els paràmetres i les condicions que s'han d'afegir al projecte, els preus, l'entrada
+ * per a `budget.sistemes` i les partides que s'han deixat fora.
+ *
+ * Amb `ometZero` no s'insereixen les partides que, amb aquests valors, surten a zero (ni els
+ * capítols que es queden buits per això). És el que es vol en un sistema amb variants, on un
+ * paràmetre posa a zero les partides de les variants que no es trien: si no, es quedarien al
+ * pressupost amb quantitat 0. El preu és que, si després es canvia el paràmetre, la partida
+ * que no s'ha inserit no apareix: cal tornar a inserir el sistema.
  */
 export const instancia = (doc, {
     respostes = new Map(),
     nomInstancia = doc.nom,
     parametresProjecte = [],
     id = crypto.randomUUID(),
+    ometZero = false,
 } = {}) => {
     const ocupats = new Set(parametresProjecte.map(p => p.nom));
     const canvis = new Map();
@@ -230,7 +249,10 @@ export const instancia = (doc, {
 
     // Primer es reanomena el que ve del sistema; les respostes de l'usuari van després perquè
     // parlen dels paràmetres del projecte i no s'han de tocar.
-    const reescrit = reescriuFormules({ chapters: copia(doc.chapters), parametres: nous }, canvis);
+    const condicions = (doc.condicions || []).map(c => ({
+        ...c, id: crypto.randomUUID(), grup: nomInstancia, sistema: id,
+    }));
+    const reescrit = reescriuFormules({ chapters: copia(doc.chapters), parametres: nous, condicions }, canvis);
     nous = reescrit.parametres.map(p => {
         const r = respostes.get(p.nomOriginal);
         if (!r) return p;
@@ -239,11 +261,35 @@ export const instancia = (doc, {
         return p;
     });
 
+    let chapters = reescrit.chapters;
+    const omeses = [];
+    if (ometZero) {
+        const resolt = resolveMeasurementRefs(resolveFormules(chapters, [...parametresProjecte, ...nous]).chapters).chapters;
+        const quantitat = new Map();
+        recorre(resolt, n => { if (n.unit) quantitat.set(n.id, calcItemTotalQty(n)); });
+        const poda = (nodes) => nodes.map(n => {
+            if (n.unit) {
+                if (quantitat.get(n.id) !== 0) return n;
+                omeses.push({ code: n.code, description: n.description || '' });
+                return null;
+            }
+            const subChapters = poda(n.subChapters || []);
+            const items = poda(n.items || []);
+            // Un capítol que ja era buit al sistema es respecta; el que s'ha buidat ara, fora.
+            const teniaContingut = (n.subChapters || []).length + (n.items || []).length > 0;
+            if (teniaContingut && !subChapters.length && !items.length) return null;
+            return { ...n, subChapters, items };
+        }).filter(Boolean);
+        chapters = poda(chapters);
+    }
+
     return {
-        chapters: reescrit.chapters,
+        chapters,
         parametres: nous,
-        prices: doc.prices || {},
+        condicions: reescrit.condicions,
+        prices: ometZero ? preusDe(chapters, doc.prices || {}) : (doc.prices || {}),
         instancia: { id, nom: nomInstancia, sistema: doc.nom },
+        omeses,
     };
 };
 
@@ -257,10 +303,20 @@ export const previsualitza = (doc, opcions = {}, priceDatabase = {}) => {
     const ambFormules = resolveFormules(inst.chapters, params);
     const resolt = resolveMeasurementRefs(ambFormules.chapters).chapters;
     const preus = { ...inst.prices, ...priceDatabase };
+    // Les condicions del sistema, amb els límits per nom del sistema (el que es veu al quadre).
+    const comprovacio = comprovaCondicions(inst.parametres, inst.condicions, ambFormules.parametres);
+    const limitsPerNom = new Map();
+    inst.parametres.forEach(p => {
+        if (comprovacio.perParametre.has(p.id)) limitsPerNom.set(p.nomOriginal, comprovacio.perParametre.get(p.id));
+    });
     return {
         total: resolt.reduce((a, c) => a + calcChapterTotal(c, preus), 0),
         liniesAmbError: ambFormules.liniesAmbError,
         errorsParametres: ambFormules.parametres.errors,
+        limitsPerNom,
+        condicions: comprovacio.generals,
+        incomplertes: comprovacio.incomplertes,
+        omeses: inst.omeses,
         chapters: resolt,
         preus,
     };
@@ -295,7 +351,8 @@ export const extreuInstancia = (budget, priceDatabase, id) => {
     const chapters = filtraPerInstancia(budget.chapters || [], id);
     const propis = (budget.parametres || []).filter(p => p.sistema === id);
     const nomsPropis = new Set(propis.map(p => p.nom));
-    const referits = nomsReferits(chapters, propis);
+    const propiesCond = (budget.condicions || []).filter(c => c.sistema === id);
+    const referits = nomsReferits(chapters, propis, propiesCond);
     const externs = (budget.parametres || []).filter(p => p.sistema !== id && referits.has(p.nom) && !nomsPropis.has(p.nom));
 
     // Es recuperen els noms del sistema (L en comptes de L_2) si no xoquen.
@@ -315,9 +372,9 @@ export const extreuInstancia = (budget, priceDatabase, id) => {
             grup: !inst ? p.grup : p.grup === inst.nom ? '' : (p.grup || '').startsWith(prefix) ? p.grup.slice(prefix.length) : p.grup,
         })),
     ];
-    const reescrit = reescriuFormules({ chapters, parametres }, canvis);
+    const reescrit = reescriuFormules({ chapters, parametres, condicions: propiesCond }, canvis);
     return documentDeProjecte(
-        { chapters: reescrit.chapters, parametres: reescrit.parametres },
+        { chapters: reescrit.chapters, parametres: reescrit.parametres, condicions: reescrit.condicions },
         priceDatabase,
         { nom: inst?.sistema || inst?.nom || 'Sistema', descripcio: inst ? `Extret de la instància «${inst.nom}»` : '' },
     );
@@ -342,6 +399,7 @@ export const treuInstancia = (budget, id) => {
         ...budget,
         chapters: poda(budget.chapters || []),
         parametres: (budget.parametres || []).filter(p => p.sistema !== id),
+        condicions: (budget.condicions || []).filter(c => c.sistema !== id),
         sistemes: (budget.sistemes || []).filter(i => i.id !== id),
     };
 };

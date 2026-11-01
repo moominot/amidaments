@@ -1,9 +1,11 @@
 import { useState, useMemo, useRef } from 'react';
 import {
-    X, Blocks, ArrowLeft, Upload, Download, Trash2, Pencil, Save, AlertCircle, Link as LinkIcon, ChevronRight,
+    X, Blocks, ArrowLeft, Upload, Download, Trash2, Pencil, Save, AlertCircle, CheckCircle2, Link as LinkIcon, ChevronRight,
 } from 'lucide-react';
 import FormulaInput from './FormulaInput';
 import { formatCurrency, formatNumber } from '../utils/calculations';
+import { resumLimits } from '../utils/parametres';
+import { referencies } from '../utils/formules';
 import {
     llegeixDocument, parametresADemanar, instancia, previsualitza, nomInstanciaLliure, projecteDeDocument,
 } from '../utils/sistemesDoc';
@@ -174,6 +176,7 @@ const VistaParametres = ({ doc, budget, priceDatabase, destiLabel, onInsereix, o
     const demanats = useMemo(() => parametresADemanar(doc, parametresProjecte), [doc, parametresProjecte]);
     const [nomInstancia, setNomInstancia] = useState(() => nomInstanciaLliure(doc.nom, budget.sistemes || []));
     const [aLArrel, setALArrel] = useState(true);
+    const [ometZero, setOmetZero] = useState(false);
     // Per defecte es fa servir el paràmetre del projecte amb el mateix nom si és del projecte
     // (una «alçada de planta» comuna), però no si és d'una altra instància: la segona piscina
     // no ha de tenir per força les mides de la primera.
@@ -182,8 +185,8 @@ const VistaParametres = ({ doc, budget, priceDatabase, destiLabel, onInsereix, o
     ));
     const canvia = (nom, r) => setRespostes(prev => { const m = new Map(prev); if (r) m.set(nom, r); else m.delete(nom); return m; });
 
-    const opcions = useMemo(() => ({ respostes, nomInstancia, parametresProjecte, id: 'previsualitzacio' }),
-        [respostes, nomInstancia, parametresProjecte]);
+    const opcions = useMemo(() => ({ respostes, nomInstancia, parametresProjecte, ometZero, id: 'previsualitzacio' }),
+        [respostes, nomInstancia, parametresProjecte, ometZero]);
     const vista = useMemo(() => previsualitza(doc, opcions, priceDatabase), [doc, opcions, priceDatabase]);
 
     const grups = useMemo(() => {
@@ -196,9 +199,20 @@ const VistaParametres = ({ doc, budget, priceDatabase, destiLabel, onInsereix, o
         return out;
     }, [demanats]);
     const derivats = demanats.filter(p => p.derivat);
+    // Els paràmetres que surten a una condició que no es compleix: es marquen igual que els
+    // que no compleixen els seus límits, perquè es vegi què s'ha de tocar.
+    const implicats = useMemo(() => {
+        const noms = new Set();
+        vista.condicions.filter(c => !c.ok).forEach(c => referencies(c.expressio).forEach(n => noms.add(n)));
+        return noms;
+    }, [vista]);
+    const primersAvisos = [
+        ...vista.condicions.filter(c => !c.ok).map(c => c.missatge || c.error),
+        ...[...vista.limitsPerNom.entries()].map(([nom, m]) => `${nom}: ${m[0].charAt(0).toLowerCase()}${m[0].slice(1)}`),
+    ];
 
     const insereix = () => {
-        const inst = instancia(doc, { respostes, nomInstancia: nomInstancia.trim() || doc.nom, parametresProjecte });
+        const inst = instancia(doc, { respostes, nomInstancia: nomInstancia.trim() || doc.nom, parametresProjecte, ometZero });
         onInsereix(inst, { aLArrel });
     };
 
@@ -227,8 +241,34 @@ const VistaParametres = ({ doc, budget, priceDatabase, destiLabel, onInsereix, o
                             {destiLabel ? <>Dins de <span className="font-bold truncate">{destiLabel}</span></> : 'Dins del capítol seleccionat (no n\'hi ha cap)'}
                         </label>
                     </div>
+                    <label className="sm:col-span-2 flex items-start gap-2 text-xs cursor-pointer select-none touch-manipulation">
+                        <input type="checkbox" checked={ometZero} onChange={e => setOmetZero(e.target.checked)} className="w-4 h-4 mt-0.5 accent-blue-600 flex-shrink-0" />
+                        <span>
+                            No insereixis les partides que surten a zero
+                            {ometZero && vista.omeses.length > 0 && (
+                                <span className="text-slate-500"> · se&apos;n deixen fora {vista.omeses.length}: <span className="font-mono">{vista.omeses.map(o => o.code).join(', ')}</span></span>
+                            )}
+                            <span className="block text-[10px] text-slate-400 mt-0.5">
+                                Per a sistemes amb variants. Si després canvies un paràmetre, les partides que no s&apos;han inserit no apareixeran: caldrà tornar a inserir el sistema.
+                            </span>
+                        </span>
+                    </label>
                 </div>
 
+                {vista.condicions.length > 0 && (
+                    <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/60">
+                        <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Condicions</div>
+                        {vista.condicions.map(c => (
+                            <div key={c.id} className={`flex items-start gap-1.5 text-[11px] py-0.5 ${c.ok ? 'text-slate-500' : 'text-red-600'}`}>
+                                {c.ok ? <CheckCircle2 size={12} className="mt-0.5 flex-shrink-0 text-emerald-600" /> : <AlertCircle size={12} className="mt-0.5 flex-shrink-0" />}
+                                <span>
+                                    {c.ok ? (c.missatge || c.expressio) : (c.error ? `Error a la condició «${c.expressio}»: ${c.error}` : c.missatge)}
+                                    <span className="ml-1.5 font-mono text-[10px] text-slate-400">{c.expressio}</span>
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                )}
                 {grups.length === 0 && (
                     <p className="p-4 text-xs text-slate-500">Aquest sistema no té paràmetres: s&apos;insereix tal com és.</p>
                 )}
@@ -240,13 +280,22 @@ const VistaParametres = ({ doc, budget, priceDatabase, destiLabel, onInsereix, o
                             {g.ps.map(p => {
                                 const r = respostes.get(p.nom);
                                 const enllacat = !!r?.enllaca && !!p.existent;
+                                const limits = resumLimits(p);
+                                const incompliments = vista.limitsPerNom.get(p.nom);
+                                const enCondicio = implicats.has(p.nom);
                                 return (
                                     <div key={p.nom} className="flex items-start gap-2">
                                         <div className="flex-1 min-w-0">
                                             <div className="text-[11px] text-slate-700 leading-tight">
                                                 <span className="font-mono font-bold text-violet-700 mr-1.5">{p.nom}</span>
                                                 {p.descripcio}
+                                                {limits && <span className="ml-1.5 text-[10px] font-mono text-slate-400 whitespace-nowrap">{limits}</span>}
                                             </div>
+                                            {incompliments && incompliments.map(m => (
+                                                <div key={m} className="flex items-center gap-1 mt-0.5 text-[10px] text-red-600">
+                                                    <AlertCircle size={10} className="flex-shrink-0" />{m}
+                                                </div>
+                                            ))}
                                             {p.existent && (
                                                 <label className="flex items-center gap-1.5 mt-1 text-[10px] text-blue-700 cursor-pointer select-none touch-manipulation">
                                                     <input
@@ -268,7 +317,7 @@ const VistaParametres = ({ doc, budget, priceDatabase, destiLabel, onInsereix, o
                                                 formula={r && 'formula' in r ? r.formula : undefined}
                                                 teclatText={parametresProjecte.length > 0}
                                                 onChange={(e) => canvia(p.nom, e)}
-                                                className="w-24 border border-slate-200 px-2 py-1.5 text-xs font-mono text-right focus:border-blue-500 outline-none"
+                                                className={`w-24 border px-2 py-1.5 text-xs font-mono text-right focus:border-blue-500 outline-none ${incompliments || enCondicio ? 'border-red-400' : 'border-slate-200'}`}
                                                 aria-label={`Valor de ${p.nom}`}
                                             />
                                         )}
@@ -291,7 +340,15 @@ const VistaParametres = ({ doc, budget, priceDatabase, destiLabel, onInsereix, o
 
             <div className="border-t border-slate-200 p-3 md:p-4 flex flex-col sm:flex-row sm:items-center gap-3 flex-shrink-0 bg-white">
                 <div className="flex-1 min-w-0 text-[11px] text-slate-500 leading-snug">
-                    {vista.liniesAmbError > 0 || vista.errorsParametres.size > 0 ? (
+                    {vista.incomplertes > 0 ? (
+                        <span className="flex items-center gap-1.5 text-red-600">
+                            <AlertCircle size={13} className="flex-shrink-0" />
+                            <span>
+                                {primersAvisos.slice(0, 2).join(' · ')}
+                                {primersAvisos.length > 2 && ` · i ${primersAvisos.length - 2} més`}
+                            </span>
+                        </span>
+                    ) : vista.liniesAmbError > 0 || vista.errorsParametres.size > 0 ? (
                         <span className="flex items-center gap-1.5 text-red-600">
                             <AlertCircle size={13} className="flex-shrink-0" />
                             {vista.errorsParametres.size > 0 && `${vista.errorsParametres.size} paràmetres amb error. `}
@@ -309,7 +366,8 @@ const VistaParametres = ({ doc, budget, priceDatabase, destiLabel, onInsereix, o
                     )}
                     <button
                         onClick={insereix}
-                        className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest touch-manipulation"
+                        disabled={vista.incomplertes > 0}
+                        className="bg-blue-600 hover:bg-blue-500 disabled:bg-slate-300 disabled:cursor-not-allowed text-white px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest touch-manipulation"
                     >
                         Insereix · <span className="font-mono">{formatCurrency(vista.total)}</span>
                     </button>
