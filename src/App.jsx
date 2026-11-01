@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
     Plus,
     FolderPlus,
+    Blocks,
     FileText,
     Trash2,
     GripVertical,
@@ -96,6 +97,8 @@ import { buildWasteStudy } from './utils/wasteStudy';
 import { exportWasteStudyPDF } from './utils/wasteStudyPdf';
 import WasteStudyModal from './components/WasteStudyModal';
 import PriceBankPicker from './components/PriceBankPicker';
+import SistemaModal from './components/SistemaModal';
+import { SISTEMES, codisDelProjecte } from './utils/sistemes';
 import {
     EXTENSIO_PROJECTE, MIME_PROJECTE, esFitxerProjecte, esFitxerBC3,
     serialitzaProjecte, llegeixProjecte,
@@ -1079,6 +1082,7 @@ export default function App() {
     const [expandedChapters, setExpandedChapters] = useState({});
     const [isDragging, setIsDragging] = useState(false);
     const [showCreator, setShowCreator] = useState(false);
+    const [showSistema, setShowSistema] = useState(false);
     const [showPrintConfigModal, setShowPrintConfigModal] = useState(false);
     const [printConfig, setPrintConfig] = useState({
         maxLevels: 5,
@@ -3207,14 +3211,15 @@ export default function App() {
         return () => document.removeEventListener('copy', onCopy);
     }, [selectedId, activeTab, resolvedChapters, priceDatabase]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    /** Retorna `false` si el text no és un fragment, perquè es puguin provar altres formats. */
-    const enganxaFragment = (text, destiId = selectedId) => {
-        const fragment = llegeixFragment(text);
-        if (!fragment) return false;
-        const desti = embolcallaPerEnganxar(budget.chapters, destiId, fragment.nodes);
+    /**
+     * Posa `nodes` (amb els seus `prices`) dins del capítol `destiId`, pel flux de la
+     * importació. Ho fan servir l'enganxar entre finestres i els sistemes constructius.
+     */
+    const insereixNodes = (nodes, prices, destiId, missatge) => {
+        const desti = embolcallaPerEnganxar(budget.chapters, destiId, nodes);
         if (!desti) {
             notify('Per enganxar una partida, selecciona primer el capítol on ha d\'anar', 'error');
-            return true;
+            return;
         }
         if (desti.cami.length) {
             setExpandedChapters(prev => {
@@ -3223,17 +3228,46 @@ export default function App() {
                 return seguent;
             });
         }
-        const n = fragment.nodes[0];
         startImportProcess({
             chapters: desti.chapters,
-            prices: fragment.prices,
+            prices,
             phases: [],
             // Un preu que el projecte ja té no es toca: enganxar una partida no hauria de
             // moure l'import de totes les altres que comparteixen el material.
             conservaPreus: true,
-            missatge: `${n.unit ? 'Partida enganxada' : 'Capítol enganxat'}: ${n.code} ${n.description || ''}`.trim(),
+            missatge,
         });
+    };
+
+    /** Retorna `false` si el text no és un fragment, perquè es puguin provar altres formats. */
+    const enganxaFragment = (text, destiId = selectedId) => {
+        const fragment = llegeixFragment(text);
+        if (!fragment) return false;
+        const n = fragment.nodes[0];
+        insereixNodes(fragment.nodes, fragment.prices, destiId,
+            `${n.unit ? 'Partida enganxada' : 'Capítol enganxat'}: ${n.code} ${n.description || ''}`.trim());
         return true;
+    };
+
+    // --- Sistemes constructius (veure `utils/sistemes/`) ---
+    /** El capítol on anirà el que s'insereixi: el seleccionat, o el que conté la partida seleccionada. */
+    const capitolDesti = (() => {
+        if (!showSistema || !selectedId) return null;
+        const cami = [...(findParentPath(budget.chapters, selectedId) || []), selectedId];
+        for (let i = cami.length - 1; i >= 0; i--) {
+            const n = findNodeById(budget.chapters, cami[i]);
+            if (n && !n.unit) return n;
+        }
+        return null;
+    })();
+
+    // Memoritzat: el quadre regenera la vista prèvia cada cop que canvia.
+    const codisProjecte = useMemo(() => codisDelProjecte(budget.chapters), [budget.chapters]);
+
+    const insereixSistema = (resultat) => {
+        const n = resultat.nodes[0];
+        insereixNodes(resultat.nodes, resultat.prices, selectedId, `Sistema inserit: ${n.code} ${n.description}`);
+        setShowSistema(false);
     };
 
     const enganxaDelPortaRetalls = async (destiId) => {
@@ -4719,6 +4753,18 @@ export default function App() {
                 />
             )}
 
+            {showSistema && (
+                <SistemaModal
+                    sistemes={SISTEMES}
+                    priceDatabase={priceDatabase}
+                    chapters={budget.chapters}
+                    codisProjecte={codisProjecte}
+                    destiLabel={capitolDesti ? `${capitolDesti.code} ${capitolDesti.description || ''}`.trim() : 'l\'arrel del projecte'}
+                    onInsereix={insereixSistema}
+                    onClose={() => setShowSistema(false)}
+                />
+            )}
+
             {/* 2. ITEM CREATOR MODAL */}
             {showCreator && (
                 <ItemCreator
@@ -5344,6 +5390,15 @@ export default function App() {
                                         />
                                     </div>
                                 </div>
+
+                                <button
+                                    onClick={() => setShowSistema(true)}
+                                    className="flex items-center gap-2 bg-white border border-slate-200 hover:border-blue-400 hover:text-blue-700 text-slate-600 px-3 md:px-4 py-3 transition-colors flex-shrink-0 touch-manipulation"
+                                    title="Sistema constructiu: un capítol sencer amidat a partir de les dimensions"
+                                >
+                                    <Blocks size={16} />
+                                    <span className="hidden md:inline text-[11px] font-bold uppercase tracking-widest">Sistema</span>
+                                </button>
 
                                 {/* Nova Entrada Button */}
                                 <button
