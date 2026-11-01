@@ -6,9 +6,41 @@ el gruix del mur i quatre detalls de coronament i equipament, genera el capítol
 línies d'amidament de cada partida.
 
 S'obre amb el botó **Sistema**, al costat de «Nova entrada». A l'esquerra hi ha els paràmetres;
-a la dreta, en viu, les partides amb la quantitat i l'import. Si es toca una partida, se'n
-despleguen les línies amb les dimensions, per veure d'on surt cada xifra. El capítol va dins
-del capítol seleccionat, o a l'arrel si no n'hi ha cap.
+a la dreta, en viu, una fila per **paper** (la llosa, el mur, la impermeabilització...) amb la
+partida que el fa, la quantitat i l'import. Si es toca una fila, se'n despleguen les línies amb
+les dimensions, per veure d'on surt cada xifra. El capítol va dins del capítol seleccionat, o a
+l'arrel si no n'hi ha cap.
+
+## Triar la partida de cada paper
+
+El botó ⇄ de cada fila obre el selector (`components/TriaPartida.jsx`). Hi surten:
+
+- **«La del sistema»**: la partida del joc per defecte.
+- **«Sense partida»**: el paper no surt al capítol (per exemple, si no es vol arrebossat).
+- **Les partides del projecte**, amb el seu descomposat, i després **els conceptes del banc de
+  preus** que no hi són, que valen el preu del concepte (el banc no porta descomposat).
+
+Per defecte només es mostren les de la unitat del paper. Les línies que genera el sistema són
+en aquella unitat: una llosa en m³ on el paper s'amida en m² donaria un import sense sentit. Es
+poden mostrar totes; si se'n tria una d'una altra unitat, la fila i el peu ho avisen (no ho
+impedeix: pot ser una qüestió de notació, «ml» i «m» ja es consideren iguals).
+
+El que es tria es desa com una **instantània** `{ partida, prices }` —descripció, unitat,
+descomposat, residus i els preus que la fan valer—, no com un codi. Així funciona igual en un
+altre projecte que no tingui aquella partida. La tria es recorda **en aquest navegador**
+(`utils/sistemes/triaDesada.js`, a `localStorage`): és una comoditat, no una dada del projecte.
+Si el navegador no deixa desar, es torna a les partides del sistema sense cap error.
+«Partides del sistema (N canviades)», sota els paràmetres, ho torna tot a la del sistema.
+
+Dues coses a saber:
+
+- **Dos papers poden compartir partida.** Si al mateix subcapítol tots dos fan servir el mateix
+  codi, en surt una sola partida amb les línies dels dos, cadascuna amb el nom del paper al
+  davant. Dues partides amb el mateix codi al mateix capítol no poden ser: la fusió de la
+  importació es quedaria amb la primera i les línies de la segona es perdrien.
+- **Una partida triada del projecte ja hi és**, i en inserir surt el diàleg de duplicats.
+  «Afegir com a nova» conserva les línies generades (amb un sufix al codi); «mantenir
+  l'existent» les descarta.
 
 ## Com està fet
 
@@ -17,12 +49,15 @@ del capítol seleccionat, o a l'arrel si no n'hi ha cap.
 | `src/utils/sistemes/index.js` | El generador (`generaSistema`), la validació i la llista `SISTEMES` |
 | `src/utils/sistemes/piscina.js` | La definició de la piscina: paràmetres, regles d'amidament i el perquè de cada regla |
 | `src/utils/sistemes/piscina.partides.json` | Les partides i els preus (format de fragment del porta-retalls) |
+| `src/utils/sistemes/triaDesada.js` | La tria de partides de cada paper, recordada al navegador |
 | `src/components/SistemaModal.jsx` | El quadre de diàleg |
-| `test/sistemes.test.js` | Les quantitats fetes a mà, la validació i el cicle BC3 |
+| `src/components/TriaPartida.jsx` | El selector de la partida d'un paper |
+| `test/sistemes.test.js` | Les quantitats fetes a mà, la validació, la tria de partides i el cicle BC3 |
 
 Una definició és declarativa: `parametres` (amb valor per defecte i límits), `capitols` (per a
-cada partida, una funció `linies(p, g)` que torna línies Ud × Ll × Am × Al) i `joc` (les partides
-amb descomposat i preus).
+cada partida, el `paper` que fa, amb nom i unitat, el `codi` de la partida per defecte i una
+funció `linies(p, g)` que torna línies Ud × Ll × Am × Al) i `joc` (les partides amb descomposat
+i preus).
 
 **El resultat és un subarbre normal.** Entra al projecte per `insereixNodes` (`App.jsx`), el
 mateix camí que una partida enganxada d'una altra finestra: `embolcallaPerEnganxar` el posa al
@@ -43,6 +78,10 @@ Altres decisions:
 - **Les partides repetides es resolen com en enganxar.** Si el projecte ja té `RF22.01.07`, el
   quadre ho avisa abans i en inserir surt el diàleg de duplicats. «Mantenir l'existent» descarta
   la partida generada **amb les seves línies**; per tenir-les totes dues cal «Afegir com a nova».
+- **Els preus que el projecte ja té manen**, com en enganxar. Si el projecte té `mo021` a un
+  altre preu, el suport de tubs (que el porta al descomposat) valdrà diferent que al joc: amb
+  el projecte de referència d'Esporles passa de 52,85 a 36,56 €/m². La vista prèvia ja mostra
+  el preu que quedarà.
 
 ## Les regles de la piscina
 
@@ -67,9 +106,8 @@ comprova que cada partida del joc val el preu del seu concepte.
 
 ## Què falta
 
-- **Triar les partides.** Ara el joc és fix. El pas natural és poder dir, per a cada paper del
-  sistema (llosa, mur, impermeabilització...), quina partida del projecte o del banc de preus
-  s'hi fa servir.
+- **Afegir les línies a la partida existent** en comptes de crear-ne una de nova quan es tria
+  una partida del projecte. Vol decidir on van (la partida és en un altre capítol).
 - **Desar els paràmetres** al capítol per poder-lo regenerar sense tornar a entrar les mides.
   Vol un camp nou al model (i `migrateBudget`); el BC3 no el pot portar.
 - **Més sistemes:** murs de tancament per capes (amb descompte d'obertures) i cobertes. Les

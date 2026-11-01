@@ -11,7 +11,7 @@ npm install
 npm run dev
 npm run build     # ha de passar sempre abans de donar una feina per acabada
 npm run lint      # cobreix .js i .jsx; l'arbre ha de quedar amb 0 errors
-npm test          # Vitest; 150 tests sobre els càlculs, el parser i l'escriptor
+npm test          # Vitest; 161 tests sobre els càlculs, el parser i l'escriptor
 npm run test:watch
 ```
 
@@ -84,7 +84,8 @@ del sector: *amidament*, *partida*, *capítol*, *descomposat*, *rendiment*, *cer
   que desava guanyava. Una finestra amb `?consulta` és un banc de consulta i no desa res.
 - **Els sistemes constructius** (`utils/sistemes/`, botó «Sistema») generen un subarbre normal
   que entra per `insereixNodes`, el mateix camí que enganxar. No desen els paràmetres: per
-  canviar les mides es torna a generar. Veure `docs/sistemes.md`.
+  canviar les mides es torna a generar. La partida de cada paper es pot canviar i es desa com a
+  instantània (no com a codi) al navegador. Veure `docs/sistemes.md`.
 - **Qualsevol fitxer que entri passa per `obreFitxer`** (`App.jsx`): selector, arrossegament,
   `launchQueue` d'escriptori i fitxers compartits des d'Android. Si hi afegeixes un camí nou,
   fes-lo passar per aquí i no repeteixis la comprovació: tenir-ne tres de diferents va deixar

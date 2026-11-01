@@ -47,7 +47,8 @@ Navegador
 | `public/manifest.json` | — | PWA + `file_handlers` (`.amid`, `.json`, `.bc3`) i `share_target`. |
 | `src/utils/sistemes/` | — | Sistemes constructius: capítols sencers amidats a partir de paràmetres. Veure [`docs/sistemes.md`](sistemes.md). |
 | `src/components/SistemaModal.jsx` | — | Quadre per generar un sistema, amb vista prèvia en viu. |
-| `test/` | 150 tests | Vitest sobre els càlculs, el parser i l'escriptor. Veure [`docs/tests.md`](tests.md). |
+| `src/components/TriaPartida.jsx` | — | Selector de la partida d'un paper d'un sistema (projecte o banc de preus). |
+| `test/` | 161 tests | Vitest sobre els càlculs, el parser i l'escriptor. Veure [`docs/tests.md`](tests.md). |
 
 ## Estructura interna d'`App.jsx`
 

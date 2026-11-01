@@ -4757,6 +4757,7 @@ export default function App() {
                 <SistemaModal
                     sistemes={SISTEMES}
                     priceDatabase={priceDatabase}
+                    chapters={budget.chapters}
                     codisProjecte={codisProjecte}
                     destiLabel={capitolDesti ? `${capitolDesti.code} ${capitolDesti.description || ''}`.trim() : 'l\'arrel del projecte'}
                     onInsereix={insereixSistema}

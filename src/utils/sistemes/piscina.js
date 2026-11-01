@@ -23,6 +23,11 @@ import joc from './piscina.partides.json';
  * - **Suport de tubs**: el bloc italià va per fora del mur, (L + 2e) o (A + 2e), als costats
  *   que es diguin.
  *
+ * Cada partida fa un **paper** (`paper`, amb un nom i la unitat en què s'amida). La partida
+ * de `codi` és la que hi va per defecte; l'usuari la pot canviar per una del projecte o del
+ * banc de preus, o deixar el paper sense partida. Les línies són les mateixes: per això cal
+ * que la partida triada s'amidi en la unitat del paper.
+ *
  * El fons inclinat es pren com un pla entre les dues fondàries. Una piscina amb esglaó o
  * amb zona fonda en punta de diamant no hi encaixa; les línies generades es poden retocar.
  *
@@ -106,15 +111,15 @@ export const PISCINA = {
             description: 'CONSTRUCCIÓ DEL VAS',
             partides: [
                 {
-                    codi: 'RF22.01.01',
+                    paper: 'neteja', nom: 'Formigó de neteja', unitat: 'm2', codi: 'RF22.01.01',
                     linies: (p) => [linia('Sota la llosa', 1, p.L + 2 * p.e + 2 * p.s, p.A + 2 * p.e + 2 * p.s)],
                 },
                 {
-                    codi: 'RF22.01.02',
+                    paper: 'llosa', nom: 'Llosa de fonamentació', unitat: 'm2', codi: 'RF22.01.02',
                     linies: (p) => [linia('Llosa', 1, p.L + 2 * p.e, p.A + 2 * p.e)],
                 },
                 {
-                    codi: 'RF22.01.03',
+                    paper: 'mur', nom: 'Mur del vas', unitat: 'm2', codi: 'RF22.01.03',
                     linies: (p, g) => [
                         linia('Murs longitudinals, per l\'eix', 2, p.L + p.e, 1, g.fondaMitjana),
                         ...(p.P1 === p.P2
@@ -126,26 +131,26 @@ export const PISCINA = {
                     ],
                 },
                 {
-                    codi: 'RF22.01.04',
+                    paper: 'banc', nom: 'Banc i escala', unitat: 'u', codi: 'RF22.01.04',
                     linies: (p) => [linia('Banc i escala', p.banc)],
                 },
                 {
-                    codi: 'RF22.01.05',
+                    paper: 'suportTubs', nom: 'Suport de tubs', unitat: 'm2', codi: 'RF22.01.05',
                     linies: (p) => [
                         linia('Suport de tubs, costat llarg', p.tLlargs, p.L + 2 * p.e, 1, p.hT),
                         linia('Suport de tubs, costat curt', p.tCurts, p.A + 2 * p.e, 1, p.hT),
                     ],
                 },
-                { codi: 'RF22.01.06', linies: (p, g) => parets(p, g) },
-                { codi: 'RF22.01.07', linies: (p, g) => [...parets(p, g), fons(p, g)] },
-                { codi: 'RF22.01.08', linies: (p, g) => [...parets(p, g), fons(p, g)] },
-                { codi: 'RF22.01.09', linies: (p, g) => [...parets(p, g), fons(p, g)] },
+                { paper: 'arrebossat', nom: 'Arrebossat de les parets', unitat: 'm2', codi: 'RF22.01.06', linies: (p, g) => parets(p, g) },
+                { paper: 'impermeabilitzacio', nom: 'Impermeabilització', unitat: 'm2', codi: 'RF22.01.07', linies: (p, g) => [...parets(p, g), fons(p, g)] },
+                { paper: 'revestiment', nom: 'Revestiment (subministrament)', unitat: 'm2', codi: 'RF22.01.08', linies: (p, g) => [...parets(p, g), fons(p, g)] },
+                { paper: 'revestimentCol', nom: 'Revestiment (col·locació)', unitat: 'm2', codi: 'RF22.01.09', linies: (p, g) => [...parets(p, g), fons(p, g)] },
                 {
-                    codi: 'RF22.01.10',
+                    paper: 'coronamentAmple', nom: 'Coronament ample', unitat: 'm', codi: 'RF22.01.10',
                     linies: (p) => [linia('Costat llarg', p.nAmple, p.L + 2 * p.v)],
                 },
                 {
-                    codi: 'RF22.01.11',
+                    paper: 'coronament', nom: 'Coronament', unitat: 'm', codi: 'RF22.01.11',
                     linies: (p) => [
                         linia('Costat llarg', 2 - p.nAmple, p.L + 2 * p.v),
                         linia('Costats curts', 2, p.A + 2 * p.v),
@@ -157,9 +162,9 @@ export const PISCINA = {
             sufix: '02',
             description: 'INSTAL·LACIONS',
             partides: [
-                { codi: 'RF22.02.01', linies: (p) => [linia('Equip de depuració', p.depuracio)] },
-                { codi: 'RF22.02.02', linies: (p) => [linia('Focus', p.focus)] },
-                { codi: 'RF22.02.03', linies: (p) => [linia('Electròlisi salina', p.electrolisi)] },
+                { paper: 'depuracio', nom: 'Equip de depuració', unitat: 'u', codi: 'RF22.02.01', linies: (p) => [linia('Equip de depuració', p.depuracio)] },
+                { paper: 'focus', nom: 'Focus', unitat: 'u', codi: 'RF22.02.02', linies: (p) => [linia('Focus', p.focus)] },
+                { paper: 'electrolisi', nom: 'Electròlisi salina', unitat: 'u', codi: 'RF22.02.03', linies: (p) => [linia('Electròlisi salina', p.electrolisi)] },
             ],
         },
     ],
