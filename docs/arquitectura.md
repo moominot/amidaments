@@ -45,10 +45,14 @@ Navegador
 | `public/eines/generador-preus.user.js` | — | Script de Tampermonkey: botó per copiar l'enllaç del BC3 al Generador de Preus. Veure [`docs/generador-preus.md`](generador-preus.md). |
 | `public/sw.js` | 166 | Service worker: precache del shell i dels bundles, i recepció dels fitxers compartits des d'Android. |
 | `public/manifest.json` | — | PWA + `file_handlers` (`.amid`, `.json`, `.bc3`) i `share_target`. |
-| `src/utils/sistemes/` | — | Sistemes constructius: capítols sencers amidats a partir de paràmetres. Veure [`docs/sistemes.md`](sistemes.md). |
-| `src/components/SistemaModal.jsx` | — | Quadre per generar un sistema, amb vista prèvia en viu. |
-| `src/components/TriaPartida.jsx` | — | Selector de la partida d'un paper d'un sistema (projecte o banc de preus). |
-| `test/` | 161 tests | Vitest sobre els càlculs, el parser i l'escriptor. Veure [`docs/tests.md`](tests.md). |
+| `src/utils/formules.js` | — | Analitzador i avaluador de fórmules (sense `eval`). Veure [`docs/sistemes.md`](sistemes.md). |
+| `src/utils/parametres.js` | — | Paràmetres del projecte i resolució de les línies amb fórmula. |
+| `src/utils/sistemesDoc.js` | — | Sistemes constructius com a documents: crear, inserir, filtrar, extreure, treure. |
+| `src/utils/galeriaSistemes.js` | — | Galeria de sistemes (integrats i desats al navegador). |
+| `src/components/ParametresPanel.jsx` | — | Barra de paràmetres a l'esquerra (calaix al mòbil). |
+| `src/components/FormulaInput.jsx` | — | Camp d'amidament que accepta número o fórmula. |
+| `src/components/SistemesModal.jsx` | — | Galeria de sistemes, inserció amb paràmetres i desar com a sistema. |
+| `test/` | 169 tests | Vitest sobre els càlculs, el parser i l'escriptor. Veure [`docs/tests.md`](tests.md). |
 
 ## Estructura interna d'`App.jsx`
 

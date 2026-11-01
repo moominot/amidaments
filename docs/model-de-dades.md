@@ -103,6 +103,24 @@ Les línies amb `isIncrement: true` (creades per `addIncrementLine`) representen
 d'increment: `subtotal_línies_normals × units / 100`. S'apliquen sempre després de sumar
 totes les línies normals.
 
+### Línies amb fórmula
+
+Qualsevol camp numèric pot ser una fórmula amb paràmetres del projecte:
+
+```js
+{ id: "uuid", description: "Llosa", units: 1, length: 8.5, width: 2.28, height: 1,
+  formules: { length: "L+2*e", width: "A+2*e" },
+  sistema: "id-instància" }   // opcional: ve d'un sistema inserit
+```
+
+**Quan un camp té fórmula, mana la fórmula**; el número del camp pot ser antic. La resol
+`resolveFormules` (`utils/parametres.js`) abans dels vincles, i el resultat és dins de
+`resolvedChapters`. Veure [`docs/sistemes.md`](sistemes.md).
+
+Al pressupost: `budget.parametres` (`[{ id, nom, valor, formula, unitat, descripcio, grup }]`)
+i `budget.sistemes` (`[{ id, nom, sistema }]`, les instàncies de sistemes inserides). Tots dos
+són opcionals: un projecte sense val `[]`, i no ha calgut pujar `schemaVersion`.
+
 ### Línies vinculades
 
 Una línia pot prendre l'amidament d'una altra partida en comptes de tenir dimensions pròpies:
