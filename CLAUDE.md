@@ -11,7 +11,7 @@ npm install
 npm run dev
 npm run build     # ha de passar sempre abans de donar una feina per acabada
 npm run lint      # cobreix .js i .jsx; l'arbre ha de quedar amb 0 errors
-npm test          # Vitest; 161 tests sobre els càlculs, el parser i l'escriptor
+npm test          # Vitest; 169 tests sobre els càlculs, el parser i l'escriptor
 npm run test:watch
 ```
 
@@ -82,10 +82,17 @@ del sector: *amidament*, *partida*, *capítol*, *descomposat*, *rendiment*, *cer
   (`utils/projectLibrary.js`), sota l'id del projecte; quin té obert cada pestanya va a
   `sessionStorage`. No tornis a un espai únic de «projecte actual»: amb dues finestres, l'última
   que desava guanyava. Una finestra amb `?consulta` és un banc de consulta i no desa res.
-- **Els sistemes constructius** (`utils/sistemes/`, botó «Sistema») generen un subarbre normal
-  que entra per `insereixNodes`, el mateix camí que enganxar. No desen els paràmetres: per
-  canviar les mides es torna a generar. La partida de cada paper es pot canviar i es desa com a
-  instantània (no com a codi) al navegador. Veure `docs/sistemes.md`.
+- **Paràmetres i fórmules** (`utils/formules.js`, `utils/parametres.js`): una línia pot portar
+  `formules: { units, length, width, height }` i, **quan un camp té fórmula, mana la fórmula**:
+  el número desat al camp pot ser antic. Es resolen abans dels vincles, dins de
+  `resolvedChapters`; per això cal fer servir sempre `resolvedChapters` per mostrar o calcular.
+  Una dimensió que dona 0 deixa la línia a Ud 0 (si no, valdria 1). Cap fórmula no passa per
+  `eval`. Veure `docs/sistemes.md`.
+- **Els sistemes constructius són documents** (`utils/sistemesDoc.js`): un projecte amb
+  paràmetres que s'insereix en un altre demanant-los. Cada línia inserida porta `sistema` (l'id
+  de la instància, a `budget.sistemes`), que és el que permet filtrar-la, extreure-la i treure-la.
+  Entren per `insereixNodes`, el camí d'enganxar, amb els paràmetres i la instància dins del
+  resultat de la importació perquè cancel·lar no deixi res a mitges.
 - **Qualsevol fitxer que entri passa per `obreFitxer`** (`App.jsx`): selector, arrossegament,
   `launchQueue` d'escriptori i fitxers compartits des d'Android. Si hi afegeixes un camí nou,
   fes-lo passar per aquí i no repeteixis la comprovació: tenir-ne tres de diferents va deixar

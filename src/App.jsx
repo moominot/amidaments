@@ -3,6 +3,8 @@ import {
     Plus,
     FolderPlus,
     Blocks,
+    Variable,
+    ListPlus,
     FileText,
     Trash2,
     GripVertical,
@@ -77,11 +79,14 @@ import CertificationSummary from './components/Certification/CertificationSummar
 import CertificationSummaryModal from './components/Certification/CertificationSummaryModal';
 import DriveSettingsModal from './components/DriveSettingsModal';
 import NumberInput from './components/NumberInput';
+import FormulaInput from './components/FormulaInput';
 import ProjectLibraryModal from './components/ProjectLibraryModal';
 import LinkItemModal from './components/LinkItemModal';
 import { listProjects, getProject, saveProject, deleteProject, markProjectOpen, initialProject, dropLegacySlot, projectStorageKey } from './utils/projectLibrary';
 import { migrateBudget } from './utils/migrateBudget';
 import { resolveMeasurementRefs, isRefLine, refLabel } from './utils/measurementRefs';
+import { resolveFormules, usosDeParametres, reescriuFormules } from './utils/parametres';
+import ParametresPanel from './components/ParametresPanel';
 import { processBC3Data } from './utils/bc3Parser';
 import { generateBC3, nomFitxerCertificacio } from './utils/bc3Writer';
 import { numberToTextCatalan } from './utils/numberToText';
@@ -97,13 +102,14 @@ import { buildWasteStudy } from './utils/wasteStudy';
 import { exportWasteStudyPDF } from './utils/wasteStudyPdf';
 import WasteStudyModal from './components/WasteStudyModal';
 import PriceBankPicker from './components/PriceBankPicker';
-import SistemaModal from './components/SistemaModal';
-import { SISTEMES, codisDelProjecte } from './utils/sistemes';
+import SistemesModal from './components/SistemesModal';
+import { filtraPerInstancia, extreuInstancia, treuInstancia } from './utils/sistemesDoc';
 import {
     EXTENSIO_PROJECTE, MIME_PROJECTE, esFitxerProjecte, esFitxerBC3,
     serialitzaProjecte, llegeixProjecte,
 } from './utils/projectFile';
 import { toWindows1252Bytes } from './utils/googleDrive';
+import { baixaFitxer } from './utils/baixa';
 
 const formatPrice = (val) => formatNumber(val, 2);
 
@@ -582,7 +588,7 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, setConfig, onOp
 };
 
 // --- Modal de Confirmació d'Importació ---
-const ImportConfirmModal = ({ code, description, index, total, onConfirm, onSkip, onCancel }) => {
+const ImportConfirmModal = ({ code, description, nLinies = 0, index, total, onConfirm, onAfegeixLinies, onSkip, onCancel }) => {
     const [aTots, setATots] = useState(false);
     const restants = total - index;
     return (
@@ -621,6 +627,18 @@ const ImportConfirmModal = ({ code, description, index, total, onConfirm, onSkip
                         >
                             <Plus size={16} /> {aTots && restants > 1 ? 'Afegir-les totes com a noves (amb sufix)' : 'Afegir com a partida nova (amb sufix)'}
                         </button>
+                        {/* El que es vol en inserir un sistema: la partida és la mateixa i només
+                            s'hi sumen les línies. */}
+                        {(nLinies > 0 || (aTots && restants > 1)) && (
+                            <button
+                                onClick={() => onAfegeixLinies(aTots && restants > 1)}
+                                className="w-full bg-blue-50 border border-blue-300 hover:bg-blue-100 text-blue-800 p-3 text-xs font-bold uppercase tracking-widest flex justify-center items-center gap-2 transition-colors"
+                            >
+                                <ListPlus size={16} /> {aTots && restants > 1
+                                    ? 'Afegir les línies a les existents'
+                                    : `Afegir-hi ${nLinies === 1 ? 'la línia' : `les ${nLinies} línies`}`}
+                            </button>
+                        )}
                         <button
                             onClick={() => onSkip(aTots && restants > 1)}
                             className="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 p-3 text-xs font-bold uppercase tracking-widest flex justify-center items-center gap-2 transition-colors"
@@ -1017,7 +1035,7 @@ export default function App() {
         // finestra nova: «Nou projecte» i tancar no ha de fer perdre de vista l'anterior.
         if (consulta || !b?.id || !(b.chapters?.length > 0)) return;
         markProjectOpen(b.id);
-        const total = resolveMeasurementRefs(b.chapters).chapters
+        const total = resolveMeasurementRefs(resolveFormules(b.chapters, b.parametres || []).chapters).chapters
             .reduce((acc, ch) => acc + calcChapterTotal(ch, preus), 0);
         const res = saveProject({ id: b.id, budget: b, priceDatabase: preus, total });
         if (res.ok) {
@@ -1082,7 +1100,10 @@ export default function App() {
     const [expandedChapters, setExpandedChapters] = useState({});
     const [isDragging, setIsDragging] = useState(false);
     const [showCreator, setShowCreator] = useState(false);
-    const [showSistema, setShowSistema] = useState(false);
+    // Quadre de sistemes: `null` tancat, o `{ vista, docADesar }` (veure `components/SistemesModal`).
+    const [quadreSistemes, setQuadreSistemes] = useState(null);
+    // Instància de sistema per la qual es filtra l'editor (`budget.sistemes[].id`), o `null`.
+    const [filtreSistema, setFiltreSistema] = useState(null);
     const [showPrintConfigModal, setShowPrintConfigModal] = useState(false);
     const [printConfig, setPrintConfig] = useState({
         maxLevels: 5,
@@ -1357,8 +1378,68 @@ export default function App() {
      * sol cop, evita haver d'ensenyar a resoldre vincles a la dotzena de funcions de
      * `calculations.js`.
      */
-    const resolt = useMemo(() => resolveMeasurementRefs(budget.chapters), [budget.chapters]);
+    // Primer les fórmules i després els vincles: un vincle pren la quantitat d'una partida
+    // que pot tenir línies amb fórmula. Veure `utils/parametres.js`.
+    const ambFormules = useMemo(
+        () => resolveFormules(budget.chapters, budget.parametres || []),
+        [budget.chapters, budget.parametres],
+    );
+    const resolt = useMemo(() => resolveMeasurementRefs(ambFormules.chapters), [ambFormules]);
     const resolvedChapters = resolt.chapters;
+    const teParametres = (budget.parametres || []).length > 0;
+    const usosParametres = useMemo(
+        () => usosDeParametres(budget.chapters, budget.parametres || []),
+        [budget.chapters, budget.parametres],
+    );
+
+    // --- Paràmetres (veure `utils/parametres.js` i `components/ParametresPanel.jsx`) ---
+    // Si la barra és visible és una preferència de qui mira, no del projecte.
+    const [mostraParametres, setMostraParametres] = useState(() => {
+        try { return localStorage.getItem('amidaments:parametres-visibles') === '1'; } catch { return false; }
+    });
+    const commutaParametres = (visible) => {
+        setMostraParametres(visible);
+        try { localStorage.setItem('amidaments:parametres-visibles', visible ? '1' : '0'); } catch { /* res */ }
+    };
+
+    /** Torna l'id del paràmetre nou, perquè el panell en posi el focus al nom. */
+    const afegeixParametre = (grup = '') => {
+        const id = crypto.randomUUID();
+        setBudget(prev => {
+            const ocupats = new Set((prev.parametres || []).map(x => x.nom));
+            let n = 1;
+            while (ocupats.has(`P${n}`)) n++;
+            const nou = { id, nom: `P${n}`, valor: 0, formula: '', unitat: 'm', descripcio: '', grup };
+            return { ...prev, parametres: [...(prev.parametres || []), nou] };
+        });
+        return id;
+    };
+
+    const canviaParametre = (id, canvis) => {
+        setBudget(prev => ({
+            ...prev,
+            parametres: (prev.parametres || []).map(x => (x.id === id ? { ...x, ...canvis } : x)),
+        }));
+    };
+
+    /** Canviar el nom reescriu totes les fórmules que el fan servir, de línies i de paràmetres. */
+    const reanomenaParametre = (id, nou) => {
+        setBudget(prev => {
+            const vell = (prev.parametres || []).find(x => x.id === id);
+            if (!vell || vell.nom === nou) return prev;
+            const parametres = prev.parametres.map(x => (x.id === id ? { ...x, nom: nou } : x));
+            const r = reescriuFormules({ chapters: prev.chapters, parametres }, new Map([[vell.nom, nou]]));
+            return { ...prev, chapters: r.chapters, parametres: r.parametres };
+        });
+    };
+
+    const esborraParametre = (id) => {
+        const p = (budget.parametres || []).find(x => x.id === id);
+        if (!p) return;
+        const n = usosParametres.get(p.nom) || 0;
+        if (n > 0 && !confirm(`${p.nom} es fa servir ${n === 1 ? 'una vegada' : `${n} vegades`}. Si l'esborres, aquelles línies quedaran amb error.\n\nEs pot desfer amb Ctrl+Z.`)) return;
+        setBudget(prev => ({ ...prev, parametres: (prev.parametres || []).filter(x => x.id !== id) }));
+    };
 
     const budgetTotal = useMemo(() => {
         return resolvedChapters.reduce((acc, ch) => acc + calcChapterTotal(ch, priceDatabase), 0);
@@ -1784,8 +1865,14 @@ export default function App() {
     }, [budget, resolvedChapters, priceDatabase, printConfig.chaptersOnNewPage, printConfig.showLongDesc]);
 
     // --- Search Filtering ---
+    // Primer el filtre per instància de sistema (veure `utils/sistemesDoc.js`) i després la cerca.
+    const perSistema = useMemo(() => {
+        const existeix = filtreSistema && (budget.sistemes || []).some(i => i.id === filtreSistema);
+        return existeix ? filtraPerInstancia(resolvedChapters, filtreSistema) : resolvedChapters;
+    }, [resolvedChapters, filtreSistema, budget.sistemes]);
+
     const filteredChapters = useMemo(() => {
-        if (!searchTerm.trim()) return resolvedChapters;
+        if (!searchTerm.trim()) return perSistema;
 
         const searchLower = searchTerm.toLowerCase().trim();
 
@@ -1812,8 +1899,8 @@ export default function App() {
             }).filter(Boolean);
         };
 
-        return filterNodes(resolvedChapters);
-    }, [resolvedChapters, searchTerm]);
+        return filterNodes(perSistema);
+    }, [perSistema, searchTerm]);
 
     // --- Filtered Prices ---
     // El parser desa tots els conceptes del BC3 a `priceDatabase`, també els capítols, que hi
@@ -2626,7 +2713,7 @@ export default function App() {
         const findDuplicates = (nodes) => {
             nodes.forEach(n => {
                 if (n.unit && existingCodes.has(normalizeCode(n.code))) {
-                    duplicates.push({ id: n.id, code: n.code, description: n.description });
+                    duplicates.push({ id: n.id, code: n.code, description: n.description, nLinies: (n.measurements || []).length });
                 }
                 if (n.subChapters) findDuplicates(n.subChapters);
                 if (n.items) findDuplicates(n.items);
@@ -2663,10 +2750,13 @@ export default function App() {
     };
 
     /**
-     * Resol el duplicat actual: `asNew` l'afegeix amb sufix, si no es manté l'existent i el
-     * que arriba es descarta. Amb `aTots`, la mateixa resposta val per a tots els que queden.
+     * Resol el duplicat actual: `true` l'afegeix amb sufix, `'linies'` en suma les línies a la
+     * partida que ja hi ha, i `false` manté l'existent i descarta el que arriba. Amb `aTots`,
+     * la mateixa resposta val per a tots els que queden.
      */
-    const handleConfirmDuplicate = (asNew, aTots = false) => {
+    const handleConfirmDuplicate = (mode, aTots = false) => {
+        const asNew = mode === true;
+        const afegeixLinies = mode === 'linies';
         setImportPending(prev => {
             if (!prev) return null;
             const { duplicates, currentIdx } = prev;
@@ -2704,6 +2794,15 @@ export default function App() {
             let chapters = prev.chapters;
             let prices = prev.prices;
             const aDesplegar = [];
+            const liniesAAfegir = [...(prev.liniesAAfegir || [])];
+            const nodePerId = (nodes, id) => {
+                for (const n of nodes) {
+                    if (n.id === id) return n;
+                    const dins = nodePerId([...(n.subChapters || []), ...(n.items || [])], id);
+                    if (dins) return dins;
+                }
+                return null;
+            };
 
             for (let i = currentIdx; i < fins; i++) {
                 const dup = duplicates[i];
@@ -2716,8 +2815,14 @@ export default function App() {
                     const vell = prices?.[normalizeCode(dup.code)];
                     if (vell) prices = { ...prices, [normalizeCode(newCode)]: { ...vell, code: newCode } };
                 } else {
-                    // Es manté l'existent: es treu de la importació i se'n desplega el capítol
-                    // perquè es vegi quina és la que queda.
+                    // Es manté l'existent (i, si cal, s'hi sumen les línies que arriben): es treu
+                    // de la importació i se'n desplega el capítol perquè es vegi quina és.
+                    if (afegeixLinies) {
+                        const entrant = nodePerId(chapters, dup.id);
+                        if (entrant?.measurements?.length) {
+                            liniesAAfegir.push({ codi: normalizeCode(dup.code), linies: entrant.measurements });
+                        }
+                    }
                     const existent = idPerCodi(budget.chapters, normalizeCode(dup.code));
                     const cami = existent && findParentPath(budget.chapters, existent);
                     if (cami) aDesplegar.push(...cami);
@@ -2733,7 +2838,7 @@ export default function App() {
                 });
             }
 
-            const updatedPending = { ...prev, prices, chapters };
+            const updatedPending = { ...prev, prices, chapters, liniesAAfegir };
             if (fins < duplicates.length) return { ...updatedPending, currentIdx: fins };
 
             // La fusió es fa fora de l'updater, un cop resolt l'últim.
@@ -2743,6 +2848,26 @@ export default function App() {
             }, 0);
             return updatedPending;
         });
+    };
+
+    /**
+     * Suma línies a partides que ja hi ha, per codi: la primera partida del projecte amb aquell
+     * codi. És la resposta «afegir-hi les línies» del quadre de duplicats.
+     */
+    const afegeixLiniesPerCodi = (chapters, llista = []) => {
+        if (!llista?.length) return chapters;
+        const perCodi = new Map();
+        llista.forEach(({ codi, linies }) => perCodi.set(codi, [...(perCodi.get(codi) || []), ...linies]));
+        const fets = new Set();
+        const recorre = (nodes) => nodes.map(n => {
+            const codi = normalizeCode(n.code);
+            if (n.unit && perCodi.has(codi) && !fets.has(codi)) {
+                fets.add(codi);
+                return { ...n, measurements: [...(n.measurements || []), ...perCodi.get(codi)] };
+            }
+            return { ...n, subChapters: recorre(n.subChapters || []), items: recorre(n.items || []) };
+        });
+        return recorre(chapters);
     };
 
     const finalizeImport = (result, options = {}) => {
@@ -2766,8 +2891,11 @@ export default function App() {
                 : { ...prev, ...result.prices });
             setBudget(prev => ({
                 ...prev,
-                chapters: mergeTreeBranches(prev.chapters, result.chapters),
-                certifications: [...(prev.certifications || []), ...importedPhases]
+                chapters: afegeixLiniesPerCodi(mergeTreeBranches(prev.chapters, result.chapters), result.liniesAAfegir),
+                certifications: [...(prev.certifications || []), ...importedPhases],
+                // Un sistema hi afegeix els seus paràmetres i la instància (veure `utils/sistemesDoc.js`).
+                ...(result.parametres?.length ? { parametres: [...(prev.parametres || []), ...result.parametres] } : {}),
+                ...(result.instancia ? { sistemes: [...(prev.sistemes || []), result.instancia] } : {}),
             }));
             notify(result.missatge || "Dades importades correctament");
         }
@@ -2966,6 +3094,32 @@ export default function App() {
                 };
             });
         };
+        setBudget(prev => ({ ...prev, chapters: updateInTree(prev.chapters) }));
+    };
+
+    /**
+     * Un camp d'una línia d'amidament que pot ser número o fórmula (`components/FormulaInput`).
+     * `entrada` és `{ valor }` o `{ formula }`. Un número treu la fórmula d'aquell camp.
+     */
+    const updateMeasurementCamp = (itemId, mId, camp, entrada) => {
+        const canvia = (m) => {
+            if (m.id !== mId) return m;
+            const formules = { ...(m.formules || {}) };
+            let seguent;
+            if ('valor' in entrada) {
+                delete formules[camp];
+                seguent = { ...m, [camp]: entrada.valor };
+            } else {
+                formules[camp] = entrada.formula;
+                seguent = { ...m };
+            }
+            if (Object.keys(formules).length) seguent.formules = formules;
+            else delete seguent.formules;
+            return seguent;
+        };
+        const updateInTree = (nodes) => nodes.map(node => (node.id === itemId
+            ? { ...node, measurements: (node.measurements || []).map(canvia) }
+            : { ...node, subChapters: updateInTree(node.subChapters || []), items: updateInTree(node.items || []) }));
         setBudget(prev => ({ ...prev, chapters: updateInTree(prev.chapters) }));
     };
 
@@ -3215,7 +3369,7 @@ export default function App() {
      * Posa `nodes` (amb els seus `prices`) dins del capítol `destiId`, pel flux de la
      * importació. Ho fan servir l'enganxar entre finestres i els sistemes constructius.
      */
-    const insereixNodes = (nodes, prices, destiId, missatge) => {
+    const insereixNodes = (nodes, prices, destiId, missatge, extra = {}) => {
         const desti = embolcallaPerEnganxar(budget.chapters, destiId, nodes);
         if (!desti) {
             notify('Per enganxar una partida, selecciona primer el capítol on ha d\'anar', 'error');
@@ -3236,6 +3390,7 @@ export default function App() {
             // moure l'import de totes les altres que comparteixen el material.
             conservaPreus: true,
             missatge,
+            ...extra,
         });
     };
 
@@ -3249,10 +3404,10 @@ export default function App() {
         return true;
     };
 
-    // --- Sistemes constructius (veure `utils/sistemes/`) ---
+    // --- Sistemes constructius (veure `utils/sistemesDoc.js`) ---
     /** El capítol on anirà el que s'insereixi: el seleccionat, o el que conté la partida seleccionada. */
     const capitolDesti = (() => {
-        if (!showSistema || !selectedId) return null;
+        if (!quadreSistemes || !selectedId) return null;
         const cami = [...(findParentPath(budget.chapters, selectedId) || []), selectedId];
         for (let i = cami.length - 1; i >= 0; i--) {
             const n = findNodeById(budget.chapters, cami[i]);
@@ -3261,13 +3416,60 @@ export default function App() {
         return null;
     })();
 
-    // Memoritzat: el quadre regenera la vista prèvia cada cop que canvia.
-    const codisProjecte = useMemo(() => codisDelProjecte(budget.chapters), [budget.chapters]);
+    /**
+     * Insereix una instància d'un sistema. Els paràmetres i l'entrada de `budget.sistemes`
+     * viatgen amb la importació i només s'afegeixen si s'acaba (cancel·lar el quadre de
+     * duplicats no deixa paràmetres orfes).
+     */
+    const insereixSistema = (inst, { aLArrel = true } = {}) => {
+        insereixNodes(inst.chapters, inst.prices, aLArrel ? null : (capitolDesti?.id || null),
+            `Sistema inserit: ${inst.instancia.nom}`,
+            { parametres: inst.parametres, instancia: inst.instancia });
+        setQuadreSistemes(null);
+        if (inst.parametres.length) commutaParametres(true);
+    };
 
-    const insereixSistema = (resultat) => {
-        const n = resultat.nodes[0];
-        insereixNodes(resultat.nodes, resultat.prices, selectedId, `Sistema inserit: ${n.code} ${n.description}`);
-        setShowSistema(false);
+    /** Obre un sistema de la galeria com a projecte per editar-lo i tornar-lo a desar. */
+    const obreSistemaPerEditar = (doc, idGaleria) => {
+        if (!doc) return;
+        if (budget.chapters.length > 0 && !consulta
+            && !confirm(`Obrir «${doc.nom}» per editar-lo? L'actual queda desat al navegador i es pot tornar a obrir des d'Obrir › Recents.`)) return;
+        adoptaProjecte({
+            id: crypto.randomUUID(),
+            name: doc.nom,
+            descripcioSistema: doc.descripcio || '',
+            chapters: doc.chapters,
+            parametres: doc.parametres,
+            certifications: [],
+            // En desar-lo com a sistema, es proposarà substituir l'original (si no és integrat).
+            sistemaGaleria: idGaleria && !String(idGaleria).startsWith('integrat:') ? { id: idGaleria, nom: doc.nom } : null,
+        });
+        setPriceDatabase(doc.prices || {});
+        setSelectedId(null);
+        setFiltreSistema(null);
+        historial.clear();
+        setQuadreSistemes(null);
+        commutaParametres(true);
+        notify(`Sistema obert per editar: ${doc.nom}`);
+    };
+
+    const instanciaFiltrada = filtreSistema ? (budget.sistemes || []).find(i => i.id === filtreSistema) : null;
+
+    const treuInstanciaFiltrada = () => {
+        if (!instanciaFiltrada) return;
+        if (!confirm(`Treure «${instanciaFiltrada.nom}» del projecte?\n\nEs treuen les seves línies i els seus paràmetres, i les partides que només tenien línies seves. Es pot desfer amb Ctrl+Z.`)) return;
+        setBudget(prev => treuInstancia(prev, instanciaFiltrada.id));
+        setFiltreSistema(null);
+        notify(`Instància treta: ${instanciaFiltrada.nom}`);
+    };
+
+    const exportaInstanciaBC3 = () => {
+        if (!instanciaFiltrada) return;
+        const chapters = filtraPerInstancia(resolvedChapters, instanciaFiltrada.id);
+        const contingut = generateBC3({ budget: { ...budget, name: `${budget.name} · ${instanciaFiltrada.nom}`, chapters }, chapters, priceDatabase });
+        baixaFitxer(new Blob([toWindows1252Bytes(contingut)], { type: 'text/plain;charset=windows-1252' }),
+            `${budget.name} ${instanciaFiltrada.nom}`, '.bc3');
+        notify(`«${instanciaFiltrada.nom}» exportada en BC3`);
     };
 
     const enganxaDelPortaRetalls = async (destiId) => {
@@ -4081,7 +4283,7 @@ export default function App() {
                         </td>
                     </tr>
 
-                    {!node.unit && (expandedChapters[node.id] || searchTerm) && renderTableRows([...(node.subChapters || []), ...(node.items || [])], level + 1)}
+                    {!node.unit && (expandedChapters[node.id] || searchTerm || filtreSistema) && renderTableRows([...(node.subChapters || []), ...(node.items || [])], level + 1)}
                 </React.Fragment>
             );
         });
@@ -4753,15 +4955,17 @@ export default function App() {
                 />
             )}
 
-            {showSistema && (
-                <SistemaModal
-                    sistemes={SISTEMES}
+            {quadreSistemes && (
+                <SistemesModal
+                    budget={budget}
                     priceDatabase={priceDatabase}
-                    chapters={budget.chapters}
-                    codisProjecte={codisProjecte}
-                    destiLabel={capitolDesti ? `${capitolDesti.code} ${capitolDesti.description || ''}`.trim() : 'l\'arrel del projecte'}
+                    vistaInicial={quadreSistemes.vista}
+                    docADesar={quadreSistemes.docADesar || null}
+                    destiLabel={capitolDesti ? `${capitolDesti.code} ${capitolDesti.description || ''}`.trim() : null}
                     onInsereix={insereixSistema}
-                    onClose={() => setShowSistema(false)}
+                    onObreEditar={obreSistemaPerEditar}
+                    onClose={() => setQuadreSistemes(null)}
+                    notify={notify}
                 />
             )}
 
@@ -5267,6 +5471,27 @@ export default function App() {
             />
 
             <main className={`flex-1 flex ${panellAlCostat ? 'flex-row' : 'flex-col'} overflow-hidden`}>
+                {/* Paràmetres: columna a l'esquerra quan hi ha lloc; si no, calaix per sobre. */}
+                {mostraParametres && !panellAlCostat && (
+                    <div className="fixed inset-0 bg-black/50 z-40" onClick={() => commutaParametres(false)} />
+                )}
+                {mostraParametres && (
+                    <div className={panellAlCostat
+                        ? 'w-72 flex-shrink-0 border-r border-slate-200 overflow-hidden'
+                        : 'fixed inset-y-0 left-0 z-50 w-[88vw] max-w-sm shadow-2xl'}
+                    >
+                        <ParametresPanel
+                            parametres={budget.parametres || []}
+                            resolts={ambFormules.parametres}
+                            usos={usosParametres}
+                            onAfegeix={afegeixParametre}
+                            onCanvia={canviaParametre}
+                            onReanomena={reanomenaParametre}
+                            onEsborra={esborraParametre}
+                            onTanca={() => commutaParametres(false)}
+                        />
+                    </div>
+                )}
                 {/* Taula Principal Flat */}
                 <section className="flex-1 flex flex-col bg-white overflow-hidden relative">
                     <div className="border-b border-slate-200 p-2 bg-slate-50">
@@ -5311,6 +5536,28 @@ export default function App() {
 
                             {/* Search */}
                             <div className="flex items-center gap-2">
+                                {(budget.sistemes || []).length > 0 && activeTab === 'editor' && (
+                                    <select
+                                        value={instanciaFiltrada ? filtreSistema : ''}
+                                        onChange={(e) => setFiltreSistema(e.target.value || null)}
+                                        className={`max-w-[9rem] md:max-w-[12rem] py-1.5 md:py-1 px-1.5 border text-[10px] font-bold outline-none touch-manipulation ${instanciaFiltrada ? 'bg-violet-50 border-violet-300 text-violet-800' : 'bg-white border-slate-200 text-slate-500'}`}
+                                        title="Mostra només el que ve d'un sistema"
+                                        aria-label="Filtra per sistema"
+                                    >
+                                        <option value="">Tots els sistemes</option>
+                                        {budget.sistemes.map(i => <option key={i.id} value={i.id}>{i.nom}</option>)}
+                                    </select>
+                                )}
+                                <button
+                                    onClick={() => commutaParametres(!mostraParametres)}
+                                    className={`p-1.5 md:px-2 md:py-1 border flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest transition-colors touch-manipulation ${mostraParametres ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                                    title="Paràmetres del projecte"
+                                    aria-pressed={mostraParametres}
+                                >
+                                    <Variable size={14} />
+                                    <span className="hidden 2xl:inline">Paràmetres</span>
+                                    {teParametres && <span className="font-mono">{budget.parametres.length}</span>}
+                                </button>
                                 {/* Mobile: Search icon only, expands downward */}
                                 <div className="md:hidden relative">
                                     <button
@@ -5392,7 +5639,7 @@ export default function App() {
                                 </div>
 
                                 <button
-                                    onClick={() => setShowSistema(true)}
+                                    onClick={() => setQuadreSistemes({ vista: 'galeria' })}
                                     className="flex items-center gap-2 bg-white border border-slate-200 hover:border-blue-400 hover:text-blue-700 text-slate-600 px-3 md:px-4 py-3 transition-colors flex-shrink-0 touch-manipulation"
                                     title="Sistema constructiu: un capítol sencer amidat a partir de les dimensions"
                                 >
@@ -5408,6 +5655,39 @@ export default function App() {
                                 >
                                     <Plus size={16} className="md:w-4.5 md:h-4.5" />
                                     <span className="hidden md:inline text-[11px] font-bold uppercase tracking-widest">Nova Entrada</span>
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'editor' && instanciaFiltrada && (
+                        <div className="bg-violet-50 border-b border-violet-200 px-3 py-2 flex flex-wrap items-center gap-x-3 gap-y-2">
+                            <div className="basis-full sm:basis-auto sm:flex-1 min-w-0">
+                                <div className="text-[9px] font-black uppercase tracking-widest text-violet-500">Filtrant per sistema</div>
+                                <div className="text-xs font-bold text-violet-900 truncate">
+                                    {instanciaFiltrada.nom}
+                                    {instanciaFiltrada.sistema && instanciaFiltrada.sistema !== instanciaFiltrada.nom && (
+                                        <span className="font-normal text-violet-600"> · {instanciaFiltrada.sistema}</span>
+                                    )}
+                                    <span className="font-mono ml-2">{formatCurrency(perSistema.reduce((a, c) => a + calcChapterTotal(c, priceDatabase), 0))}</span>
+                                </div>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                                <button
+                                    onClick={() => setQuadreSistemes({ vista: 'desa', docADesar: extreuInstancia(budget, priceDatabase, instanciaFiltrada.id) })}
+                                    className="bg-white border border-violet-200 hover:bg-violet-100 text-violet-800 px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide sm:tracking-widest touch-manipulation"
+                                    title="Torna a fer un sistema amb aquesta instància"
+                                >
+                                    Desa com a sistema
+                                </button>
+                                <button onClick={exportaInstanciaBC3} className="bg-white border border-violet-200 hover:bg-violet-100 text-violet-800 px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide sm:tracking-widest touch-manipulation">
+                                    BC3
+                                </button>
+                                <button onClick={treuInstanciaFiltrada} className="bg-white border border-red-200 hover:bg-red-50 text-red-700 px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide sm:tracking-widest touch-manipulation">
+                                    Treu-la
+                                </button>
+                                <button onClick={() => setFiltreSistema(null)} className="p-1.5 text-violet-500 hover:text-violet-900 touch-manipulation" title="Treu el filtre">
+                                    <X size={14} />
                                 </button>
                             </div>
                         </div>
@@ -5694,12 +5974,12 @@ export default function App() {
                                                                 {(node.measurements || []).filter(m => !m.isIncrement && !isRefLine(m)).map(m => (
                                                                     <tr key={m.id} className="group">
                                                                         <td className="p-1.5"><input type="text" value={m.description} onChange={(e) => updateMeasurement(node.id, m.id, 'description', e.target.value)} className="w-full bg-transparent border-none text-slate-600 outline-none p-0" /></td>
-                                                                        <td className="p-1.5"><NumberInput value={m.units} onChange={(v) => updateMeasurement(node.id, m.id, 'units', v)} className="w-full text-right bg-transparent border-none font-mono outline-none p-0" /></td>
-                                                                        <td className="p-1.5"><NumberInput value={m.length} onChange={(v) => updateMeasurement(node.id, m.id, 'length', v)} className="w-full text-right bg-transparent border-none font-mono text-slate-400 outline-none p-0" /></td>
+                                                                        <td className="p-1.5"><FormulaInput value={m.units} formula={m.formules?.units} error={m.errorsFormula?.units} teclatText={teParametres} onChange={(e) => updateMeasurementCamp(node.id, m.id, 'units', e)} className="w-full text-right bg-transparent border-none font-mono outline-none p-0" /></td>
+                                                                        <td className="p-1.5"><FormulaInput value={m.length} formula={m.formules?.length} error={m.errorsFormula?.length} teclatText={teParametres} onChange={(e) => updateMeasurementCamp(node.id, m.id, 'length', e)} className="w-full text-right bg-transparent border-none font-mono text-slate-400 outline-none p-0" /></td>
                                                                         {/* Les línies que venen del CAD sense alçada (o sense amplada, en m3) es marquen
                                                                             fins que s'hi posa un valor: mentre és a zero, el parcial la compta com a 1. */}
-                                                                        <td className={`p-1.5 ${m.needsWidth && !m.width ? 'bg-amber-100' : ''}`} title={m.needsWidth && !m.width ? 'Falta l\'amplada' : undefined}><NumberInput value={m.width} onChange={(v) => updateMeasurement(node.id, m.id, 'width', v)} className="w-full text-right bg-transparent border-none font-mono text-slate-400 outline-none p-0" /></td>
-                                                                        <td className={`p-1.5 ${m.needsHeight && !m.height ? 'bg-amber-100' : ''}`} title={m.needsHeight && !m.height ? 'Falta l\'alçada' : undefined}><NumberInput value={m.height} onChange={(v) => updateMeasurement(node.id, m.id, 'height', v)} className="w-full text-right bg-transparent border-none font-mono text-slate-400 outline-none p-0" /></td>
+                                                                        <td className={`p-1.5 ${m.needsWidth && !m.width ? 'bg-amber-100' : ''}`} title={m.needsWidth && !m.width ? 'Falta l\'amplada' : undefined}><FormulaInput value={m.width} formula={m.formules?.width} error={m.errorsFormula?.width} teclatText={teParametres} onChange={(e) => updateMeasurementCamp(node.id, m.id, 'width', e)} className="w-full text-right bg-transparent border-none font-mono text-slate-400 outline-none p-0" /></td>
+                                                                        <td className={`p-1.5 ${m.needsHeight && !m.height ? 'bg-amber-100' : ''}`} title={m.needsHeight && !m.height ? 'Falta l\'alçada' : undefined}><FormulaInput value={m.height} formula={m.formules?.height} error={m.errorsFormula?.height} teclatText={teParametres} onChange={(e) => updateMeasurementCamp(node.id, m.id, 'height', e)} className="w-full text-right bg-transparent border-none font-mono text-slate-400 outline-none p-0" /></td>
                                                                         <td className="p-1.5 text-right font-bold text-blue-900">
                                                                             <div className="flex items-center justify-end gap-1">
                                                                                 {formatNumber(calcMeasureTotal(m), 2)}
@@ -5723,7 +6003,7 @@ export default function App() {
                                                                         <tr key={m.id} className="group bg-slate-50">
                                                                             <td className="p-1.5 bg-slate-50"><input type="text" value={m.description} onChange={(e) => updateMeasurement(node.id, m.id, 'description', e.target.value)} className="w-full bg-transparent border-none text-slate-600 outline-none p-0 italic" /></td>
                                                                             <td className="p-1.5 text-right text-slate-500 text-[11px] md:text-[10px]">%</td>
-                                                                            <td className="p-1.5"><NumberInput value={m.units} onChange={(v) => updateMeasurement(node.id, m.id, 'units', v)} className="w-full text-right bg-transparent border-none font-mono font-bold outline-none p-0" /></td>
+                                                                            <td className="p-1.5"><FormulaInput value={m.units} formula={m.formules?.units} error={m.errorsFormula?.units} teclatText={teParametres} onChange={(e) => updateMeasurementCamp(node.id, m.id, 'units', e)} className="w-full text-right bg-transparent border-none font-mono font-bold outline-none p-0" /></td>
                                                                             <td colSpan={2} className="p-1.5 text-center text-slate-300">-</td>
                                                                             <td className="p-1.5 text-right font-bold text-blue-900 bg-slate-50">
                                                                                 <div className="flex items-center justify-end gap-1">
@@ -5839,7 +6119,9 @@ export default function App() {
                 <ImportConfirmModal
                     code={importPending.duplicates[importPending.currentIdx].code}
                     description={importPending.duplicates[importPending.currentIdx].description}
+                    nLinies={importPending.duplicates[importPending.currentIdx].nLinies}
                     onConfirm={(aTots) => handleConfirmDuplicate(true, aTots)}
+                    onAfegeixLinies={(aTots) => handleConfirmDuplicate('linies', aTots)}
                     onSkip={(aTots) => handleConfirmDuplicate(false, aTots)}
                     index={importPending.currentIdx}
                     total={importPending.duplicates.length}

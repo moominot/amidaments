@@ -1,323 +1,265 @@
 import { describe, it, expect } from 'vitest';
 import {
-    SISTEMES, generaSistema, codiLliure, codisDelProjecte, valorsPerDefecte,
-    partidaDelProjecte, partidaDelBanc, partidaPerDefecte, papersDe, normalitzaUnitat,
-} from '../src/utils/sistemes';
-import { llegeixTria, desaTria } from '../src/utils/sistemes/triaDesada';
-import { PISCINA } from '../src/utils/sistemes/piscina';
+    documentDeProjecte, llegeixDocument, parametresADemanar, instancia, previsualitza,
+    filtraPerInstancia, extreuInstancia, treuInstancia, nomInstanciaLliure, FORMAT_SISTEMA,
+} from '../src/utils/sistemesDoc';
+import { llistaSistemes, llegeixSistema } from '../src/utils/galeriaSistemes';
+import { resolveFormules } from '../src/utils/parametres';
+import { resolveMeasurementRefs } from '../src/utils/measurementRefs';
 import { calcItemTotalQty, calcChapterTotal, getItemUnitPrice, normalizeCode } from '../src/utils/calculations';
-import { embolcallaPerEnganxar } from '../src/utils/portaRetalls';
 import { generateBC3 } from '../src/utils/bc3Writer';
 import { processBC3Data } from '../src/utils/bc3Parser';
+import piscinaJson from '../src/utils/sistemes/piscina.sistema.json';
 
 /**
- * Sistemes constructius. Les quantitats esperades estan fetes a mà a partir de les regles
- * documentades a `src/utils/sistemes/piscina.js`, amb els valors per defecte:
- * L 8, A 1,78, P 1,30–1,44, mur 0,25, neteja 0,10, vol 0,20, suport de tubs 1,20.
+ * Sistemes constructius com a documents amb paràmetres.
+ *
+ * Les quantitats de la piscina estan fetes a mà a partir de les regles de les fórmules, amb
+ * els valors per defecte: L 8, A 1,78, P 1,30–1,44, mur 0,25, neteja 0,10, vol 0,20, suport de
+ * tubs 1,20. Són les mateixes que donava el generador anterior, escrit en JavaScript.
  */
 
-// No baixa dins de les partides: un cop reimportat, els components del descomposat hi
-// tornen com a fills.
-const partides = (node, out = {}) => {
-    if (node.unit) {
-        out[normalizeCode(node.code)] = node;
-        return out;
-    }
-    [...(node.subChapters || []), ...(node.items || [])].forEach(n => partides(n, out));
+const partides = (nodes, out = {}) => {
+    nodes.forEach(n => {
+        if (n.unit) { out[normalizeCode(n.code)] = n; return; }
+        partides([...(n.subChapters || []), ...(n.items || [])], out);
+    });
     return out;
 };
+const resol = (chapters, parametres) => resolveMeasurementRefs(resolveFormules(chapters, parametres).chapters).chapters;
+const quantitats = (chapters) => Object.fromEntries(Object.entries(partides(chapters)).map(([c, n]) => [c, calcItemTotalQty(n)]));
+const total = (chapters, preus) => Math.round(chapters.reduce((a, c) => a + calcChapterTotal(c, preus), 0) * 100) / 100;
 
-const quantitats = (resultat) => Object.fromEntries(
-    resultat.nodes.flatMap(n => Object.entries(partides(n))).map(([codi, n]) => [codi, calcItemTotalQty(n)]),
-);
+const PISCINA = llegeixDocument(piscinaJson);
 
-describe('piscina amb els valors per defecte', () => {
-    const r = generaSistema(PISCINA, {});
-    const q = quantitats(r);
+describe('la piscina com a document', () => {
+    const q = quantitats(resol(PISCINA.chapters, PISCINA.parametres));
 
-    it('genera un capítol amb dos subcapítols i les catorze partides', () => {
-        expect(r.errors).toEqual([]);
-        expect(r.nodes).toHaveLength(1);
-        expect(r.nodes[0].code).toBe('PISC');
-        expect(r.nodes[0].unit).toBeFalsy();
-        expect(r.nodes[0].subChapters.map(c => c.code)).toEqual(['PISC.01', 'PISC.02']);
-        expect(Object.keys(q)).toHaveLength(14);
+    it('és a la galeria com a sistema integrat', () => {
+        expect(llistaSistemes()[0]).toMatchObject({ id: 'integrat:piscina', nom: 'Piscina', integrat: true, nParametres: 15 });
+        expect(llegeixSistema('integrat:piscina').chapters[0].code).toBe('PISC');
     });
 
     it('amida l\'estructura pels exteriors i per l\'eix', () => {
-        // (8 + 0,5 + 0,2) × (1,78 + 0,5 + 0,2)
-        expect(q['RF22.01.01']).toBe(21.58);
-        // 8,5 × 2,28
-        expect(q['RF22.01.02']).toBe(19.38);
-        // 2 × 8,25 × 1,37 + 2,03 × 1,30 + 2,03 × 1,44
-        expect(q['RF22.01.03']).toBe(22.61 + 2.64 + 2.92);
+        expect(q['RF22.01.01']).toBe(21.58);           // (8 + 0,5 + 0,2) × (1,78 + 0,5 + 0,2)
+        expect(q['RF22.01.02']).toBe(19.38);           // 8,5 × 2,28
+        expect(q['RF22.01.03']).toBe(28.17);           // 2 × 8,25 × 1,37 + 2,03 × 1,30 + 2,03 × 1,44
     });
 
-    it('amida les parets interiors amb la fondària mitjana i el fons inclinat', () => {
-        // 2 × 8 × 1,37 + 1,78 × 1,30 + 1,78 × 1,44
-        expect(q['RF22.01.06']).toBe(26.79);
-        // + fons: √(8² + 0,14²) = 8,001 × 1,78
-        expect(q['RF22.01.07']).toBe(41.03);
-        expect(q['RF22.01.08']).toBe(41.03);
+    it('amida les parets amb la fondària mitjana i el fons inclinat', () => {
+        expect(q['RF22.01.06']).toBe(26.79);           // 2 × 8 × 1,37 + 1,78 × 1,30 + 1,78 × 1,44
+        expect(q['RF22.01.07']).toBe(41.03);           // + √(8² + 0,14²) × 1,78
         expect(q['RF22.01.09']).toBe(41.03);
     });
 
-    it('reparteix el coronament entre la peça de 40 i la de 30', () => {
+    it('reparteix el coronament i amida el suport de tubs i els equips', () => {
         expect(q['RF22.01.10']).toBe(8.4);
-        // 8,4 + 2 × 2,18
-        expect(q['RF22.01.11']).toBe(12.76);
-    });
-
-    it('amida el suport de tubs i els equips', () => {
-        // 8,5 × 1,2 + 2,28 × 1,2
-        expect(q['RF22.01.05']).toBe(10.2 + 2.74);
-        expect(q['RF22.01.04']).toBe(1);
-        expect(q['RF22.02.01']).toBe(1);
+        expect(q['RF22.01.11']).toBe(12.76);           // 8,4 + 2 × 2,18
+        expect(q['RF22.01.05']).toBe(12.94);           // 8,5 × 1,2 + 2,28 × 1,2
         expect(q['RF22.02.02']).toBe(2);
-        expect(q['RF22.02.03']).toBe(1);
     });
 
-    it('suma el total amb el preu de cada concepte', () => {
-        expect(Math.round(calcChapterTotal(r.nodes[0], r.prices) * 100) / 100).toBe(16362.97);
+    it('suma el mateix total que el generador anterior', () => {
+        expect(total(resol(PISCINA.chapters, PISCINA.parametres), PISCINA.prices)).toBe(16362.97);
     });
 
-    it('no porta components fills ni preus que no surtin a cap partida', () => {
-        Object.values(partides(r.nodes[0])).forEach(n => expect(n.items).toEqual([]));
-        const usats = new Set();
-        Object.values(partides(r.nodes[0])).forEach(n => {
-            usats.add(normalizeCode(n.code));
-            n.breakdown.forEach(b => usats.add(normalizeCode(b.code)));
-        });
-        Object.keys(r.prices).forEach(k => expect(usats.has(normalizeCode(k))).toBe(true));
-    });
-
-    it('dona ids diferents a cada generació', () => {
-        const altra = generaSistema(PISCINA, {});
-        expect(altra.nodes[0].id).not.toBe(r.nodes[0].id);
-    });
-});
-
-describe('el joc de partides de la piscina', () => {
-    // El capítol de referència portava el mur amb tots els rendiments a 1, i el preu
-    // calculat (268,61 €/m²) no tenia res a veure amb el del concepte (91,35 €/m²).
     it('cada partida val el preu del seu concepte', () => {
-        PISCINA.joc.partides.forEach(p => {
-            const calculat = getItemUnitPrice(p, PISCINA.joc.prices);
-            expect(Math.abs(calculat - p.price), p.code).toBeLessThanOrEqual(0.01);
-        });
-    });
-
-    it('totes les partides del sistema hi són', () => {
-        const codis = new Set(PISCINA.joc.partides.map(p => p.code));
-        PISCINA.capitols.flatMap(c => c.partides).forEach(d => expect(codis.has(d.codi), d.codi).toBe(true));
-    });
-});
-
-describe('paràmetres', () => {
-    it('amb el fons pla ajunta les dues transversals', () => {
-        const r = generaSistema(PISCINA, { P1: 1.4, P2: 1.4 });
-        const arrebossat = partides(r.nodes[0])['RF22.01.06'];
-        expect(arrebossat.measurements).toHaveLength(2);
-        expect(arrebossat.measurements[1]).toMatchObject({ units: 2, length: 1.78, height: 1.4 });
-        // 2 × 8 × 1,4 + 2 × 1,78 × 1,4
-        expect(calcItemTotalQty(arrebossat)).toBe(22.4 + 4.98);
-    });
-
-    it('treu les partides que es queden sense línies', () => {
-        const r = generaSistema(PISCINA, { focus: 0, nAmple: 0, banc: 0 });
-        const p = partides(r.nodes[0]);
-        expect(p['RF22.02.02']).toBeUndefined();
-        expect(p['RF22.01.10']).toBeUndefined();
-        expect(p['RF22.01.04']).toBeUndefined();
-        // Sense peça de 40, la de 30 fa tot el perímetre: 2 × 8,4 + 2 × 2,18
-        expect(calcItemTotalQty(p['RF22.01.11'])).toBe(21.16);
-    });
-
-    it('treu el subcapítol si es queda buit', () => {
-        const r = generaSistema(PISCINA, { depuracio: 0, focus: 0, electrolisi: 0 });
-        expect(r.nodes[0].subChapters.map(c => c.code)).toEqual(['PISC.01']);
-    });
-
-    it('rebutja una fondària màxima menor que la mínima', () => {
-        const r = generaSistema(PISCINA, { P1: 1.5, P2: 1.2 });
-        expect(r.errors).toContain('La fondària màxima no pot ser menor que la mínima');
-        expect(r.nodes).toBeUndefined();
-    });
-
-    it('rebutja els valors fora de límits i els enters amb decimals', () => {
-        expect(generaSistema(PISCINA, { L: 0 }).errors[0]).toMatch(/^Llargària/);
-        expect(generaSistema(PISCINA, { focus: 1.5 }).errors[0]).toMatch(/enter/);
-        expect(generaSistema(PISCINA, { nAmple: 3 }).errors[0]).toMatch(/màxim/);
-        expect(generaSistema(PISCINA, { L: NaN }).errors[0]).toMatch(/falta/);
-    });
-
-    it('tots els sistemes tenen un valor per defecte vàlid per a cada paràmetre', () => {
-        SISTEMES.forEach(s => {
-            expect(Object.keys(valorsPerDefecte(s))).toHaveLength(s.parametres.length);
-            expect(generaSistema(s, {}).errors).toEqual([]);
+        Object.values(partides(PISCINA.chapters)).forEach(p => {
+            expect(Math.abs(getItemUnitPrice(p, PISCINA.prices) - p.price), p.code).toBeLessThanOrEqual(0.01);
         });
     });
 });
 
-describe('inserció al projecte', () => {
-    it('busca un codi lliure per al capítol', () => {
-        expect(codiLliure('PISC', new Set())).toBe('PISC');
-        expect(codiLliure('PISC', new Set(['PISC', 'PISC_2']))).toBe('PISC_3');
-        const r = generaSistema(PISCINA, {}, { codisOcupats: new Set(['PISC']) });
-        expect(r.nodes[0].code).toBe('PISC_2');
-        expect(r.nodes[0].subChapters[0].code).toBe('PISC_2.01');
+describe('crear un sistema d\'un projecte', () => {
+    const budget = {
+        name: 'Envà',
+        parametres: [{ id: 'p1', nom: 'H', valor: 3, unitat: 'm', sistema: 'x', nomOriginal: 'H' }],
+        chapters: [{
+            id: 'c', code: 'E', description: 'ENVANS', subChapters: [], items: [{
+                id: 'i', code: 'ENV', unit: 'm2', breakdown: [{ code: 'mo1', yield: 1 }],
+                certifications: { f1: { quantity: 3 } },
+                measurements: [{ id: 'l', description: 'Envà', units: 1, length: 4, height: 0, formules: { height: 'H' }, calc: { height: 3 }, sistema: 'x' }],
+            }],
+        }],
+    };
+    const preus = { ENV: { price: 30 }, mo1: { price: 20 }, ALTRE: { price: 1 }, E: { price: 0 } };
+
+    it('porta l\'arbre amb les fórmules, els paràmetres i només els preus que fa servir', () => {
+        const doc = documentDeProjecte(budget, preus, { descripcio: 'De prova' });
+        expect(doc).toMatchObject({ format: FORMAT_SISTEMA, nom: 'Envà', descripcio: 'De prova' });
+        const linia = doc.chapters[0].items[0].measurements[0];
+        expect(linia.formules).toEqual({ height: 'H' });
+        expect(linia.calc).toBeUndefined();
+        expect(linia.sistema).toBeUndefined();
+        expect(doc.chapters[0].items[0].certifications).toBeUndefined();
+        expect(doc.parametres[0].sistema).toBeUndefined();
+        expect(Object.keys(doc.prices).sort()).toEqual(['E', 'ENV', 'mo1']);
     });
 
-    it('recull els codis del projecte normalitzats', () => {
-        const codis = codisDelProjecte([{ code: '01#', subChapters: [{ code: '01.01#' }], items: [{ code: 'P1 ', unit: 'm2' }] }]);
-        expect([...codis].sort()).toEqual(['01', '01.01', 'P1']);
-    });
-
-    it('entra dins del capítol de destí pel mateix camí que una partida enganxada', () => {
-        const projecte = [{ id: 'c1', code: '01', description: 'OBRA', subChapters: [], items: [] }];
-        const r = generaSistema(PISCINA, {});
-        const desti = embolcallaPerEnganxar(projecte, 'c1', r.nodes);
-        expect(desti.cami).toEqual(['c1']);
-        expect(desti.chapters[0].code).toBe('01');
-        expect(desti.chapters[0].subChapters[0].code).toBe('PISC');
+    it('llegeix tant un document de sistema com un fitxer de projecte', () => {
+        expect(llegeixDocument({ budget, priceDatabase: preus }).nom).toBe('Envà');
+        expect(llegeixDocument(documentDeProjecte(budget, preus)).chapters).toHaveLength(1);
+        expect(llegeixDocument({ format: FORMAT_SISTEMA })).toBeNull();
+        expect(llegeixDocument({ res: 1 })).toBeNull();
+        expect(llegeixDocument(null)).toBeNull();
     });
 });
 
-describe('exportació BC3 del capítol generat', () => {
-    const total = (chapters, prices) => Math.round(chapters.reduce((a, c) => a + calcChapterTotal(c, prices), 0) * 100) / 100;
+describe('inserir un sistema', () => {
+    const projecte = [{ id: 'q1', nom: 'L', valor: 30 }, { id: 'q2', nom: 'H', valor: 3 }];
 
-    it('conserva el total i les quantitats encadenant tres cicles', () => {
-        const r = generaSistema(PISCINA, { L: 10.5 });
-        let chapters = r.nodes;
-        let prices = r.prices;
-        const esperat = total(chapters, prices);
-        const q = quantitats(r);
+    it('demana els paràmetres que no són fórmula i diu quins ja hi són', () => {
+        const d = parametresADemanar(PISCINA, projecte);
+        expect(d.filter(p => !p.derivat)).toHaveLength(15);
+        expect(d.find(p => p.nom === 'Pm').derivat).toBe(true);
+        expect(d.find(p => p.nom === 'L').existent.valor).toBe(30);
+        expect(d.find(p => p.nom === 'A').existent).toBeNull();
+    });
+
+    it('reanomena els que xoquen, els agrupa per instància i reescriu les fórmules', () => {
+        const r = instancia(PISCINA, { nomInstancia: 'Piscina jardí', parametresProjecte: projecte, id: 'I1' });
+        const L = r.parametres.find(p => p.nomOriginal === 'L');
+        expect(L).toMatchObject({ nom: 'L_2', grup: 'Piscina jardí · Vas (interior)', sistema: 'I1' });
+        expect(r.parametres.find(p => p.nom === 'Lf').formula).toBe('arrel(L_2^2+(P2-P1)^2)');
+        const llosa = partides(r.chapters)['RF22.01.02'].measurements[0];
+        expect(llosa.formules.length).toBe('L_2+2*e');
+        expect(llosa.sistema).toBe('I1');
+        expect(r.instancia).toEqual({ id: 'I1', nom: 'Piscina jardí', sistema: 'Piscina' });
+    });
+
+    it('pot fer servir el paràmetre del projecte amb el mateix nom', () => {
+        const r = instancia(PISCINA, { parametresProjecte: projecte, respostes: new Map([['L', { enllaca: true }]]) });
+        expect(r.parametres.find(p => p.nomOriginal === 'L')).toBeUndefined();
+        expect(partides(r.chapters)['RF22.01.02'].measurements[0].formules.length).toBe('L+2*e');
+        const q = quantitats(resol(r.chapters, [...projecte, ...r.parametres]));
+        expect(q['RF22.01.02']).toBe(Math.round(30.5 * 2.28 * 100) / 100);
+    });
+
+    it('les respostes poden ser valors o fórmules sobre el projecte, sense reanomenar-les', () => {
+        const r = instancia(PISCINA, {
+            parametresProjecte: projecte,
+            respostes: new Map([['A', { valor: 4 }], ['P2', { formula: 'H/2' }], ['L', { valor: 10 }]]),
+        });
+        expect(r.parametres.find(p => p.nom === 'A').valor).toBe(4);
+        expect(r.parametres.find(p => p.nom === 'P2').formula).toBe('H/2');
+        expect(r.parametres.find(p => p.nom === 'L_2').valor).toBe(10);
+        const q = quantitats(resol(r.chapters, [...projecte, ...r.parametres]));
+        expect(q['RF22.01.02']).toBe(Math.round(10.5 * 4.5 * 100) / 100);
+    });
+
+    it('dona ids nous i manté els vincles a línies dins del sistema', () => {
+        const doc = {
+            ...PISCINA,
+            chapters: [{
+                id: 'c', code: 'X', subChapters: [], items: [
+                    { id: 'a', code: 'A1', unit: 'm2', measurements: [{ id: 'la', description: 'a', units: 2, length: 3 }] },
+                    { id: 'b', code: 'B1', unit: 'm2', measurements: [{ id: 'lb', refCode: 'A1', refLineId: 'la', factor: 1 }] },
+                ],
+            }],
+        };
+        const r = instancia(doc);
+        const [a, b] = r.chapters[0].items;
+        expect(a.id).not.toBe('a');
+        expect(a.measurements[0].id).not.toBe('la');
+        expect(b.measurements[0].refLineId).toBe(a.measurements[0].id);
+        expect(calcItemTotalQty(resol(r.chapters, r.parametres)[0].items[1])).toBe(6);
+    });
+
+    it('previsualitza el total amb els preus del projecte per davant', () => {
+        expect(Math.round(previsualitza(PISCINA).total * 100) / 100).toBe(16362.97);
+        // El mur no té descomposat: val el preu del concepte, i el del projecte mana.
+        const amb = previsualitza(PISCINA, {}, { 'RF22.01.03': { price: 0 } });
+        expect(Math.round(amb.total * 100) / 100).toBe(Math.round((16362.97 - 2573.33) * 100) / 100);
+    });
+
+    it('no repeteix el nom de la instància', () => {
+        expect(nomInstanciaLliure('Piscina', [])).toBe('Piscina');
+        expect(nomInstanciaLliure('Piscina', [{ nom: 'Piscina' }, { nom: 'Piscina 2' }])).toBe('Piscina 3');
+    });
+});
+
+describe('instàncies dins del projecte', () => {
+    // Un projecte amb una partida pròpia i una piscina inserida, amb una de les seves línies
+    // afegida a una partida que ja hi era.
+    const muntaProjecte = () => {
+        const inst = instancia(PISCINA, { nomInstancia: 'Piscina', parametresProjecte: [{ id: 'q', nom: 'L', valor: 30 }], id: 'I1' });
+        const perCodi = partides(inst.chapters);
+        const liniaAfegida = perCodi['RF22.02.02'].measurements[0];
+        return {
+            budget: {
+                parametres: [{ id: 'q', nom: 'L', valor: 30, grup: '' }, ...inst.parametres],
+                sistemes: [inst.instancia],
+                chapters: [
+                    { id: 'c0', code: '01', description: 'PROPI', subChapters: [], items: [
+                        { id: 'f', code: 'RF22.02.02', unit: 'u', measurements: [{ id: 'mine', description: 'meu', units: 1 }, liniaAfegida] },
+                        { id: 'g', code: 'G', unit: 'u', measurements: [{ id: 'g1', units: 3 }] },
+                    ] },
+                    inst.chapters[0],
+                ],
+            },
+            prices: inst.prices,
+        };
+    };
+
+    it('filtra només el que ve de la instància', () => {
+        const { budget } = muntaProjecte();
+        const f = filtraPerInstancia(budget.chapters, 'I1');
+        expect(f.map(c => c.code)).toEqual(['01', 'PISC']);
+        expect(f[0].items.map(i => i.code)).toEqual(['RF22.02.02']);
+        expect(f[0].items[0].measurements).toHaveLength(1);
+    });
+
+    it('torna a fer el sistema amb els noms originals i els paràmetres externs', () => {
+        const { budget, prices } = muntaProjecte();
+        const doc = extreuInstancia(budget, prices, 'I1');
+        expect(doc.nom).toBe('Piscina');
+        const L = doc.parametres.find(p => p.nom === 'L');
+        expect(L).toBeTruthy();
+        expect(doc.parametres.some(p => p.nom === 'L_2')).toBe(false);
+        expect(doc.parametres.find(p => p.nom === 'A').grup).toBe('Vas (interior)');
+        expect(partides(doc.chapters)['RF22.01.02'].measurements[0].formules.length).toBe('L+2*e');
+        expect(partides(doc.chapters)['RF22.01.02'].measurements[0].sistema).toBeUndefined();
+    });
+
+    it('extreure i tornar a inserir dona les mateixes quantitats', () => {
+        const { budget, prices } = muntaProjecte();
+        const abans = quantitats(resol(filtraPerInstancia(budget.chapters, 'I1'), budget.parametres));
+        const doc = extreuInstancia(budget, prices, 'I1');
+        const r = instancia(doc);
+        expect(quantitats(resol(r.chapters, r.parametres))).toEqual(abans);
+    });
+
+    it('treure-la deixa el que ja hi era', () => {
+        const { budget } = muntaProjecte();
+        const r = treuInstancia(budget, 'I1');
+        expect(r.chapters.map(c => c.code)).toEqual(['01', 'PISC']);
+        expect(r.chapters[0].items.map(i => i.code)).toEqual(['RF22.02.02', 'G']);
+        expect(r.chapters[0].items[0].measurements.map(m => m.id)).toEqual(['mine']);
+        expect(partides(r.chapters[1].subChapters)).toEqual({});
+        expect(r.parametres.map(p => p.nom)).toEqual(['L']);
+        expect(r.sistemes).toEqual([]);
+    });
+});
+
+describe('exportació BC3 d\'un projecte amb fórmules', () => {
+    it('escriu els números calculats i el cicle conserva el total', () => {
+        const chapters = resol(PISCINA.chapters, PISCINA.parametres);
+        let ch = chapters;
+        let preus = PISCINA.prices;
         for (let i = 0; i < 3; i++) {
-            const bc3 = generateBC3({ budget: { name: 'Piscina', chapters }, chapters, priceDatabase: prices });
-            const reimportat = processBC3Data(bc3);
-            chapters = reimportat.chapters;
-            prices = reimportat.prices;
-            expect(total(chapters, prices)).toBe(esperat);
-            expect(quantitats({ nodes: chapters })).toEqual(q);
+            const r = processBC3Data(generateBC3({ budget: { name: 'P', chapters: ch }, chapters: ch, priceDatabase: preus }));
+            ch = r.chapters;
+            preus = r.prices;
+            expect(total(ch, preus)).toBe(16362.97);
+            expect(quantitats(ch)).toEqual(quantitats(chapters));
         }
     });
-});
 
-describe('triar la partida de cada paper', () => {
-    const mevaImper = {
-        id: 'x', code: 'IMP01', description: 'Làmina de PVC armat', fullDescription: 'Làmina de PVC armat de 1,5 mm',
-        unit: 'm²', price: 1,
-        breakdown: [{ code: 'mtPVC', yield: 1.1, price: 10 }, { code: 'mo020', yield: 0.2, price: 30 }],
-        measurements: [{ id: 'l', description: 'vella', units: 1, length: 5 }],
-        items: [{ id: 'c', code: 'mtPVC', unit: 'm2' }],
-    };
-    const preusProjecte = { IMP01: { code: 'IMP01', price: 18, unit: 'm2', summary: 'Làmina' }, mtPVC: { price: 11 }, mo020: { price: 30 } };
-
-    it('una partida del projecte porta el descomposat i els preus del projecte, sense línies ni fills', () => {
-        const { partida, prices } = partidaDelProjecte(mevaImper, preusProjecte);
-        expect(partida).toMatchObject({ code: 'IMP01', unit: 'm²', price: 18, fullDescription: 'Làmina de PVC armat de 1,5 mm' });
-        expect(partida.breakdown).toHaveLength(2);
-        expect(partida.measurements).toBeUndefined();
-        expect(partida.items).toBeUndefined();
-        expect(Object.keys(prices).sort()).toEqual(['IMP01', 'mo020', 'mtPVC']);
-    });
-
-    it('substitueix la partida del paper i n\'amida les mateixes línies', () => {
-        const r = generaSistema(PISCINA, {}, { tria: { impermeabilitzacio: partidaDelProjecte(mevaImper, preusProjecte) } });
-        const p = partides(r.nodes[0]);
-        expect(p['RF22.01.07']).toBeUndefined();
-        expect(calcItemTotalQty(p.IMP01)).toBe(41.03);
-        // 1,1 × 11 + 0,2 × 30 = 12,10 + 6,00
-        expect(getItemUnitPrice(p.IMP01, r.prices)).toBe(18.1);
-        expect(r.prices.mtPVC.price).toBe(11);
-        expect(r.papers.find(x => x.paper === 'impermeabilitzacio')).toMatchObject({ origen: 'triada', unitatDiferent: false });
-    });
-
-    it('un paper sense partida no surt al capítol', () => {
-        const r = generaSistema(PISCINA, {}, { tria: { arrebossat: null } });
-        expect(partides(r.nodes[0])['RF22.01.06']).toBeUndefined();
-        expect(r.papers.find(x => x.paper === 'arrebossat')).toMatchObject({ origen: 'cap', partida: null });
-        expect(r.prices['RF22.01.06']).toBeUndefined();
-        expect(r.prices.mt09var030a).toBeUndefined();
-    });
-
-    it('si dos papers fan servir la mateixa partida, en surt una amb les línies de tots dos', () => {
-        const gres = partidaPerDefecte(PISCINA, papersDe(PISCINA).find(d => d.paper === 'revestiment'));
-        const r = generaSistema(PISCINA, {}, { tria: { impermeabilitzacio: gres } });
-        const cap = r.nodes[0].subChapters[0];
-        const gresos = cap.items.filter(n => n.code === 'RF22.01.08');
-        expect(gresos).toHaveLength(1);
-        expect(calcItemTotalQty(gresos[0])).toBe(82.06);
-        expect(gresos[0].measurements[0].description).toBe('Impermeabilització · Parets longitudinals');
-        expect(gresos[0].measurements[4].description).toBe('Revestiment (subministrament) · Parets longitudinals');
-    });
-
-    it('avisa si la unitat de la partida triada no és la del paper', () => {
-        const enM3 = { partida: { code: 'LL3', description: 'Llosa', unit: 'm3', price: 120, breakdown: [] }, prices: {} };
-        const r = generaSistema(PISCINA, {}, { tria: { llosa: enM3 } });
-        expect(r.papers.find(x => x.paper === 'llosa').unitatDiferent).toBe(true);
-        expect(r.papers.find(x => x.paper === 'mur').unitatDiferent).toBe(false);
-    });
-
-    it('un concepte del banc val el preu del concepte', () => {
-        const banc = { EHL010: { code: 'EHL010', price: 95.4, summary: 'Llosa massissa', unit: 'm²' } };
-        const inst = partidaDelBanc('EHL010', banc);
-        expect(inst.partida).toMatchObject({ code: 'EHL010', description: 'Llosa massissa', unit: 'm²', price: 95.4, breakdown: [] });
-        expect(inst.prices).toEqual(banc);
-        expect(partidaDelBanc('NO', banc)).toBeNull();
-        const r = generaSistema(PISCINA, {}, { tria: { llosa: inst } });
-        expect(getItemUnitPrice(partides(r.nodes[0]).EHL010, r.prices)).toBe(95.4);
-    });
-
-    it('normalitza les unitats habituals', () => {
-        expect(normalitzaUnitat('m²')).toBe('m2');
-        expect(normalitzaUnitat('M2')).toBe('m2');
-        expect(normalitzaUnitat('ml')).toBe('m');
-        expect(normalitzaUnitat('Ud')).toBe('u');
-        expect(normalitzaUnitat('ut')).toBe('u');
-        expect(normalitzaUnitat('m³')).toBe('m3');
-    });
-
-    it('cada paper té nom, unitat i una partida per defecte de la mateixa unitat', () => {
-        papersDe(PISCINA).forEach(d => {
-            expect(d.nom, d.paper).toBeTruthy();
-            const { partida } = partidaPerDefecte(PISCINA, d);
-            expect(normalitzaUnitat(partida.unit), d.paper).toBe(normalitzaUnitat(d.unitat));
-        });
-        const ids = papersDe(PISCINA).map(d => d.paper);
-        expect(new Set(ids).size).toBe(ids.length);
-    });
-});
-
-describe('tria desada al navegador', () => {
-    const magatzem = () => {
-        const m = new Map();
-        return { getItem: k => m.get(k) ?? null, setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k), m };
-    };
-
-    it('es recupera tal com s\'ha desat, també els papers sense partida', () => {
-        const mg = magatzem();
-        const tria = { llosa: { partida: { code: 'L1', unit: 'm2' }, prices: { L1: { price: 3 } } }, arrebossat: null };
-        desaTria(PISCINA, tria, mg);
-        expect(llegeixTria(PISCINA, mg)).toEqual(tria);
-    });
-
-    it('descarta els papers que ja no existeixen i les dades malmeses', () => {
-        const mg = magatzem();
-        mg.setItem('amidaments:sistema:piscina:partides', JSON.stringify({ vell: null, llosa: { partida: {} }, mur: null }));
-        expect(llegeixTria(PISCINA, mg)).toEqual({ mur: null });
-        mg.setItem('amidaments:sistema:piscina:partides', '{no és json');
-        expect(llegeixTria(PISCINA, mg)).toEqual({});
-    });
-
-    it('una tria buida esborra la clau, i sense emmagatzematge no falla', () => {
-        const mg = magatzem();
-        desaTria(PISCINA, { mur: null }, mg);
-        desaTria(PISCINA, {}, mg);
-        expect(mg.m.size).toBe(0);
-        expect(llegeixTria(PISCINA, null)).toEqual({});
-        expect(() => desaTria(PISCINA, { mur: null }, null)).not.toThrow();
-        const ple = { ...magatzem(), setItem: () => { throw new Error('QuotaExceeded'); } };
-        expect(() => desaTria(PISCINA, { mur: null }, ple)).not.toThrow();
+    it('una dimensió que dona 0 no torna com a 1 en reimportar', () => {
+        const params = PISCINA.parametres.map(p => (p.nom === 'tCurts' ? { ...p, valor: 0 } : p.nom === 'nAmple' ? { ...p, valor: 2 } : p));
+        const chapters = resol(PISCINA.chapters, params);
+        const r = processBC3Data(generateBC3({ budget: { name: 'P', chapters }, chapters, priceDatabase: PISCINA.prices }));
+        expect(quantitats(r.chapters)['RF22.01.11']).toBe(4.36);   // només els costats curts
+        expect(quantitats(r.chapters)['RF22.01.05']).toBe(10.2);   // sense costats curts
     });
 });

@@ -12,6 +12,7 @@ import { isRefLine, refLabel } from './measurementRefs';
  * El fragment és autosuficient:
  * - porta les entrades de `priceDatabase` de tots els codis que hi surten (partides,
  *   components i descomposats), perquè a l'altre projecte els imports quadrin;
+ * - les línies amb fórmula es copien amb el valor calculat: els paràmetres no hi viatgen;
  * - les línies vinculades es copien ja resoltes, com a línies fixes: el vincle apunta a un
  *   codi que a l'altre projecte pot no existir o ser una partida diferent, i els vincles a
  *   una línia concreta no sobreviurien als ids nous de la còpia;
@@ -25,7 +26,11 @@ import { isRefLine, refLabel } from './measurementRefs';
 
 export const MARCA_FRAGMENT = 'amidaments/fragment';
 
-const congelaLinia = (m) => {
+const congelaLinia = (lin) => {
+    // Les fórmules es congelen com els vincles: els paràmetres són del projecte d'origen. La
+    // marca de sistema tampoc no vol dir res a l'altra finestra.
+    // eslint-disable-next-line no-unused-vars
+    const { formules, calc, errorsFormula, sistema, ...m } = lin;
     if (!isRefLine(m)) return m;
     // eslint-disable-next-line no-unused-vars
     const { refCode, refLineId, factor, refDescription, ...resta } = m;
