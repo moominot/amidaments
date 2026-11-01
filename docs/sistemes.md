@@ -5,8 +5,9 @@ Tres peces que van juntes:
 1. **Paràmetres** del projecte (`budget.parametres`), a la barra de l'esquerra.
 2. **Fórmules** a les línies d'amidament: qualsevol camp (Ud, Ll, Am, Al) pot ser `L+2*e`.
 3. **Sistemes**: un document sencer amb paràmetres que es desa a una galeria i s'insereix en
-   altres projectes demanant-ne els paràmetres. Pot ser un detall (un envà, una piscina) o un
+   altres projectes demanant-ne els paràmetres. Pot ser un detall (un envà, un banc d'obra) o un
    edifici sencer. La idea és estandarditzar sistemes i detalls que es repeteixen entre obres.
+   L'aplicació no en porta cap de sèrie: cadascú fa els seus i els reaprofita entre projectes.
 
 ## Paràmetres i fórmules
 
@@ -78,22 +79,18 @@ els que surten en una condició que falla, posa el missatge al peu i no deixa in
 tot es compleix.
 
 Les condicions viatgen amb el sistema: en inserir-lo es reanomenen com els paràmetres
-(`P2_2>=P1`) i es marquen amb la instància; extreure-la les recupera amb els noms originals i
+(`H_2<=L`) i es marquen amb la instància; extreure-la les recupera amb els noms originals i
 treure-la les esborra. Un paràmetre enllaçat amb el del projecte no es comprova pels límits del
 sistema (és del projecte), però sí per les condicions entre paràmetres.
-
-La piscina porta els mateixos límits que tenia el generador anterior i dues condicions:
-`P2>=P1` i que el suport de tubs tingui alçada si n'hi ha.
 
 ## Sistemes
 
 | Fitxer | Què hi ha |
 |---|---|
 | `src/utils/sistemesDoc.js` | Crear un document, inserir-lo (instància), filtrar, extreure i treure |
-| `src/utils/galeriaSistemes.js` | La galeria: integrats i desats al navegador |
-| `src/utils/sistemes/piscina.sistema.json` | La piscina, sistema integrat |
+| `src/utils/galeriaSistemes.js` | La galeria, al navegador |
 | `src/components/SistemesModal.jsx` | Galeria, paràmetres i desar |
-| `test/sistemes.test.js` | Piscina amb xifres fetes a mà, inserir, instàncies, BC3 |
+| `test/sistemes.test.js` | Un sistema de prova amb xifres fetes a mà, inserir, instàncies, condicions, BC3 |
 
 **Un sistema és un document.** `{ format: 'amidaments/sistema', nom, descripcio, parametres,
 chapters, prices }`: l'arbre sencer (amb les fórmules i els vincles) i els preus que fa servir.
@@ -104,17 +101,16 @@ tenim no hi preveu paràmetres compartits amb nom.
 sistema**): a la galeria del navegador o a un fitxer `.amid`. El fitxer és un projecte normal,
 que també es pot obrir com a tal; la descripció hi va a `budget.descripcioSistema`. Des de la
 galeria, **Obre per editar** el carrega com a projecte i, en tornar-lo a desar, proposa
-substituir l'original (`budget.sistemaGaleria`). Els integrats no es poden sobreescriure: se'n
-desa una còpia.
+substituir l'original (`budget.sistemaGaleria`).
 
 **Inserir-lo** (botó **Sistema**, triar-ne un) demana els paràmetres que declara, agrupats com
-al sistema. Els que són fórmula d'altres (la fondària mitjana) no es demanen. Per a cadascun:
+al sistema. Els que són fórmula d'altres (una superfície `L*H`) no es demanen. Per a cadascun:
 
 - es pot escriure un valor o una **fórmula sobre els paràmetres del projecte** (`H-0,3`);
 - si el projecte ja té un paràmetre **amb el mateix nom**, es pot fer servir aquest. Per
   defecte es fa així si el del projecte és **propi del projecte** (una «alçada de planta»
-  comuna), i no si és d'una altra instància: la segona piscina no ha de tenir per força les
-  mides de la primera.
+  comuna), i no si és d'una altra instància: la segona instància d'un sistema no ha de tenir per
+  força les mides de la primera.
 
 En inserir:
 
@@ -128,7 +124,7 @@ En inserir:
   capítol `04 COBERTES` va a parar al `04` del projecte;
 - si una partida ja hi és, el quadre de duplicats té una opció nova, **«Afegir-hi les
   línies»**: la partida és la mateixa i només s'hi sumen les línies (marcades). És el que es vol
-  en inserir la segona piscina. Serveix també per enganxar;
+  en inserir per segon cop el mateix sistema. Serveix també per enganxar;
 - amb **«No insereixis les partides que surten a zero»**, les partides que amb els valors triats
   tenen quantitat 0 (i els capítols que es queden buits per això) no entren. És per als
   sistemes amb variants: un paràmetre `perfil` i, a cada partida de perfil, Ud =
@@ -153,29 +149,25 @@ amb el total. Des de la barra del filtre:
 La galeria és al `localStorage`, com la biblioteca de projectes: hi caben uns quants MB entre
 tot. Un sistema gran s'ha d'exportar a fitxer.
 
-## La piscina
+## Sistemes a partir del Generador de Preus
 
-És el primer sistema integrat (`piscina.sistema.json`). Les partides i els preus surten del
-capítol 22 d'un projecte real; les regles d'amidament són:
+Un sistema es pot muntar amb partides del Generador de Preus de CYPE: cada partida té un BC3
+descarregable que ja porta l'arbre de capítols de CYPE i el descomposat, i el parser el llegeix
+tal qual. Fusionant els arbres per codi de capítol, el sistema conserva l'estructura de CYPE i,
+en inserir-lo, va a parar als mateixos capítols del projecte.
 
-| Partida | Línies |
-|---|---|
-| Neteja | `(L+2*e+2*s) × (A+2*e+2*s)` |
-| Llosa | `(L+2*e) × (A+2*e)` |
-| Mur (per l'eix) | `2 × (L+e) × Pm`, `(A+e) × P1`, `(A+e) × P2` |
-| Arrebossat | parets: `2 × L × Pm`, `A × P1`, `A × P2` |
-| Impermeabilització i gres | parets + fons `Lf × A` |
-| Coronament | `nAmple × (L+2*v)`; `(2-nAmple) × (L+2*v)` i `2 × (A+2*v)` |
-| Suport de tubs | `tLlargs × (L+2*e) × hT`, `tCurts × (A+2*e) × hT` |
+Dos límits trobats:
 
-amb `Pm = (P1+P2)/2` (amb el fons inclinat dona l'àrea exacta de les parets llargues) i
-`Lf = arrel(L^2+(P2-P1)^2)` (la llargària real del fons). Amb els valors per defecte
-(8,00 × 1,78 m, fondària 1,30–1,44 m) fa **16.362,97 €**, la mateixa xifra que donava el
-generador anterior escrit en JavaScript, que s'ha tret.
+- **Les opcions d'una partida** (mida de la peça, classe de lliscabilitat...) es trien en una
+  pàgina amb verificació de seguretat. El BC3 que es baixa sense passar-la és el de la
+  configuració per defecte. Per a una altra configuració cal triar-la al navegador i fer servir
+  l'enllaç del BC3 que en surt (el botó del script de Tampermonkey el copia).
+- **No hi és tot.** Hi ha elements sense partida (per exemple, un focus per encastar a paret
+  exterior): van com a partida pròpia, sense preu i marcada com a pendent, en comptes d'una
+  partida que no hi correspon o d'un preu inventat.
 
-La partida del mur (`RF22.01.03`) portava, al projecte d'origen, el descomposat amb tots els
-rendiments a 1: l'aplicació hi calculava 268,61 €/m² en lloc dels 91,35 del concepte. Al sistema
-va sense descomposat, i un test comprova que cada partida valgui el preu del seu concepte.
+Aquests sistemes porten dades de CYPE i no s'han de posar al repositori: van a la galeria de
+cadascú o a un fitxer.
 
 ## Què falta
 

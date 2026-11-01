@@ -17,8 +17,7 @@ import { baixaFitxer } from '../utils/baixa';
  * Sistemes constructius: galeria, inserció i desar (veure `utils/sistemesDoc.js`).
  *
  * Tres vistes:
- * - **galeria**: els sistemes integrats i els desats en aquest navegador, i importar-ne un de
- *   fitxer;
+ * - **galeria**: els sistemes desats en aquest navegador, i importar-ne un de fitxer;
  * - **paràmetres**: el sistema triat, amb els paràmetres que declara per omplir. Si el
  *   projecte ja en té un amb el mateix nom, per defecte es fa servir aquest. El total es veu
  *   en viu;
@@ -104,12 +103,22 @@ const SistemesModal = ({
                             </button>
                             <input ref={fitxer} type="file" accept=".amid,.json" className="hidden" onChange={importa} />
                         </div>
+                        {galeria.length === 0 && (
+                            <div className="p-4 text-[11px] text-slate-500 leading-relaxed space-y-2">
+                                <p>Encara no hi ha cap sistema a la galeria.</p>
+                                <p>
+                                    Un sistema és un projecte amb paràmetres: fes l&apos;amidament d&apos;un detall constructiu amb
+                                    fórmules a les línies (<span className="font-mono">L*H</span>, <span className="font-mono">2*L+A</span>…),
+                                    desa&apos;l com a sistema i el podràs inserir en altres obres omplint només els paràmetres.
+                                    També en pots obrir un des d&apos;un fitxer {EXTENSIO_PROJECTE}.
+                                </p>
+                            </div>
+                        )}
                         {galeria.map(s => (
                             <div key={s.id} className="flex items-stretch border-b border-slate-100 hover:bg-blue-50/40">
                                 <button onClick={() => obre(s.id)} className="flex-1 min-w-0 text-left p-3 touch-manipulation">
                                     <div className="flex items-center gap-2">
                                         <span className="text-xs font-bold text-slate-800 truncate">{s.nom}</span>
-                                        {s.integrat && <span className="text-[8px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 px-1.5 py-0.5">Integrat</span>}
                                         <span className="text-[10px] text-violet-600 font-mono whitespace-nowrap">{s.nParametres} paràm.</span>
                                     </div>
                                     {s.descripcio && <p className="text-[11px] text-slate-500 leading-snug mt-0.5">{s.descripcio}</p>}
@@ -121,11 +130,9 @@ const SistemesModal = ({
                                     <button onClick={() => exporta(llegeixSistema(s.id))} className="p-2 text-slate-400 hover:text-blue-600 touch-manipulation" title={`Exporta'l a un fitxer ${EXTENSIO_PROJECTE}`}>
                                         <Download size={14} />
                                     </button>
-                                    {!s.integrat && (
-                                        <button onClick={() => esborra(s)} className="p-2 text-slate-400 hover:text-red-600 touch-manipulation" title="Esborra'l de la galeria">
-                                            <Trash2 size={14} />
-                                        </button>
-                                    )}
+                                    <button onClick={() => esborra(s)} className="p-2 text-slate-400 hover:text-red-600 touch-manipulation" title="Esborra'l de la galeria">
+                                        <Trash2 size={14} />
+                                    </button>
                                     <ChevronRight size={14} className="text-slate-300 hidden sm:block" />
                                 </div>
                             </div>
@@ -178,8 +185,8 @@ const VistaParametres = ({ doc, budget, priceDatabase, destiLabel, onInsereix, o
     const [aLArrel, setALArrel] = useState(true);
     const [ometZero, setOmetZero] = useState(false);
     // Per defecte es fa servir el paràmetre del projecte amb el mateix nom si és del projecte
-    // (una «alçada de planta» comuna), però no si és d'una altra instància: la segona piscina
-    // no ha de tenir per força les mides de la primera.
+    // (una «alçada de planta» comuna), però no si és d'una altra instància: la segona instància
+    // d'un mateix sistema no ha de tenir per força les mides de la primera.
     const [respostes, setRespostes] = useState(() => new Map(
         demanats.filter(p => !p.derivat && p.existent && !p.existent.sistema).map(p => [p.nom, { enllaca: true }]),
     ));

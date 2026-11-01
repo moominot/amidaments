@@ -3509,8 +3509,8 @@ export default function App() {
             parametres: doc.parametres,
             condicions: doc.condicions || [],
             certifications: [],
-            // En desar-lo com a sistema, es proposarà substituir l'original (si no és integrat).
-            sistemaGaleria: idGaleria && !String(idGaleria).startsWith('integrat:') ? { id: idGaleria, nom: doc.nom } : null,
+            // En desar-lo com a sistema, es proposarà substituir l'original de la galeria.
+            sistemaGaleria: idGaleria ? { id: idGaleria, nom: doc.nom } : null,
         });
         setPriceDatabase(doc.prices || {});
         setSelectedId(null);

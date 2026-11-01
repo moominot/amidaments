@@ -48,11 +48,11 @@ Navegador
 | `src/utils/formules.js` | — | Analitzador i avaluador de fórmules (sense `eval`). Veure [`docs/sistemes.md`](sistemes.md). |
 | `src/utils/parametres.js` | — | Paràmetres del projecte i resolució de les línies amb fórmula. |
 | `src/utils/sistemesDoc.js` | — | Sistemes constructius com a documents: crear, inserir, filtrar, extreure, treure. |
-| `src/utils/galeriaSistemes.js` | — | Galeria de sistemes (integrats i desats al navegador). |
+| `src/utils/galeriaSistemes.js` | — | Galeria de sistemes, desats al navegador. |
 | `src/components/ParametresPanel.jsx` | — | Barra de paràmetres a l'esquerra (calaix al mòbil). |
 | `src/components/FormulaInput.jsx` | — | Camp d'amidament que accepta número o fórmula. |
 | `src/components/SistemesModal.jsx` | — | Galeria de sistemes, inserció amb paràmetres i desar com a sistema. |
-| `test/` | 188 tests | Vitest sobre els càlculs, el parser i l'escriptor. Veure [`docs/tests.md`](tests.md). |
+| `test/` | 186 tests | Vitest sobre els càlculs, el parser i l'escriptor. Veure [`docs/tests.md`](tests.md). |
 
 ## Estructura interna d'`App.jsx`
 
