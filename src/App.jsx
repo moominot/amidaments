@@ -1133,6 +1133,19 @@ export default function App() {
         return () => window.removeEventListener('resize', onResize);
     }, []);
 
+    // Amb ratolí, el panell de detall va al costat a partir de 768 px i no només de 1024: al
+    // PC, dues finestres una al costat de l'altra en fan uns 960 cadascuna, i tractar-les com
+    // una tauleta (full inferior que tapa la llista) feia impracticable copiar entre elles.
+    const [punterFi, setPunterFi] = useState(() => !!window.matchMedia?.('(pointer: fine)').matches);
+    useEffect(() => {
+        const mq = window.matchMedia?.('(pointer: fine)');
+        if (!mq?.addEventListener) return undefined;
+        const onChange = () => setPunterFi(mq.matches);
+        mq.addEventListener('change', onChange);
+        return () => mq.removeEventListener('change', onChange);
+    }, []);
+    const panellAlCostat = ampladaFinestra >= 1024 || (punterFi && ampladaFinestra >= 768);
+
     // Mobile state
     const [showMobileMenu, setShowMobileMenu] = useState(false);
     const [showMobileSidebar, setShowMobileSidebar] = useState(false);
@@ -2921,6 +2934,17 @@ export default function App() {
     };
 
 
+    // L'enganxat s'escolta al document i no amb `onPaste` al contenidor de l'aplicació: sense
+    // cap camp amb el focus, el navegador l'adreça al <body>, que queda fora del contenidor,
+    // i Ctrl+V no feia res (ni el fragment copiat, ni el CAD, ni l'enllaç d'un BC3).
+    const handlePasteRef = React.useRef(handlePaste);
+    useEffect(() => { handlePasteRef.current = handlePaste; });
+    useEffect(() => {
+        const onPaste = (e) => handlePasteRef.current(e);
+        document.addEventListener('paste', onPaste);
+        return () => document.removeEventListener('paste', onPaste);
+    }, []);
+
     const updateMeasurement = (itemId, mId, field, value) => {
         const numValue = field === 'description' ? value : parseFloat(value) || 0;
         const updateInTree = (nodes) => {
@@ -3157,9 +3181,31 @@ export default function App() {
             notify('El navegador no deixa escriure al porta-retalls', 'error');
             return;
         }
-        const que = node.unit ? 'Partida copiada' : 'Capítol copiat';
-        notify(`${que}: selecciona el capítol de destí, en aquesta o una altra finestra, i enganxa`);
+        notify(missatgeCopiat(node));
     };
+
+    const missatgeCopiat = (node) =>
+        `${node.unit ? 'Partida copiada' : 'Capítol copiat'}: selecciona el capítol de destí, en aquesta o una altra finestra, i enganxa (Ctrl+V)`;
+
+    // Ctrl+C sobre la fila seleccionada copia el capítol o la partida, com el botó del panell:
+    // així es pot copiar entre finestres encara que el panell no es vegi. Si hi ha text
+    // seleccionat o el focus és en un camp, Ctrl+C fa el de sempre.
+    useEffect(() => {
+        const onCopy = (e) => {
+            if (!selectedId || activeTab !== 'editor') return;
+            const actiu = document.activeElement;
+            if (actiu && (actiu.tagName === 'INPUT' || actiu.tagName === 'TEXTAREA' || actiu.isContentEditable)) return;
+            const seleccio = window.getSelection?.();
+            if (seleccio && !seleccio.isCollapsed && seleccio.toString().trim()) return;
+            const node = findNodeById(resolvedChapters, selectedId);
+            if (!node) return;
+            e.clipboardData.setData('text/plain', creaFragment(node, priceDatabase));
+            e.preventDefault();
+            notify(missatgeCopiat(node));
+        };
+        document.addEventListener('copy', onCopy);
+        return () => document.removeEventListener('copy', onCopy);
+    }, [selectedId, activeTab, resolvedChapters, priceDatabase]); // eslint-disable-line react-hooks/exhaustive-deps
 
     /** Retorna `false` si el text no és un fragment, perquè es puguin provar altres formats. */
     const enganxaFragment = (text, destiId = selectedId) => {
@@ -3844,7 +3890,7 @@ export default function App() {
                                 toggleChapter(node.id);
                                 return;
                             }
-                            if (window.innerWidth < 1024) {
+                            if (!panellAlCostat) {
                                 setShowMobileSidebar(true);
                             }
                         }}
@@ -4639,7 +4685,6 @@ export default function App() {
             }}
             onDragLeave={() => setIsDragging(false)}
             onDrop={handleDrop}
-            onPaste={handlePaste}
         >
             {/* 1. DRIVE SETTINGS MODAL */}
             {picker && (
@@ -5175,7 +5220,7 @@ export default function App() {
                 style={{ display: 'none' }}
             />
 
-            <main className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+            <main className={`flex-1 flex ${panellAlCostat ? 'flex-row' : 'flex-col'} overflow-hidden`}>
                 {/* Taula Principal Flat */}
                 <section className="flex-1 flex flex-col bg-white overflow-hidden relative">
                     <div className="border-b border-slate-200 p-2 bg-slate-50">
@@ -5365,22 +5410,22 @@ export default function App() {
 
                 {/* Resizer Handle - Hide on mobile */}
                 <div
-                    className={`${mostraDetall ? 'hidden lg:block' : 'hidden'} w-1 bg-slate-200 hover:bg-blue-400 cursor-col-resize transition-colors z-30`}
+                    className={`${mostraDetall && panellAlCostat ? 'block' : 'hidden'} w-1 bg-slate-200 hover:bg-blue-400 cursor-col-resize transition-colors z-30`}
                     onMouseDown={startResizing}
                 />
 
                 {/* Mobile: Bottom Sheet Backdrop */}
-                {mostraDetall && showMobileSidebar && selectedId && (
+                {!panellAlCostat && mostraDetall && showMobileSidebar && selectedId && (
                     <div
-                        className="lg:hidden fixed inset-0 bg-black/50 z-40"
+                        className="fixed inset-0 bg-black/50 z-40"
                         onClick={() => setShowMobileSidebar(false)}
                     />
                 )}
 
                 {/* Mobile: Bottom Sheet Toggle Tab (only when item selected) */}
-                {mostraDetall && selectedId && !showMobileSidebar && (
+                {!panellAlCostat && mostraDetall && selectedId && !showMobileSidebar && (
                     <button
-                        className="lg:hidden fixed bottom-0 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white px-6 py-2 rounded-t-lg shadow-lg z-50 flex items-center gap-2"
+                        className="fixed bottom-0 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white px-6 py-2 rounded-t-lg shadow-lg z-50 flex items-center gap-2"
                         onClick={() => setShowMobileSidebar(!showMobileSidebar)}
                     >
                         <ChevronDown className={showMobileSidebar ? 'rotate-180' : ''} size={16} />
@@ -5391,25 +5436,23 @@ export default function App() {
                 <aside
                     className={`
                         bg-slate-50 border-l border-slate-200 overflow-y-auto flex flex-col
-                        ${!mostraDetall ? 'hidden' : selectedId ? 'fixed lg:relative' : 'hidden lg:block'}
-                        ${showMobileSidebar ? 'max-lg:bottom-0 max-lg:left-0 max-lg:right-0' : 'max-lg:-bottom-full'}
+                        ${!mostraDetall ? 'hidden' : panellAlCostat ? 'relative block' : (selectedId ? 'fixed' : 'hidden')}
+                        ${panellAlCostat ? '' : (showMobileSidebar ? 'bottom-0 left-0 right-0' : '-bottom-full')}
                         transition-all duration-300 ease-in-out
-                        z-50 lg:z-auto
-                        max-h-[80vh] lg:max-h-none
-                        rounded-t-2xl lg:rounded-none
-                        shadow-2xl lg:shadow-none
+                        ${panellAlCostat ? 'z-auto' : 'z-50 max-h-[80vh] rounded-t-2xl shadow-2xl'}
                     `}
-                    // Fins a xl el panell es limita al 40%: amb 450 px fixos, a 1024 la taula
+                    // Fins a xl el panell es limita al 40% (i no menys de 340 px, que és el
+                    // que demana la taula d'amidament): amb 450 px fixos, a 1024 la taula
                     // quedava a 570 i les descripcions ocupaven tres línies.
                     style={{
-                        width: ampladaFinestra < 1024 ? '100%'
-                            : `${ampladaFinestra < 1280 ? Math.min(sidebarWidth, Math.round(ampladaFinestra * 0.4)) : sidebarWidth}px`
+                        width: !panellAlCostat ? '100%'
+                            : `${ampladaFinestra < 1280 ? Math.min(sidebarWidth, Math.max(340, Math.round(ampladaFinestra * 0.4))) : sidebarWidth}px`
                     }}
                 >
                     {/* Mobile: Close button */}
-                    {selectedId && (
+                    {selectedId && !panellAlCostat && (
                         <button
-                            className="lg:hidden sticky top-0 bg-slate-200 p-3 flex items-center justify-center z-10"
+                            className="sticky top-0 bg-slate-200 p-3 flex items-center justify-center z-10"
                             onClick={() => setShowMobileSidebar(false)}
                         >
                             <div className="w-12 h-1 bg-slate-400 rounded-full"></div>
@@ -5440,14 +5483,14 @@ export default function App() {
                                             <div className="flex items-center gap-1">
                                                 <button
                                                     onClick={() => copiaAlPortaRetalls(node)}
-                                                    title={`Copia ${node.unit ? 'la partida' : 'el capítol i tot el que conté'} per enganxar-ho en una altra finestra`}
+                                                    title={`Copia ${node.unit ? 'la partida' : 'el capítol i tot el que conté'} per enganxar-ho en una altra finestra (Ctrl+C)`}
                                                     className="flex items-center gap-1 text-[10px] font-bold text-slate-500 hover:text-blue-600 hover:bg-blue-50 border border-slate-200 px-1.5 py-0.5 rounded touch-manipulation"
                                                 >
                                                     <Copy size={10} /> Copia
                                                 </button>
                                                 <button
                                                     onClick={() => enganxaDelPortaRetalls(node.id)}
-                                                    title={node.unit ? 'Enganxa al capítol d\'aquesta partida' : 'Enganxa dins d\'aquest capítol'}
+                                                    title={node.unit ? 'Enganxa al capítol d\'aquesta partida (Ctrl+V)' : 'Enganxa dins d\'aquest capítol (Ctrl+V)'}
                                                     className="flex items-center gap-1 text-[10px] font-bold text-slate-500 hover:text-blue-600 hover:bg-blue-50 border border-slate-200 px-1.5 py-0.5 rounded touch-manipulation"
                                                 >
                                                     <ClipboardPaste size={10} /> Enganxa
