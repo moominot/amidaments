@@ -1,0 +1,449 @@
+{
+  "partides": [
+    {
+      "code": "RF22.01.01",
+      "description": "Capa de hormigón de limpieza HL-150/B/20, fabricado en central y",
+      "fullDescription": "Capa de hormigón de limpieza y nivelado de fondos de cimentación, de 10 cm de espesor, de hormigón HL-150/B/20, fabricado en central y vertido con cubilote, en el fondo de la excavación previamente realizada. Se considera un perímetro 0.20 m mayor que el límite de la construcción para permitir el encofrado de las cimentaciones.",
+      "unit": "m2",
+      "price": 13.76,
+      "breakdown": [
+        {
+          "code": "mt10hmf011ib",
+          "description": "Hormigón de limpieza HL-150/B/12, fabricado en central.",
+          "unit": "m³",
+          "yield": 0.1,
+          "price": 111.29
+        },
+        {
+          "code": "mo045",
+          "description": "Oficial 1ª estructurista, en trabajos de puesta en obra del horm",
+          "unit": "h",
+          "yield": 0.009,
+          "price": 38.76
+        },
+        {
+          "code": "mo092",
+          "description": "Ayudante estructurista, en trabajos de puesta en obra del hormig",
+          "unit": "h",
+          "yield": 0.04,
+          "price": 34.6
+        },
+        {
+          "code": "%0700",
+          "description": "Medios auxiliares",
+          "unit": "%",
+          "yield": 7.000000000000001,
+          "price": 7
+        }
+      ]
+    },
+    {
+      "code": "RF22.01.02",
+      "description": "Losa de cimentación de 25 cm espesor de HA-30/B/20/XD2",
+      "fullDescription": "Losa de cimentación de hormigón armado, realizada en excavación previa, de 25 cm de espesor, con hormigón HA-30/B/20/XD2 fabricado en central y vertido con cubilote, y acero UNE-EN 10080 B 500 S, cuantía de armadura según planos de estructura, acabado superficial liso mediante regla vibrante, encofrado y desencofrado. Incluso p/p de elaboración de la ferralla (corte, doblado y conformado de elementos) en taller industrial y montaje en el lugar definitivo de su colocación en obra, separadores, armaduras de espera de los pilares u otros elementos, vibrado y curado del hormigón.",
+      "unit": "m2",
+      "price": 89.86,
+      "breakdown": [
+        {
+          "code": "paRF22.01.02",
+          "description": "Losa de cimentación de 25 cm espesor de HA-30/B/20/XD2",
+          "unit": "m2",
+          "yield": 1,
+          "price": 89.86
+        }
+      ]
+    },
+    {
+      "code": "RF22.01.03",
+      "description": "Muro contención tipo H 25 cm relleno y armado",
+      "fullDescription": "Muro de contención de bloque de 25 cms de espesor de hormigón vibrado tipo H de encofrado perdido de 25x20x50, color gris, categoría I, resistencia normalizada R10 (10 N/mm²), fabricado con grava caliza, recibida con mortero de cemento industrial, color gris, M-7,5, relleno según planos con hormigón HA-30 con doble armadura vertical de diámetro 12 cada 25 cms y doble armadura horizontal de diámetro 10 en cada hilada y zuncho superior de coronación armado según planos. Incluso p.p. de replanteo, nivelación y aplomado, desniveles de cimentación, huecos de ventilación y pasos, y trabas a pìlares y macizados. Totalmente acabado, limpieza de zona de trabajo y p.p. de medios auxiliares.",
+      "unit": "m2",
+      "price": 91.35,
+      "breakdown": []
+    },
+    {
+      "code": "RF22.01.04",
+      "description": "Formación de banco y escalones",
+      "fullDescription": "Construcción de banco y escalera de obra en interior de vaso de piscina con bloque de hormigón y bovedilla cerámica plana, tomado con mortero de cemento portland industrial. Formando banco y escalones según planos. Incluye la aplicación en toda su superficie de revestimiento de mortero impermeable con acabado fino con cemento portland y arena, quedando preparado para recibir el material de acabado.",
+      "unit": "u",
+      "price": 585.51,
+      "breakdown": [
+        {
+          "code": "paRF22.01.04",
+          "description": "Formación de banco y escalones",
+          "unit": "u",
+          "yield": 1,
+          "price": 585.51
+        }
+      ]
+    },
+    {
+      "code": "RF22.01.05",
+      "description": "Fab. bloque hormigon tipo italiano 15 cm soporte tubos",
+      "fullDescription": "Fábrica de 15 cm de espesor, para soporte de tubos en perimetro exterior de piscina, de bloque de hormigón tipo italiano, color gris, 40x20x15 cm, resistencia normalizada R10 (10 N/mm2), con juntas de 10 mm de espesor, recibida con mortero de cemento industrial, color gris, M-5. Incluso replanteo, nivelación y aplomado, parte proporcional de enjarjes, mermas y roturas, humedecido de las piezas y limpieza.",
+      "unit": "m2",
+      "price": 52.85,
+      "breakdown": [
+        {
+          "code": "mt02bhg030gi",
+          "description": "Bloque italiano de 15x20x50",
+          "unit": "u",
+          "yield": 10.5,
+          "price": 1.31
+        },
+        {
+          "code": "mt09mif010dba",
+          "description": "Mortero industrial para albañilería, de cemento, color gris, cat",
+          "unit": "m3",
+          "yield": 0.025,
+          "price": 79.77
+        },
+        {
+          "code": "mo021",
+          "description": "Oficial 1ª construcción en trabajos de albañilería.",
+          "unit": "h",
+          "yield": 0.6,
+          "price": 38.76
+        },
+        {
+          "code": "mo114",
+          "description": "Peón ordinario construcción en trabajos de albañilería.",
+          "unit": "h",
+          "yield": 0.3,
+          "price": 34.6
+        },
+        {
+          "code": "%0700",
+          "description": "Medios auxiliares",
+          "unit": "%",
+          "yield": 7.000000000000001,
+          "price": 7
+        }
+      ]
+    },
+    {
+      "code": "RF22.01.06",
+      "description": "Enfoscado basto y revoco fratasado en muros piscina",
+      "fullDescription": "Revestimiento continuo de mortero de cemento, tipo GP CSII W0, a buena vista, de 15 mm de espesor, aplicado sobre el paramento vertical en muros de piscinas y aljibes acabado superficial fratasado, para recibido de la impermeabilización (incluida en otra partida). Totalmente acabado, limpieza de zona de trabajo y p.p. de medios auxiliares.",
+      "unit": "m2",
+      "price": 29.05,
+      "breakdown": [
+        {
+          "code": "mt09mif020d",
+          "description": "Mortero industrial para revoco y enlucido de uso corriente, de c",
+          "unit": "m3",
+          "yield": 0.02,
+          "price": 202.36
+        },
+        {
+          "code": "mt09var030a",
+          "description": "Malla de fibra de vidrio tejida, con impregnación de PVC, de 10x",
+          "unit": "m²",
+          "yield": 0.3,
+          "price": 2.27
+        },
+        {
+          "code": "mo020",
+          "description": "Oficial 1ª construcción.",
+          "unit": "h",
+          "yield": 0.4,
+          "price": 38.76
+        },
+        {
+          "code": "mo113",
+          "description": "Peón ordinario construcción.",
+          "unit": "h",
+          "yield": 0.2,
+          "price": 34.6
+        },
+        {
+          "code": "%0700",
+          "description": "Medios auxiliares",
+          "unit": "%",
+          "yield": 7.000000000000001,
+          "price": 7
+        }
+      ]
+    },
+    {
+      "code": "RF22.01.07",
+      "description": "Impermeabilización en muros y suelo piscina",
+      "fullDescription": "Impermeabilización en paredes y suelo de piscina con acabado fino, realizado con mortero biocomponente MAPELASTIC SMART de la casa comercial MAPEI o similar, específico para superfícies de piscinas. Incluye sellado de accesorios empotrados en el hormigón con adhesivo epoxídico biocomponente flexible para usar como puente de unión de hormigones y morteros y para el sellado de fisuras estáticas de todos los accesorios plásticos del vaso, skimmers, focos, boquillas, pasamuros, etc., según detalles de proyecto. Incluye planeidad de la superficie dejándola preparada para recibir material de acabado, protecciones, remates y limpieza.",
+      "unit": "m2",
+      "price": 23.53,
+      "breakdown": [
+        {
+          "code": "paRF22.01.07",
+          "description": "Impermeabilización en muros y suelo piscina",
+          "unit": "m2",
+          "yield": 1,
+          "price": 23.53
+        }
+      ]
+    },
+    {
+      "code": "RF22.01.08",
+      "description": "SUM. sol. gres porcelanic. 60x60cm",
+      "fullDescription": "Suministro de baldosa de gres porcelánico de 60x30 cm para piscina, con capacidad de absorción de agua E<0,5%, grupo Bla, y resistencia al deslizamiento clase 3, incluso mermas, formación de ángulos redondeados y piezas especiales, previa muestra en obra para aceptación de la DF.",
+      "unit": "m2",
+      "price": 44.29,
+      "breakdown": [
+        {
+          "code": "paRF22.01.08",
+          "description": "SUM. sol. gres porcelanic. 60x60cm",
+          "unit": "m2",
+          "yield": 1,
+          "price": 44.29
+        }
+      ]
+    },
+    {
+      "code": "RF22.01.09",
+      "description": "COL. sol. gres porcelanic. 60x60cm",
+      "fullDescription": "Colocación de revestimiento de piscina realizado con baldosa de gres porcelánico de 60x30 cm, con capacidad de absorción de agua E<0,5%, grupo Bla, y resistencia al deslizamiento clase 3, tomada con adhesivo cementoso mejorado C2 especial para piscinas para ambiente salino resistente a los productos químicos, a los cambios de temperatura y a la humedad, y rejuntado con mortero de juntas de resinas reactivas tipo RG, según UNE-EN 1388, especial para piscinas, con junta mínima (1.5 - 3mm), con la misma tonalidad de las piezas, incluso p.p. de preparación y nivelación del soporte, cortes, formación de ángulos redondeados y piezas especiales. Totalmente acabado, limpieza de zona de trabajo y p.p. de medios auxiliares.",
+      "unit": "m2",
+      "price": 42.91,
+      "breakdown": [
+        {
+          "code": "paRF22.01.09",
+          "description": "COL. sol. gres porcelanic. 60x60cm",
+          "unit": "m2",
+          "yield": 1,
+          "price": 42.91
+        }
+      ]
+    },
+    {
+      "code": "RF22.01.10",
+      "description": "Encintado marés 40x80x7cm esp.",
+      "fullDescription": "Encintado de mares formado por piezas de 40x80x7 cm, con tratamiento HIDROFUGANTE y antideslizante, en perimetro de piscina, tomado con cemento cola cementoso mejorado clase C2 S1 para la intemperie, sobre solera de nivelación, y rejuntado con mortero de juntas especial para piedra natural. Incluso p/p de replanteo, nivelación y aplomado, mermas y roturas. Limpieza de la zona de trabajo y p.p. de medios auxiliares.",
+      "unit": "ml",
+      "price": 61.36,
+      "breakdown": [
+        {
+          "code": "paRF22.01.10",
+          "description": "Encintado marés 40x80x7cm esp.",
+          "unit": "ml",
+          "yield": 1,
+          "price": 61.36
+        }
+      ]
+    },
+    {
+      "code": "RF22.01.11",
+      "description": "Encintado marés 30x80x7cm esp.",
+      "fullDescription": "Encintado de mares formado por piezas de 30x80x7 cm, con tratamiento HIDROFUGANTE y antideslizante, en perimetro de piscina, tomado con cemento cola cementoso mejorado clase C2 S1 para la intemperie, sobre solera de nivelación, y rejuntado con mortero de juntas especial para piedra natural. Incluso p/p de replanteo, nivelación y aplomado, mermas y roturas. Limpieza de la zona de trabajo y p.p. de medios auxiliares.",
+      "unit": "ml",
+      "price": 58.34,
+      "breakdown": [
+        {
+          "code": "paRF22.01.11",
+          "description": "Encintado marés 30x80x7cm esp.",
+          "unit": "ml",
+          "yield": 1,
+          "price": 58.34
+        }
+      ]
+    },
+    {
+      "code": "RF22.02.01",
+      "description": "Equipo automático piscina",
+      "fullDescription": "Equipo completo de depuración para piscina, incluso parte proporcional de accesorios y tubos con diámetros adecuados, skimmers, boquillas, sumideros, válvulas, tubos de evacuación y vaciado, etc., y cuadro electrico con programador para la filtracion. Totalmente instalado y en funcionamiento.",
+      "unit": "u",
+      "price": 2621.33,
+      "breakdown": [
+        {
+          "code": "paRF22.02.01",
+          "description": "Equipo automático piscina",
+          "unit": "u",
+          "yield": 1,
+          "price": 2621.33
+        }
+      ]
+    },
+    {
+      "code": "RF22.02.02",
+      "description": "Equipo iluminacion piscina",
+      "fullDescription": "Equipo de iluminación compuesto por suministro y colocacion de 2 proyectores leds luz blanca de 25W 12 V subacuáticos equipados con transformadores de protección, incluso parte proporcional de piezas especiales y ayudas para su colocación, incluso cuadro eléctrico con programador iluminación. Totalmente instalado y en funcionamiento.",
+      "unit": "u",
+      "price": 294.91,
+      "breakdown": [
+        {
+          "code": "paRF22.02.02",
+          "description": "Equipo iluminacion piscina",
+          "unit": "u",
+          "yield": 1,
+          "price": 294.91
+        }
+      ]
+    },
+    {
+      "code": "RF22.02.03",
+      "description": "Equipo electrolisis salina y ph",
+      "fullDescription": "Equipo de electrolisis salina autolimpiante para piscina. Incorpora sonda de cloro y PH con bomba dosificadora incorporada. Incluye montaje de sal y garrafa de PH. Totalmente instalado y en funcionamiento.",
+      "unit": "u",
+      "price": 689.32,
+      "breakdown": [
+        {
+          "code": "paRF22.02.03",
+          "description": "Equipo electrolisis salina y ph",
+          "unit": "u",
+          "yield": 1,
+          "price": 689.32
+        }
+      ]
+    }
+  ],
+  "prices": {
+    "RF22.01.01": {
+      "code": "RF22.01.01",
+      "price": 13.76,
+      "summary": "Capa de hormigón de limpieza HL-150/B/20, fabricado en central y",
+      "unit": "m2"
+    },
+    "RF22.01.02": {
+      "code": "RF22.01.02",
+      "price": 89.86,
+      "summary": "Losa de cimentación de 25 cm espesor de HA-30/B/20/XD2",
+      "unit": "m2"
+    },
+    "RF22.01.03": {
+      "code": "RF22.01.03",
+      "price": 91.35,
+      "summary": "Muro contención tipo H 25 cm relleno y armado",
+      "unit": "m2"
+    },
+    "RF22.01.04": {
+      "code": "RF22.01.04",
+      "price": 585.51,
+      "summary": "Formación de banco y escalones",
+      "unit": "u"
+    },
+    "RF22.01.05": {
+      "code": "RF22.01.05",
+      "price": 52.85,
+      "summary": "Fab. bloque hormigon tipo italiano 15 cm soporte tubos",
+      "unit": "m2"
+    },
+    "RF22.01.06": {
+      "code": "RF22.01.06",
+      "price": 29.05,
+      "summary": "Enfoscado basto y revoco fratasado en muros piscina",
+      "unit": "m2"
+    },
+    "RF22.01.07": {
+      "code": "RF22.01.07",
+      "price": 23.53,
+      "summary": "Impermeabilización en muros y suelo piscina",
+      "unit": "m2"
+    },
+    "RF22.01.08": {
+      "code": "RF22.01.08",
+      "price": 44.29,
+      "summary": "SUM. sol. gres porcelanic. 60x60cm",
+      "unit": "m2"
+    },
+    "RF22.01.09": {
+      "code": "RF22.01.09",
+      "price": 42.91,
+      "summary": "COL. sol. gres porcelanic. 60x60cm",
+      "unit": "m2"
+    },
+    "RF22.01.10": {
+      "code": "RF22.01.10",
+      "price": 61.36,
+      "summary": "Encintado marés 40x80x7cm esp.",
+      "unit": "ml"
+    },
+    "RF22.01.11": {
+      "code": "RF22.01.11",
+      "price": 58.34,
+      "summary": "Encintado marés 30x80x7cm esp.",
+      "unit": "ml"
+    },
+    "mt10hmf011ib": {
+      "code": "mt10hmf011ib",
+      "price": 111.29,
+      "summary": "Hormigón de limpieza HL-150/B/12, fabricado en central.",
+      "unit": "m³"
+    },
+    "mo045": {
+      "code": "mo045",
+      "price": 38.76,
+      "summary": "Oficial 1ª estructurista, en trabajos de puesta en obra del horm",
+      "unit": "h"
+    },
+    "mo092": {
+      "code": "mo092",
+      "price": 34.6,
+      "summary": "Ayudante estructurista, en trabajos de puesta en obra del hormig",
+      "unit": "h"
+    },
+    "mt09mif010dba": {
+      "code": "mt09mif010dba",
+      "price": 79.77,
+      "summary": "Mortero industrial para albañilería, de cemento, color gris, cat",
+      "unit": "m3"
+    },
+    "mo021": {
+      "code": "mo021",
+      "price": 38.76,
+      "summary": "Oficial 1ª construcción en trabajos de albañilería.",
+      "unit": "h"
+    },
+    "mo114": {
+      "code": "mo114",
+      "price": 34.6,
+      "summary": "Peón ordinario construcción en trabajos de albañilería.",
+      "unit": "h"
+    },
+    "mt02bhg030gi": {
+      "code": "mt02bhg030gi",
+      "price": 1.31,
+      "summary": "Bloque italiano de 15x20x50",
+      "unit": "u"
+    },
+    "mt09mif020d": {
+      "code": "mt09mif020d",
+      "price": 202.36,
+      "summary": "Mortero industrial para revoco y enlucido de uso corriente, de c",
+      "unit": "m3"
+    },
+    "mt09var030a": {
+      "code": "mt09var030a",
+      "price": 2.27,
+      "summary": "Malla de fibra de vidrio tejida, con impregnación de PVC, de 10x",
+      "unit": "m²"
+    },
+    "mo020": {
+      "code": "mo020",
+      "price": 38.76,
+      "summary": "Oficial 1ª construcción.",
+      "unit": "h"
+    },
+    "mo113": {
+      "code": "mo113",
+      "price": 34.6,
+      "summary": "Peón ordinario construcción.",
+      "unit": "h"
+    },
+    "RF22.02.01": {
+      "code": "RF22.02.01",
+      "price": 2621.33,
+      "summary": "Equipo automático piscina",
+      "unit": "u"
+    },
+    "RF22.02.02": {
+      "code": "RF22.02.02",
+      "price": 294.91,
+      "summary": "Equipo iluminacion piscina",
+      "unit": "u"
+    },
+    "RF22.02.03": {
+      "code": "RF22.02.03",
+      "price": 689.32,
+      "summary": "Equipo electrolisis salina y ph",
+      "unit": "u"
+    }
+  }
+}

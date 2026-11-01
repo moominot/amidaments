@@ -45,7 +45,9 @@ Navegador
 | `public/eines/generador-preus.user.js` | — | Script de Tampermonkey: botó per copiar l'enllaç del BC3 al Generador de Preus. Veure [`docs/generador-preus.md`](generador-preus.md). |
 | `public/sw.js` | 166 | Service worker: precache del shell i dels bundles, i recepció dels fitxers compartits des d'Android. |
 | `public/manifest.json` | — | PWA + `file_handlers` (`.amid`, `.json`, `.bc3`) i `share_target`. |
-| `test/` | 121 tests | Vitest sobre els càlculs, el parser i l'escriptor. Veure [`docs/tests.md`](tests.md). |
+| `src/utils/sistemes/` | — | Sistemes constructius: capítols sencers amidats a partir de paràmetres. Veure [`docs/sistemes.md`](sistemes.md). |
+| `src/components/SistemaModal.jsx` | — | Quadre per generar un sistema, amb vista prèvia en viu. |
+| `test/` | 150 tests | Vitest sobre els càlculs, el parser i l'escriptor. Veure [`docs/tests.md`](tests.md). |
 
 ## Estructura interna d'`App.jsx`
 
