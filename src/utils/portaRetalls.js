@@ -120,22 +120,25 @@ const camiFins = (nodes, id, cami = []) => {
  * amb uns capítols buits que reprodueixen la cadena fins al destí: la fusió hi baixa codi a
  * codi i deixa el fragment al final del capítol de destí.
  *
- * - Destí capítol: el fragment hi va a dins.
- * - Destí partida: va al capítol que la conté.
+ * - Destí capítol: el fragment hi va a dins, al final.
+ * - Destí partida: va al capítol que la conté, i les partides just després de la triada.
  * - Sense destí: a l'arrel, que només admet capítols.
  *
- * Retorna `{ chapters, cami }` (`cami`: ids dels capítols de destí, per desplegar-los), o
+ * Retorna `{ chapters, cami, despresDe }` (`cami`: ids dels capítols de destí, per desplegar-los;
+ * `despresDe`: la partida darrere la qual han d'anar les partides enganxades, o `null`), o
  * `null` si el fragment porta partides i no hi ha cap capítol on posar-les.
  */
 export const embolcallaPerEnganxar = (chapters, destiId, nodes) => {
     let cadena = destiId ? (camiFins(chapters, destiId) || []) : [];
+    const despresDe = cadena.length > 1 && cadena[cadena.length - 1].unit && !cadena[cadena.length - 2].unit
+        ? destiId : null;
     // Una partida no admet fills: es puja fins al capítol que la conté (la partida pot ser
     // un component d'una altra, i per això és un bucle).
     while (cadena.length && cadena[cadena.length - 1].unit) cadena = cadena.slice(0, -1);
 
     if (cadena.length === 0) {
         if (nodes.some(n => n.unit)) return null;
-        return { chapters: nodes, cami: [] };
+        return { chapters: nodes, cami: [], despresDe: null };
     }
 
     let fills = {
@@ -147,5 +150,5 @@ export const embolcallaPerEnganxar = (chapters, destiId, nodes) => {
         const closca = { id: crypto.randomUUID(), code: c.code, description: c.description, ...fills };
         fills = { subChapters: [closca], items: [] };
     }
-    return { chapters: fills.subChapters, cami: cadena.map(c => c.id) };
+    return { chapters: fills.subChapters, cami: cadena.map(c => c.id), despresDe };
 };

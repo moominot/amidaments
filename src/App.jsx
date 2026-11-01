@@ -2430,8 +2430,12 @@ export default function App() {
     };
 
     // --- FUSIÓ DE BRANQUES (IMMUTABLE & SECURE) ---
-    const mergeTreeBranches = (existingNodes, newNodes) => {
+    // `despresDe`: id d'un node existent; els nodes nous que van a la mateixa llista s'hi
+    // posen just darrere (enganxar amb una partida seleccionada) en comptes d'anar al final.
+    const mergeTreeBranches = (existingNodes, newNodes, despresDe = null) => {
         const merged = [...existingNodes];
+        const ancora = despresDe ? merged.findIndex(n => n.id === despresDe) : -1;
+        let afegitsDarrere = 0;
 
         newNodes.forEach(newNode => {
             const normNew = normalizeCode(newNode.code);
@@ -2442,10 +2446,10 @@ export default function App() {
                 const updatedNode = { ...existingNode };
 
                 if (newNode.subChapters && newNode.subChapters.length > 0) {
-                    updatedNode.subChapters = mergeTreeBranches(existingNode.subChapters || [], newNode.subChapters);
+                    updatedNode.subChapters = mergeTreeBranches(existingNode.subChapters || [], newNode.subChapters, despresDe);
                 }
                 if (newNode.items && newNode.items.length > 0) {
-                    updatedNode.items = mergeTreeBranches(existingNode.items || [], newNode.items);
+                    updatedNode.items = mergeTreeBranches(existingNode.items || [], newNode.items, despresDe);
                 }
 
                 // Only merge measurements for CHAPTERS.
@@ -2461,6 +2465,8 @@ export default function App() {
                 }
 
                 merged[existingIdx] = updatedNode;
+            } else if (ancora > -1) {
+                merged.splice(ancora + 1 + afegitsDarrere++, 0, deepCloneNode(newNode));
             } else {
                 merged.push(deepCloneNode(newNode));
             }
@@ -2988,7 +2994,7 @@ export default function App() {
                 : { ...prev, ...result.prices });
             setBudget(prev => ({
                 ...prev,
-                chapters: afegeixLiniesPerCodi(mergeTreeBranches(prev.chapters, result.chapters), result.liniesAAfegir),
+                chapters: afegeixLiniesPerCodi(mergeTreeBranches(prev.chapters, result.chapters, result.despresDe), result.liniesAAfegir),
                 certifications: [...(prev.certifications || []), ...importedPhases],
                 // Un sistema hi afegeix els seus paràmetres i la instància (veure `utils/sistemesDoc.js`).
                 ...(result.parametres?.length ? { parametres: [...(prev.parametres || []), ...result.parametres] } : {}),
@@ -3443,6 +3449,19 @@ export default function App() {
     const missatgeCopiat = (node) =>
         `${node.unit ? 'Partida copiada' : 'Capítol copiat'}: selecciona el capítol de destí, en aquesta o una altra finestra, i enganxa (Ctrl+V)`;
 
+    // Treure la selecció: sense, el que s'enganxa va a l'arrel i «Nova entrada» crea un
+    // capítol de primer nivell. Esc, el botó ✕ del detall o un clic a l'espai buit de la taula.
+    useEffect(() => {
+        const onKey = (e) => {
+            if (e.key !== 'Escape' || e.defaultPrevented || !selectedId || activeTab !== 'editor') return;
+            const actiu = document.activeElement;
+            if (actiu && (actiu.tagName === 'INPUT' || actiu.tagName === 'TEXTAREA' || actiu.tagName === 'SELECT' || actiu.isContentEditable)) return;
+            setSelectedId(null);
+        };
+        document.addEventListener('keydown', onKey);
+        return () => document.removeEventListener('keydown', onKey);
+    }, [selectedId, activeTab]);
+
     // Ctrl+C sobre la fila seleccionada copia el capítol o la partida, com el botó del panell:
     // així es pot copiar entre finestres encara que el panell no es vegi. Si hi ha text
     // seleccionat o el focus és en un camp, Ctrl+C fa el de sempre.
@@ -3487,6 +3506,7 @@ export default function App() {
             // Un preu que el projecte ja té no es toca: enganxar una partida no hauria de
             // moure l'import de totes les altres que comparteixen el material.
             conservaPreus: true,
+            despresDe: desti.despresDe,
             missatge,
             ...extra,
         });
@@ -5821,7 +5841,10 @@ export default function App() {
                         </div>
                     )}
 
-                    <div className="flex-1 overflow-auto">
+                    <div
+                        className="flex-1 overflow-auto"
+                        onClick={(e) => { if (e.target === e.currentTarget && activeTab === 'editor') setSelectedId(null); }}
+                    >
                         {activeTab === 'editor' && (
                             <table className="w-full text-left border-collapse table-fixed md:table-auto">
                                 <thead className="sticky top-0 bg-white z-20 border-b border-slate-200 shadow-sm">
@@ -5887,13 +5910,23 @@ export default function App() {
 
                 {/* Mobile: Bottom Sheet Toggle Tab (only when item selected) */}
                 {!panellAlCostat && mostraDetall && selectedId && !showMobileSidebar && (
-                    <button
-                        className="fixed bottom-0 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white px-6 py-2 rounded-t-lg shadow-lg z-50 flex items-center gap-2"
-                        onClick={() => setShowMobileSidebar(!showMobileSidebar)}
-                    >
-                        <ChevronDown className={showMobileSidebar ? 'rotate-180' : ''} size={16} />
-                        <span className="text-xs font-bold uppercase tracking-wider">Detall</span>
-                    </button>
+                    <div className="fixed bottom-0 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white rounded-t-lg shadow-lg z-50 flex items-stretch">
+                        <button
+                            className="pl-6 pr-4 py-2 flex items-center gap-2 touch-manipulation"
+                            onClick={() => setShowMobileSidebar(true)}
+                        >
+                            <ChevronDown size={16} />
+                            <span className="text-xs font-bold uppercase tracking-wider">Detall</span>
+                        </button>
+                        <button
+                            className="px-3 border-l border-slate-600 flex items-center touch-manipulation"
+                            onClick={() => setSelectedId(null)}
+                            title="Treu la selecció"
+                            aria-label="Treu la selecció"
+                        >
+                            <X size={16} />
+                        </button>
+                    </div>
                 )}
 
                 <aside
@@ -5953,10 +5986,18 @@ export default function App() {
                                                 </button>
                                                 <button
                                                     onClick={() => enganxaDelPortaRetalls(node.id)}
-                                                    title={node.unit ? 'Enganxa al capítol d\'aquesta partida (Ctrl+V)' : 'Enganxa dins d\'aquest capítol (Ctrl+V)'}
+                                                    title={node.unit ? 'Enganxa darrere aquesta partida, al seu capítol (Ctrl+V)' : 'Enganxa dins d\'aquest capítol (Ctrl+V)'}
                                                     className="flex items-center gap-1 text-[10px] font-bold text-slate-500 hover:text-blue-600 hover:bg-blue-50 border border-slate-200 px-1.5 py-0.5 rounded touch-manipulation"
                                                 >
                                                     <ClipboardPaste size={10} /> Enganxa
+                                                </button>
+                                                <button
+                                                    onClick={() => { setSelectedId(null); setShowMobileSidebar(false); }}
+                                                    title="Treu la selecció (Esc): el que enganxis anirà a l'arrel"
+                                                    aria-label="Treu la selecció"
+                                                    className="flex items-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 border border-slate-200 p-0.5 rounded touch-manipulation"
+                                                >
+                                                    <X size={12} />
                                                 </button>
                                                 <span className="text-[10px] font-black bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
                                                     {node.unit ? formatCurrency(calcItemTotalAmount(node, priceDatabase)) : formatCurrency(calcChapterTotal(node, priceDatabase))}

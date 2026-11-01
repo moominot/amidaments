@@ -76,9 +76,15 @@ describe('on va el que s\'enganxa', () => {
         expect(r.chapters[0].subChapters[0].items).toEqual([p]);
     });
 
-    it('amb una partida seleccionada, al capítol que la conté', () => {
+    it('amb una partida seleccionada, al capítol que la conté, darrere seu', () => {
         const r = embolcallaPerEnganxar(arbre(), 'id-P1', [p]);
         expect(r.cami).toEqual(['id-01', 'id-01.01']);
+        expect(r.despresDe).toBe('id-P1');
+    });
+
+    it('amb un capítol seleccionat o sense res, no hi ha partida de referència', () => {
+        expect(embolcallaPerEnganxar(arbre(), 'id-01.01', [p]).despresDe).toBeNull();
+        expect(embolcallaPerEnganxar(arbre(), null, [c]).despresDe).toBeNull();
     });
 
     it('un capítol hi entra com a subcapítol', () => {
@@ -87,7 +93,7 @@ describe('on va el que s\'enganxa', () => {
     });
 
     it('sense selecció, un capítol va a l\'arrel i una partida no té on anar', () => {
-        expect(embolcallaPerEnganxar(arbre(), null, [c])).toEqual({ chapters: [c], cami: [] });
+        expect(embolcallaPerEnganxar(arbre(), null, [c])).toEqual({ chapters: [c], cami: [], despresDe: null });
         expect(embolcallaPerEnganxar(arbre(), null, [p])).toBeNull();
     });
 });

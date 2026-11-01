@@ -11,7 +11,7 @@ npm install
 npm run dev
 npm run build     # ha de passar sempre abans de donar una feina per acabada
 npm run lint      # cobreix .js i .jsx; l'arbre ha de quedar amb 0 errors
-npm test          # Vitest; 201 tests sobre els càlculs, el parser i l'escriptor
+npm test          # Vitest; 202 tests sobre els càlculs, el parser i l'escriptor
 npm run test:watch
 ```
 
@@ -78,6 +78,9 @@ del sector: *amidament*, *partida*, *capítol*, *descomposat*, *rendiment*, *cer
   només porta l'`id` del node, que a l'altra finestra no vol dir res. `utils/portaRetalls.js`
   desa el subarbre en JSON amb els seus preus i les línies vinculades congelades; per enganxar
   es reaprofita `startImportProcess`, amb `conservaPreus` perquè no trepitgi preus existents.
+  Destí: dins del capítol seleccionat; amb una partida seleccionada, al seu capítol i just darrere
+  (`despresDe`); sense selecció, a l'arrel. La selecció es treu amb Esc, el ✕ del detall o un clic
+  a l'espai buit de la taula.
 - **Cada finestra té el seu projecte.** El contingut només es desa a la biblioteca
   (`utils/projectLibrary.js`), sota l'id del projecte; quin té obert cada pestanya va a
   `sessionStorage`. No tornis a un espai únic de «projecte actual»: amb dues finestres, l'última
