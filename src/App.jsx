@@ -1799,14 +1799,32 @@ export default function App() {
     }, [resolvedChapters, searchTerm]);
 
     // --- Filtered Prices ---
+    // El parser desa tots els conceptes del BC3 a `priceDatabase`, també els capítols, que hi
+    // surten amb el total com a «preu» i sense unitat. Al banc i al selector només hi fan
+    // soroll; es deixen a la base (no molesten cap càlcul) i es filtren en mostrar-la.
+    const bancDePreus = useMemo(() => {
+        const capitols = new Set();
+        const recull = (nodes) => nodes.forEach(n => {
+            if (!n.unit) capitols.add(normalizeCode(n.code));
+            recull([...(n.subChapters || []), ...(n.items || [])]);
+        });
+        recull(budget.chapters);
+        const out = {};
+        Object.entries(priceDatabase).forEach(([code, data]) => {
+            if (!data?.unit && capitols.has(normalizeCode(code))) return;
+            out[code] = data;
+        });
+        return out;
+    }, [priceDatabase, budget.chapters]);
+
     const filteredPrices = useMemo(() => {
-        if (!searchTerm.trim()) return Object.entries(priceDatabase);
+        if (!searchTerm.trim()) return Object.entries(bancDePreus);
         const searchLower = searchTerm.toLowerCase().trim();
-        return Object.entries(priceDatabase).filter(([code, data]) => {
+        return Object.entries(bancDePreus).filter(([code, data]) => {
             return (code || '').toLowerCase().includes(searchLower) ||
                 (data.summary || '').toLowerCase().includes(searchLower);
         });
-    }, [priceDatabase, searchTerm]);
+    }, [bancDePreus, searchTerm]);
 
     // --- Resources Aggregation Logic ---
     const aggregatedResources = useMemo(() => {
@@ -4596,7 +4614,8 @@ export default function App() {
                                         <div className="flex items-center justify-end gap-1 md:gap-2">
                                             <span className="text-[11px] md:text-xs text-slate-300">€</span>
                                             <NumberInput
-                                                className="bg-transparent text-right border-b border-transparent hover:border-blue-300 focus:border-blue-600 outline-none w-14 md:w-24 font-bold text-blue-700 text-[11px] md:text-sm"
+                                                className="bg-transparent text-right border-b border-transparent hover:border-blue-300 focus:border-blue-600 outline-none w-20 md:w-28 font-bold text-blue-700 text-[11px] md:text-sm"
+                                                decimals={2}
                                                 value={data.price}
                                                 onChange={(v) => updateDbPrice(code, v)}
                                             />
@@ -4625,7 +4644,7 @@ export default function App() {
             {/* 1. DRIVE SETTINGS MODAL */}
             {picker && (
                 <PriceBankPicker
-                    priceDatabase={priceDatabase}
+                    priceDatabase={bancDePreus}
                     titol={picker.titol}
                     subtitol={picker.subtitol}
                     filtre={picker.filtre}
@@ -5442,6 +5461,26 @@ export default function App() {
                                     </header>
 
                                     <div className="flex-1 p-4 space-y-4">
+                                        {/* Mode certificació sense cap fase: el panell mostrava els camps del
+                                            pressupost com si s'hi pogués certificar. */}
+                                        {appMode === 'certification' && !activeCertId && node.unit && (
+                                            <div className="bg-emerald-50 border border-emerald-200 rounded p-3 flex items-start gap-3">
+                                                <Layers size={16} className="text-emerald-600 flex-shrink-0 mt-0.5" />
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-[11px] font-bold text-emerald-800">Encara no hi ha cap certificació</p>
+                                                    <p className="text-[11px] text-emerald-700 mt-0.5 leading-snug">
+                                                        Crea&apos;n una per introduir-hi l&apos;amidament executat d&apos;aquesta partida. Els camps de sota són els del pressupost.
+                                                    </p>
+                                                    <button
+                                                        onClick={() => { setShowNewCertInput(true); setShowMobileSidebar(false); }}
+                                                        className="mt-2 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 md:py-1 text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 touch-manipulation"
+                                                    >
+                                                        <Plus size={12} /> Nova certificació
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+
                                         {/* Certification Section - Only in Certification Mode */}
                                         {appMode === 'certification' && activeCertId && node.unit && (
                                             <CertificationSidebar
