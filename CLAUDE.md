@@ -11,7 +11,7 @@ npm install
 npm run dev
 npm run build     # ha de passar sempre abans de donar una feina per acabada
 npm run lint      # cobreix .js i .jsx; l'arbre ha de quedar amb 0 errors
-npm test          # Vitest; 121 tests sobre els càlculs, el parser i l'escriptor
+npm test          # Vitest; 130 tests sobre els càlculs, el parser i l'escriptor
 npm run test:watch
 ```
 
@@ -74,6 +74,10 @@ del sector: *amidament*, *partida*, *capítol*, *descomposat*, *rendiment*, *cer
 - **El fitxer natiu és `.amid`**, no `.json`: és JSON a dins, però amb extensió i MIME propis
   perquè l'associació de fitxers del sistema sigui neta. Tot el que sap què és un fitxer de
   projecte viu a `utils/projectFile.js`; els `.json` desats abans s'han de continuar obrint.
+- **Copiar entre finestres va pel porta-retalls, no per arrossegament**: l'arrossegament intern
+  només porta l'`id` del node, que a l'altra finestra no vol dir res. `utils/portaRetalls.js`
+  desa el subarbre en JSON amb els seus preus i les línies vinculades congelades; per enganxar
+  es reaprofita `startImportProcess`, amb `conservaPreus` perquè no trepitgi preus existents.
 - **Qualsevol fitxer que entri passa per `obreFitxer`** (`App.jsx`): selector, arrossegament,
   `launchQueue` d'escriptori i fitxers compartits des d'Android. Si hi afegeixes un camí nou,
   fes-lo passar per aquí i no repeteixis la comprovació: tenir-ne tres de diferents va deixar

@@ -40,6 +40,7 @@ import {
     Recycle,
     Leaf,
     ClipboardPaste,
+    Copy,
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -86,6 +87,7 @@ import { numberToTextCatalan } from './utils/numberToText';
 import { exportCertificationPDF } from './utils/certificationPdf';
 import { safeFileName } from './utils/fileName';
 import { parseCadClipboard, cadEntitiesToMeasurements } from './utils/cadPaste';
+import { creaFragment, llegeixFragment, embolcallaPerEnganxar } from './utils/portaRetalls';
 import { pdfDateText } from './utils/pdfDate';
 import { descarregaBC3 } from './utils/corsProxy';
 import { buildWasteSummary, formatMassa, nomTipus, catalegResidus, magnitudsDe, TIPUS_RESIDU } from './utils/waste';
@@ -2552,6 +2554,7 @@ export default function App() {
             const { chapters, duplicates, currentIdx } = prev;
             const currentDup = duplicates[currentIdx];
             let nextChapters = chapters;
+            let prices = prev.prices;
 
             if (asNew) {
                 // Add suffix to the imported item
@@ -2580,6 +2583,10 @@ export default function App() {
                     });
                 };
                 nextChapters = updateCodeInTree(chapters);
+                // El codi nou ha de dur el preu de la partida importada: sense entrada a la
+                // base, una partida sense descomposat quedaria a zero.
+                const vell = prices?.[normalizeCode(currentDup.code)];
+                if (vell) prices = { ...prices, [normalizeCode(newCode)]: { ...vell, code: newCode } };
             } else {
                 // Remove from imported tree and mark for expansion
                 const findAndExpand = (nodes, targetCode) => {
@@ -2615,7 +2622,7 @@ export default function App() {
                 nextChapters = removeFromTree(chapters);
             }
 
-            const updatedPending = { ...prev, chapters: nextChapters };
+            const updatedPending = { ...prev, prices, chapters: nextChapters };
 
             if (currentIdx + 1 < duplicates.length) {
                 return { ...updatedPending, currentIdx: currentIdx + 1 };
@@ -2646,13 +2653,15 @@ export default function App() {
             }).budget);
             notify("Projecte obert correctament");
         } else {
-            setPriceDatabase(prev => ({ ...prev, ...result.prices }));
+            setPriceDatabase(prev => result.conservaPreus
+                ? { ...result.prices, ...prev }
+                : { ...prev, ...result.prices });
             setBudget(prev => ({
                 ...prev,
                 chapters: mergeTreeBranches(prev.chapters, result.chapters),
                 certifications: [...(prev.certifications || []), ...importedPhases]
             }));
-            notify("Dades importades correctament");
+            notify(result.missatge || "Dades importades correctament");
         }
     };
 
@@ -2802,6 +2811,12 @@ export default function App() {
     // dependència oblidada faria que enganxar actués sobre l'estat de quan es va muntar.
     const handlePaste = (e) => {
         const text = e.clipboardData.getData('text/plain')?.trim();
+        // Un capítol o una partida copiats amb el botó de la barra lateral, potser des d'una
+        // altra finestra. Mai no es vol dins d'un camp de text.
+        if (text && enganxaFragment(text)) {
+            e.preventDefault();
+            return;
+        }
         // Les entitats copiades amb l'ordre AMIDA del LISP. Es comprova abans que res i se
         // n'impedeix l'acció per defecte: si el focus és en un camp de la línia d'amidament,
         // el text tabulat hi acabaria enganxat.
@@ -3041,6 +3056,60 @@ export default function App() {
             return;
         }
         if (!enganxaCad(text)) notify('El porta-retalls no porta entitats copiades amb l\'ordre AMIDA', 'error');
+    };
+
+    // --- Copiar i enganxar entre finestres (veure `utils/portaRetalls.js`) ---
+    const copiaAlPortaRetalls = async (node) => {
+        try {
+            await navigator.clipboard.writeText(creaFragment(node, priceDatabase));
+        } catch {
+            notify('El navegador no deixa escriure al porta-retalls', 'error');
+            return;
+        }
+        const que = node.unit ? 'Partida copiada' : 'Capítol copiat';
+        notify(`${que}: selecciona el capítol de destí, en aquesta o una altra finestra, i enganxa`);
+    };
+
+    /** Retorna `false` si el text no és un fragment, perquè es puguin provar altres formats. */
+    const enganxaFragment = (text, destiId = selectedId) => {
+        const fragment = llegeixFragment(text);
+        if (!fragment) return false;
+        const desti = embolcallaPerEnganxar(budget.chapters, destiId, fragment.nodes);
+        if (!desti) {
+            notify('Per enganxar una partida, selecciona primer el capítol on ha d\'anar', 'error');
+            return true;
+        }
+        if (desti.cami.length) {
+            setExpandedChapters(prev => {
+                const seguent = { ...prev };
+                desti.cami.forEach(id => { seguent[id] = true; });
+                return seguent;
+            });
+        }
+        const n = fragment.nodes[0];
+        startImportProcess({
+            chapters: desti.chapters,
+            prices: fragment.prices,
+            phases: [],
+            // Un preu que el projecte ja té no es toca: enganxar una partida no hauria de
+            // moure l'import de totes les altres que comparteixen el material.
+            conservaPreus: true,
+            missatge: `${n.unit ? 'Partida enganxada' : 'Capítol enganxat'}: ${n.code} ${n.description || ''}`.trim(),
+        });
+        return true;
+    };
+
+    const enganxaDelPortaRetalls = async (destiId) => {
+        let text;
+        try {
+            text = await navigator.clipboard.readText();
+        } catch {
+            notify('El navegador no deixa llegir el porta-retalls: fes Ctrl+V', 'error');
+            return;
+        }
+        if (!enganxaFragment(text, destiId)) {
+            notify('El porta-retalls no porta cap capítol ni partida copiats', 'error');
+        }
     };
 
     const deleteNode = (id) => {
@@ -5217,6 +5286,20 @@ export default function App() {
                                         <div className="flex items-center justify-between">
                                             <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest">{node.unit ? 'Detall de Partida' : 'Detall de Capítol'}</p>
                                             <div className="flex items-center gap-1">
+                                                <button
+                                                    onClick={() => copiaAlPortaRetalls(node)}
+                                                    title={`Copia ${node.unit ? 'la partida' : 'el capítol i tot el que conté'} per enganxar-ho en una altra finestra`}
+                                                    className="flex items-center gap-1 text-[10px] font-bold text-slate-500 hover:text-blue-600 hover:bg-blue-50 border border-slate-200 px-1.5 py-0.5 rounded touch-manipulation"
+                                                >
+                                                    <Copy size={10} /> Copia
+                                                </button>
+                                                <button
+                                                    onClick={() => enganxaDelPortaRetalls(node.id)}
+                                                    title={node.unit ? 'Enganxa al capítol d\'aquesta partida' : 'Enganxa dins d\'aquest capítol'}
+                                                    className="flex items-center gap-1 text-[10px] font-bold text-slate-500 hover:text-blue-600 hover:bg-blue-50 border border-slate-200 px-1.5 py-0.5 rounded touch-manipulation"
+                                                >
+                                                    <ClipboardPaste size={10} /> Enganxa
+                                                </button>
                                                 <span className="text-[10px] font-black bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
                                                     {node.unit ? formatCurrency(calcItemTotalAmount(node, priceDatabase)) : formatCurrency(calcChapterTotal(node, priceDatabase))}
                                                 </span>
