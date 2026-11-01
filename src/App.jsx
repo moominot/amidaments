@@ -4800,7 +4800,7 @@ export default function App() {
             )}
 
             {/* Header Flat */}
-            <header className="bg-slate-950 text-white px-2 py-2.5 md:p-4 flex justify-between items-center gap-1 border-b border-slate-800 z-30">
+            <header className="bg-slate-950 text-white px-2 py-2.5 md:p-4 flex justify-between items-center gap-1 border-b border-slate-800 relative z-40">
                 {/* Left: Logo + Title + Drive Status */}
                 <div className="flex items-center gap-2 md:gap-4">
                     <div className="bg-blue-600 p-1.5 md:p-2">
