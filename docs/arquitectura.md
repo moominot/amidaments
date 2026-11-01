@@ -42,6 +42,7 @@ Navegador
 | `src/components/Certification/CertificationBar.jsx` | 105 | Selector de fases i aprovació. |
 | `src/components/Certification/CertificationSidebar.jsx` | 222 | Panell de certificació d'una partida. |
 | `src/components/DriveSettingsModal.jsx` | 145 | Formulari de credencials Google. |
+| `public/eines/generador-preus.user.js` | — | Script de Tampermonkey: botó per copiar l'enllaç del BC3 al Generador de Preus. Veure [`docs/generador-preus.md`](generador-preus.md). |
 | `public/sw.js` | 166 | Service worker: precache del shell i dels bundles, i recepció dels fitxers compartits des d'Android. |
 | `public/manifest.json` | — | PWA + `file_handlers` (`.amid`, `.json`, `.bc3`) i `share_target`. |
 | `test/` | 121 tests | Vitest sobre els càlculs, el parser i l'escriptor. Veure [`docs/tests.md`](tests.md). |
