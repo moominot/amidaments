@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { parseDecimal } from '../utils/decimal';
+import { formatNumber } from '../utils/calculations';
 
 /**
  * Camp numèric que accepta la coma com a separador decimal.
@@ -29,17 +30,24 @@ const NumberInput = ({
     onCommit,          // opcional: es crida en sortir del camp o prémer Enter
     className = '',
     selectOnFocus = true,
+    // Amb `decimals`, fora d'edició el valor es mostra amb separador de milers i els decimals
+    // fixos («6.089,50» i no «6089,5»); en entrar-hi torna al número sense format.
+    decimals,
     ...props
 }) => {
-    const [draft, setDraft] = useState(() => aText(value));
+    const mostra = (v) => {
+        if (decimals === undefined || v === null || v === undefined || v === '' || !Number.isFinite(Number(v))) return aText(v);
+        return formatNumber(v, decimals);
+    };
+    const [draft, setDraft] = useState(() => mostra(value));
     const editant = useRef(false);
     const camp = useRef(null);
 
     // Mentre l'usuari escriu no li reescrivim el text a sota; fora d'això, el camp
     // segueix el valor del model (per exemple després d'un "100%" o d'un desfer).
     useEffect(() => {
-        if (!editant.current) setDraft(aText(value));
-    }, [value]);
+        if (!editant.current) setDraft(mostra(value));
+    }, [value, decimals]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleChange = (e) => {
         const text = e.target.value;
@@ -61,7 +69,12 @@ const NumberInput = ({
             className={className}
             onFocus={(e) => {
                 editant.current = true;
-                if (selectOnFocus) e.target.select();
+                if (decimals !== undefined) {
+                    // El text canvia de format: se selecciona un cop React l'ha pintat.
+                    const camp = e.target;
+                    setDraft(aText(value));
+                    if (selectOnFocus) requestAnimationFrame(() => camp.select());
+                } else if (selectOnFocus) e.target.select();
                 props.onFocus?.(e);
             }}
             onChange={handleChange}
@@ -70,8 +83,8 @@ const NumberInput = ({
                 const valor = parseDecimal(draft);
                 // Un camp buit o a mitges torna al darrer valor vàlid en comptes de
                 // quedar-se en un estat que no es podria desar.
-                if (valor === null) setDraft(aText(value));
-                else { setDraft(aText(valor)); onCommit?.(valor); }
+                if (valor === null) setDraft(mostra(value));
+                else { setDraft(mostra(valor)); onCommit?.(valor); }
                 props.onBlur?.(e);
             }}
             onKeyDown={(e) => {
