@@ -78,6 +78,10 @@ del sector: *amidament*, *partida*, *capítol*, *descomposat*, *rendiment*, *cer
   només porta l'`id` del node, que a l'altra finestra no vol dir res. `utils/portaRetalls.js`
   desa el subarbre en JSON amb els seus preus i les línies vinculades congelades; per enganxar
   es reaprofita `startImportProcess`, amb `conservaPreus` perquè no trepitgi preus existents.
+- **Cada finestra té el seu projecte.** El contingut només es desa a la biblioteca
+  (`utils/projectLibrary.js`), sota l'id del projecte; quin té obert cada pestanya va a
+  `sessionStorage`. No tornis a un espai únic de «projecte actual»: amb dues finestres, l'última
+  que desava guanyava. Una finestra amb `?consulta` és un banc de consulta i no desa res.
 - **Qualsevol fitxer que entri passa per `obreFitxer`** (`App.jsx`): selector, arrossegament,
   `launchQueue` d'escriptori i fitxers compartits des d'Android. Si hi afegeixes un camí nou,
   fes-lo passar per aquí i no repeteixis la comprovació: tenir-ne tres de diferents va deixar

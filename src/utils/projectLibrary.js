@@ -103,3 +103,56 @@ export const deleteProject = (id) => {
     escriureIndex(llegirIndex().filter(p => p.id !== id));
     return { ok: true };
 };
+
+/*
+ * ─── Quin projecte obre cada finestra ───
+ *
+ * Abans hi havia un sol espai de «projecte actual» (`amidaments_budget` i `amidaments_prices`)
+ * per a tot el navegador. Amb dues finestres obertes, l'última que desava guanyava, i en
+ * recarregar podia sortir el projecte de l'altra finestra o un BC3 obert per consultar.
+ *
+ * Ara el contingut només viu a la biblioteca, sota l'id del projecte, i cada finestra recorda
+ * quin té obert a `sessionStorage`, que és per pestanya i sobreviu a recarregar. Una finestra
+ * nova obre l'últim projecte que s'ha desat des de qualsevol finestra.
+ */
+const CLAU_ACTIU = 'amidaments_actiu';
+const CLAU_DARRER = 'amidaments_darrer';
+const ANTIC_BUDGET = 'amidaments_budget';
+const ANTIC_PREUS = 'amidaments_prices';
+
+/** Clau de `localStorage` on es desa el projecte, per escoltar-ne els canvis (`storage`). */
+export const projectStorageKey = clauDe;
+
+/** Aquesta finestra té obert el projecte `id`. */
+export const markProjectOpen = (id) => {
+    if (!id) return;
+    try { sessionStorage.setItem(CLAU_ACTIU, id); } catch { /* res a fer */ }
+    try { localStorage.setItem(CLAU_DARRER, id); } catch { /* res a fer */ }
+};
+
+/**
+ * Projecte amb què arrenca la finestra: el que tenia oberta (si s'ha recarregat), si no
+ * l'últim desat, i si no el de l'espai antic d'abans de la biblioteca. `null` si no n'hi ha.
+ */
+export const initialProject = () => {
+    const candidats = [];
+    try { candidats.push(sessionStorage.getItem(CLAU_ACTIU)); } catch { /* res a fer */ }
+    try { candidats.push(localStorage.getItem(CLAU_DARRER)); } catch { /* res a fer */ }
+    for (const id of candidats) {
+        const p = id && getProject(id);
+        if (p?.budget) return p;
+    }
+    try {
+        const budget = JSON.parse(localStorage.getItem(ANTIC_BUDGET) || 'null');
+        if (budget) return { budget, priceDatabase: JSON.parse(localStorage.getItem(ANTIC_PREUS) || '{}') || {} };
+    } catch { /* espai antic malmès: es comença de nou */ }
+    return null;
+};
+
+/** Esborra l'espai antic un cop el projecte ja és a la biblioteca: ocupava el doble. */
+export const dropLegacySlot = () => {
+    try {
+        localStorage.removeItem(ANTIC_BUDGET);
+        localStorage.removeItem(ANTIC_PREUS);
+    } catch { /* res a fer */ }
+};

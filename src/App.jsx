@@ -78,7 +78,7 @@ import DriveSettingsModal from './components/DriveSettingsModal';
 import NumberInput from './components/NumberInput';
 import ProjectLibraryModal from './components/ProjectLibraryModal';
 import LinkItemModal from './components/LinkItemModal';
-import { listProjects, getProject, saveProject, deleteProject } from './utils/projectLibrary';
+import { listProjects, getProject, saveProject, deleteProject, markProjectOpen, initialProject, dropLegacySlot, projectStorageKey } from './utils/projectLibrary';
 import { migrateBudget } from './utils/migrateBudget';
 import { resolveMeasurementRefs, isRefLine, refLabel } from './utils/measurementRefs';
 import { processBC3Data } from './utils/bc3Parser';
@@ -971,56 +971,85 @@ const ItemCreator = ({ onClose, onSave, parentId, parentCode, onTriarDelBanc }) 
 };
 
 export default function App() {
+    // Una finestra de consulta té obert un BC3 de referència (un banc de preus, un projecte
+    // anterior) per copiar-ne capítols i partides cap a la finestra on es treballa. No desa
+    // res: si ho fes, ompliria la biblioteca i passaria a ser «l'últim projecte» del navegador.
+    const [consulta] = useState(() => new URLSearchParams(window.location.search).has('consulta'));
+    const [inicial] = useState(() => (consulta ? null : initialProject()));
+
     const [budget, setBudget] = useState(() => {
-        const saved = localStorage.getItem('amidaments_budget');
+        const nou = { id: crypto.randomUUID(), name: consulta ? 'Banc de consulta' : 'Projecte BC3', chapters: [], certifications: [] };
         try {
-            const data = saved ? JSON.parse(saved) : { id: '1', name: 'Projecte BC3', chapters: [] };
+            const data = inicial?.budget ? { ...inicial.budget } : nou;
+            if (!data.id) data.id = crypto.randomUUID();
             if (!data.certifications) data.certifications = [];
             return migrateBudget(data).budget;
         } catch (e) {
             console.error("Error parsing saved budget", e);
-            return { id: '1', name: 'Projecte BC3', chapters: [], certifications: [] };
+            return nou;
         }
     });
 
-    const [priceDatabase, setPriceDatabase] = useState(() => {
-        const saved = localStorage.getItem('amidaments_prices');
-        try {
-            return saved ? JSON.parse(saved) : {};
-        } catch (e) {
-            console.error("Error parsing saved prices", e);
-            return {};
-        }
-    });
+    const [priceDatabase, setPriceDatabase] = useState(() => inicial?.priceDatabase || {});
 
     const [appMode, setAppMode] = useState('budget'); // 'budget' | 'certification'
     const [activeCertId, setActiveCertId] = useState(null);
 
-    // Auto-save effect
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            localStorage.setItem('amidaments_budget', JSON.stringify(budget));
-            localStorage.setItem('amidaments_prices', JSON.stringify(priceDatabase));
+    // Autodesat a la biblioteca, sota l'id del projecte. Veure `utils/projectLibrary.js`.
+    const desaALaBiblioteca = useCallback(({ budget: b, priceDatabase: preus }) => {
+        // Un projecte buit no ocupa lloc a la llista de recents, ni passa a ser el que obre una
+        // finestra nova: «Nou projecte» i tancar no ha de fer perdre de vista l'anterior.
+        if (consulta || !b?.id || !(b.chapters?.length > 0)) return;
+        markProjectOpen(b.id);
+        const total = resolveMeasurementRefs(b.chapters).chapters
+            .reduce((acc, ch) => acc + calcChapterTotal(ch, preus), 0);
+        const res = saveProject({ id: b.id, budget: b, priceDatabase: preus, total });
+        if (res.ok) {
+            dropLegacySlot();
+            setLibrary(listProjects());
+        } else {
+            notify('No hi ha prou espai al navegador per desar el projecte', 'error');
+        }
+    }, [consulta]); // eslint-disable-line react-hooks/exhaustive-deps
 
-            // I una còpia a la biblioteca, perquè obrir-ne un altre no destrueixi aquest.
-            if (budget.chapters?.length > 0) {
-                const total = budgetTotal;
-                const res = saveProject({ id: budget.id, budget, priceDatabase, total });
-                if (res.ok) setLibrary(listProjects());
-                else notify('No hi ha prou espai al navegador per desar la còpia de seguretat', 'error');
-            }
+    const pendentRef = React.useRef(null);
+    useEffect(() => {
+        if (consulta) return undefined;
+        // Si es canvia de projecte (obrir-ne un altre, nou, importar) abans que l'autodesat
+        // s'hagi disparat, els últims canvis de l'anterior es desen ara: el temporitzador que
+        // els havia de desar es cancel·la amb aquest mateix canvi.
+        const anterior = pendentRef.current;
+        if (anterior && anterior.budget.id !== budget.id) desaALaBiblioteca(anterior);
+        pendentRef.current = { budget, priceDatabase };
+        const timer = setTimeout(() => {
+            desaALaBiblioteca(pendentRef.current);
+            pendentRef.current = null;
         }, 1000);
         return () => clearTimeout(timer);
-    }, [budget, priceDatabase]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [budget, priceDatabase, consulta, desaALaBiblioteca]);
 
     useEffect(() => {
+        if (consulta) return undefined;
         const handleBeforeUnload = () => {
-            localStorage.setItem('amidaments_budget', JSON.stringify(budget));
-            localStorage.setItem('amidaments_prices', JSON.stringify(priceDatabase));
+            if (pendentRef.current) desaALaBiblioteca(pendentRef.current);
         };
         window.addEventListener('beforeunload', handleBeforeUnload);
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-    }, [budget, priceDatabase]);
+    }, [consulta, desaALaBiblioteca]);
+
+    // El mateix projecte obert en dues finestres: l'última que desa guanya. No s'intenta
+    // fusionar res, però com a mínim s'avisa, un sol cop per projecte.
+    const avisatRef = React.useRef(null);
+    useEffect(() => {
+        if (consulta) return undefined;
+        const onStorage = (e) => {
+            if (e.key !== projectStorageKey(budget.id) || avisatRef.current === budget.id) return;
+            avisatRef.current = budget.id;
+            notify('Aquest projecte també està obert en una altra finestra: es desarà el de l\'última que l\'editi', 'error');
+        };
+        window.addEventListener('storage', onStorage);
+        return () => window.removeEventListener('storage', onStorage);
+    }, [budget.id, consulta]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         if (activeCertId || !(budget.certifications?.length > 0)) return;
@@ -1255,6 +1284,17 @@ export default function App() {
         deleteProject(id);
         setLibrary(listProjects());
     }, [library]);
+
+    // Els darrers projectes, sense el que ja és obert, per obrir-los des del menú d'un clic.
+    const recents = useMemo(() => library.filter(p => p.id !== budget.id).slice(0, 5), [library, budget.id]);
+
+    const obreFinestraConsulta = () => {
+        window.open(`${window.location.pathname}?consulta`, '_blank');
+    };
+
+    useEffect(() => {
+        if (consulta) document.title = `Consulta · ${budget.name || 'BC3'}`;
+    }, [consulta, budget.name]);
 
     const handleDeleteCertification = useCallback((certId) => {
         const cert = (budget.certifications || []).find(c => c.id === certId);
@@ -2377,7 +2417,10 @@ export default function App() {
 
     const handleNewProject = () => {
         if (budget.chapters.length > 0 || Object.keys(priceDatabase).length > 0) {
-            if (!confirm('Estàs segur que vols crear un nou projecte? Es perdran les dades no desades.')) {
+            const avis = consulta
+                ? 'Crear un projecte nou? Aquesta finestra és de consulta i no desa res.'
+                : 'Crear un projecte nou? L\'actual queda desat al navegador i es pot tornar a obrir des d\'Obrir › Recents.';
+            if (!confirm(avis)) {
                 return;
             }
         }
@@ -4761,11 +4804,32 @@ export default function App() {
                                         Des de Google Drive
                                     </button>
                                     <button
+                                        onClick={() => { obreFinestraConsulta(); setShowOpenDropdown(false); }}
+                                        title="Obre un BC3 de referència en una finestra nova que no desa res, per copiar-ne capítols i partides"
+                                        className="w-full text-left px-4 py-2 text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-colors flex items-center gap-2 border-t border-slate-800"
+                                    >
+                                        <Database size={12} className="text-amber-400" />
+                                        Banc de consulta (finestra nova)
+                                    </button>
+                                    {recents.length > 0 && (
+                                        <div className="px-3 pt-2 pb-1 text-[8px] font-bold text-slate-500 uppercase tracking-widest border-t border-slate-800">Recents</div>
+                                    )}
+                                    {recents.map(p => (
+                                        <button
+                                            key={p.id}
+                                            onClick={() => { handleOpenFromLibrary(p.id); setShowOpenDropdown(false); }}
+                                            className="w-full text-left px-4 py-1.5 hover:bg-slate-800 transition-colors flex items-center gap-3"
+                                        >
+                                            <span className="text-[11px] text-slate-200 truncate max-w-[220px]">{p.name}</span>
+                                            <span className="ml-auto text-[10px] text-slate-500 font-mono flex-shrink-0">{formatCurrency(p.total)}</span>
+                                        </button>
+                                    ))}
+                                    <button
                                         onClick={() => { setShowLibrary(true); setShowOpenDropdown(false); }}
                                         className="w-full text-left px-4 py-2 text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-colors flex items-center gap-2 border-t border-slate-800"
                                     >
                                         <FolderOpen size={12} className="text-emerald-400" />
-                                        Projectes recents
+                                        Tots els projectes desats
                                         <span className="ml-auto text-slate-500 font-mono">{library.length}</span>
                                     </button>
                                 </div>
@@ -4909,11 +4973,32 @@ export default function App() {
                                         <span className="font-medium">Google Drive</span>
                                     </button>
                                     <button
-                                        onClick={() => { setShowLibrary(true); setShowMobileMenu(false); }}
+                                        onClick={() => { obreFinestraConsulta(); setShowMobileMenu(false); }}
                                         className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 transition-colors flex items-center gap-3 border-b border-slate-800"
                                     >
+                                        <Database size={18} className="text-amber-400" />
+                                        <span className="font-medium">Banc de consulta</span>
+                                        <span className="ml-auto text-[10px] text-slate-500">pestanya nova</span>
+                                    </button>
+                                    {recents.length > 0 && (
+                                        <div className="px-4 pt-2 pb-1 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Recents</div>
+                                    )}
+                                    {recents.map(p => (
+                                        <button
+                                            key={p.id}
+                                            onClick={() => { handleOpenFromLibrary(p.id); setShowMobileMenu(false); }}
+                                            className="w-full text-left pl-11 pr-4 py-2.5 hover:bg-slate-800 transition-colors flex items-center gap-3 touch-manipulation"
+                                        >
+                                            <span className="text-sm text-slate-200 truncate min-w-0">{p.name}</span>
+                                            <span className="ml-auto text-[10px] text-slate-500 font-mono flex-shrink-0">{formatCurrency(p.total)}</span>
+                                        </button>
+                                    ))}
+                                    <button
+                                        onClick={() => { setShowLibrary(true); setShowMobileMenu(false); }}
+                                        className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 transition-colors flex items-center gap-3 border-b border-slate-800 border-t"
+                                    >
                                         <FolderOpen size={18} className="text-emerald-400" />
-                                        <span className="font-medium">Projectes recents</span>
+                                        <span className="font-medium">Tots els projectes desats</span>
                                         <span className="ml-auto text-xs text-slate-500 font-mono">{library.length}</span>
                                     </button>
 
@@ -4974,6 +5059,21 @@ export default function App() {
                     </div>
                 </div>
             </header>
+
+            {consulta && (
+                <div className="bg-amber-400 text-amber-950 px-3 py-1.5 flex items-center gap-2 text-[11px] font-bold z-20 print:hidden">
+                    <Database size={12} className="flex-shrink-0" />
+                    <span className="flex-1 min-w-0 leading-tight">
+                        Banc de consulta: aquí no es desa res. Copia capítols o partides des de la barra lateral i enganxa&apos;ls a la finestra del projecte.
+                    </span>
+                    <button
+                        onClick={handleOpenProject}
+                        className="flex-shrink-0 bg-amber-950 text-amber-100 hover:bg-amber-900 px-2.5 py-1 text-[10px] uppercase tracking-widest touch-manipulation"
+                    >
+                        Obre BC3
+                    </button>
+                </div>
+            )}
 
             {/* Certification Management Bar */}
             {appMode === 'certification' && (
