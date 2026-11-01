@@ -579,13 +579,17 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, setConfig, onOp
 };
 
 // --- Modal de Confirmació d'Importació ---
-const ImportConfirmModal = ({ code, description, onConfirm, onSkip }) => {
+const ImportConfirmModal = ({ code, description, index, total, onConfirm, onSkip, onCancel }) => {
     return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md">
-            <div className="bg-white rounded-none shadow-2xl w-[450px] border border-slate-300 animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
+            <div className="bg-white rounded-none shadow-2xl w-full max-w-[450px] border border-slate-300 animate-in zoom-in-95 duration-200">
                 <div className="bg-amber-600 text-white p-4 flex items-center gap-3">
                     <AlertCircle size={20} />
-                    <h3 className="font-bold uppercase tracking-widest text-xs">Codi Duplicat Detectat</h3>
+                    <h3 className="font-bold uppercase tracking-widest text-xs flex-1">Codi Duplicat Detectat</h3>
+                    {total > 1 && <span className="text-[10px] font-mono font-bold bg-white/20 px-1.5 py-0.5">{index + 1} / {total}</span>}
+                    <button onClick={onCancel} title="Cancel·la" className="hover:text-amber-200 p-2 -m-2 touch-manipulation">
+                        <X size={18} />
+                    </button>
                 </div>
                 <div className="p-6">
                     <p className="text-sm text-slate-600 mb-4">
@@ -606,6 +610,12 @@ const ImportConfirmModal = ({ code, description, onConfirm, onSkip }) => {
                             className="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 p-3 text-xs font-bold uppercase tracking-widest flex justify-center items-center gap-2 transition-colors"
                         >
                             <ChevronRight size={16} /> Mantenir existent i mostrar capítol
+                        </button>
+                        <button
+                            onClick={onCancel}
+                            className="w-full text-slate-400 hover:text-red-600 p-2 text-[10px] font-bold uppercase tracking-widest transition-colors"
+                        >
+                            Cancel·la{total > 1 ? ' (no s\'afegeix res)' : ''}
                         </button>
                     </div>
                 </div>
@@ -5586,6 +5596,11 @@ export default function App() {
                     description={importPending.duplicates[importPending.currentIdx].description}
                     onConfirm={() => handleConfirmDuplicate(true)}
                     onSkip={() => handleConfirmDuplicate(false)}
+                    index={importPending.currentIdx}
+                    total={importPending.duplicates.length}
+                    // No s'ha aplicat res encara: la fusió només es fa en resoldre l'últim
+                    // duplicat, així que cancel·lar és simplement oblidar la importació.
+                    onCancel={() => { setImportPending(null); notify('Importació cancel·lada'); }}
                 />
             )}
 
