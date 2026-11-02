@@ -116,7 +116,14 @@ import { baixaFitxer } from './utils/baixa';
 
 const formatPrice = (val) => formatNumber(val, 2);
 
-const flattenBudget = (nodes, level = 0, parentRef = '', counterObj = { val: 0 }, config, priceDatabase) => {
+// Amb «amagar partides a zero», les partides (fulles) amb import 0 no surten a la impressió.
+// Els capítols es mantenen, encara que quedin buits.
+const ambImport = (nodes, config, priceDatabase) => (config.hideZeroItems
+    ? nodes.filter(n => !n.unit || calcItemTotalAmount(n, priceDatabase) !== 0)
+    : nodes);
+
+const flattenBudget = (nodesAll, level = 0, parentRef = '', counterObj = { val: 0 }, config, priceDatabase) => {
+    const nodes = ambImport(nodesAll, config, priceDatabase);
     // Sense preus, la taula perd les columnes Preu i Import: 8 columnes en comptes de 10
     const prices = config.showPrices !== false;
     const cols = prices ? 10 : 8;
@@ -369,7 +376,7 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, setConfig, onOp
                 )}
 
                 {/* Recursive Children - Determine if they bubble up or start fresh counter */}
-                {[...(node.subChapters || []), ...(node.items || [])].map((child) => (
+                {ambImport([...(node.subChapters || []), ...(node.items || [])], config, priceDatabase).map((child) => (
                     renderPrintNode(
                         child,
                         isChapter ? (shouldShowHeader ? level + 1 : level) : level + 1,
@@ -861,6 +868,10 @@ const PrintConfigModal = ({ config, setConfig, onClose }) => {
                                 <input type="checkbox" checked={config.chaptersOnNewPage} onChange={e => setConfig({ ...config, chaptersOnNewPage: e.target.checked })} />
                                 <span className="text-xs text-slate-600">Cada capítol en pàgina nova</span>
                             </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" checked={!!config.hideZeroItems} onChange={e => setConfig({ ...config, hideZeroItems: e.target.checked })} />
+                                <span className="text-xs text-slate-600">Amagar partides amb import 0</span>
+                            </label>
                         </div>
                     </div>
 
@@ -1174,6 +1185,7 @@ export default function App() {
         showPrices: true,
         useCorrelativeCodes: true,
         chaptersOnNewPage: true,
+        hideZeroItems: false,
         certItemDetail: true,
         date: '',
         ge: { enabled: false, percentage: 13 },
