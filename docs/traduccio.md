@@ -1,7 +1,8 @@
 # Traducció
 
 Botó **Tradueix** al capçal del projecte (tot el projecte) i a la capçalera del detall (un
-capítol amb tot el que conté, o una partida). Fa servir l'API de Claude amb la mateixa clau que
+capítol amb tot el que conté, o una partida). L'assistent també ho pot fer amb l'eina `tradueix`
+(per codis o tot el projecte), que fa servir aquestes mateixes funcions. Fa servir l'API de Claude amb la mateixa clau que
 l'assistent (`utils/assistent/clau.js`).
 
 | Fitxer | Què fa |

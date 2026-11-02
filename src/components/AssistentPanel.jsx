@@ -59,6 +59,7 @@ const NOMS_EINES = {
     cype_navega: 'Generador de Preus', cype_fitxa: 'Fitxa de CYPE', cype_importa: 'Importa de CYPE',
     crea_capitol: 'Crea un capítol', crea_partida: 'Crea una partida', modifica_partida: 'Modifica una partida',
     posa_linies: 'Línies d\'amidament', posa_parametre: 'Paràmetre', posa_condicio: 'Condició', esborra: 'Esborra',
+    tradueix: 'Tradueix',
 };
 
 const FormulariClau = ({ onDesa }) => {
@@ -197,7 +198,19 @@ const AssistentPanel = ({ getEstat, aplicaEstat, onTanca }) => {
                 model: idModel,
                 esforc,
                 executa: async (nom, input) => {
-                    const r = await executaEina(nom, input, getEstat, { xarxa, idioma });
+                    const r = await executaEina(nom, input, getEstat, {
+                        xarxa,
+                        idioma,
+                        // Les traduccions van per peticions a part, amb esforç baix: no passen
+                        // pel context de la conversa i en surten molt més barates.
+                        tradueix: async (textos, idiomaDesti) => {
+                            const api = await import('../utils/assistent/tradueixApi');
+                            return api.tradueix({
+                                clau, textos, idioma: idiomaDesti, model: idModel, esforc: 'low', signal: ctrl.signal,
+                                onUs: (u) => setCost(prev => ({ ...prev, dolars: prev.dolars + costUs(u, idModel) })),
+                            });
+                        },
+                    });
                     if (r.estat !== getEstat()) aplicaEstat(r.estat);
                     return r;
                 },

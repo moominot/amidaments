@@ -70,6 +70,7 @@ s'esborra sola.
 | `crea_capitol`, `crea_partida`, `modifica_partida` | Edició. `crea_partida` admet descomposat; els components que ja hi són conserven el preu del projecte |
 | `posa_linies` | Línies d'amidament amb números o fórmules; torna la quantitat i els errors de fórmula |
 | `posa_parametre`, `posa_condicio` | Paràmetres (valor o fórmula, límits) i condicions |
+| `tradueix` | Partides, capítols o tot el projecte a un altre idioma, pel mateix camí que el botó (veure [`traduccio.md`](traduccio.md)). La traducció va per peticions a part amb esforç baix, injectades per `ctx.tradueix`: no passa pel context de la conversa |
 | `esborra` | Una partida o capítol, un paràmetre o una condició |
 
 Cada eina rep l'estat del moment (`getEstat`), en torna un de nou si l'ha canviat i el panell

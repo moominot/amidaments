@@ -5,6 +5,7 @@ import { resolveFormules, comprovaCondicions, resumLimits } from '../parametres'
 import { resolveMeasurementRefs } from '../measurementRefs';
 import { interpretaCamp, esNomValid } from '../formules';
 import { resumPartida } from './cype';
+import { recullTextos, aplicaTraduccions, IDIOMES_TRADUCCIO } from '../traduccio';
 
 /**
  * Eines de l'assistent sobre el projecte obert (veure `docs/assistent.md`).
@@ -518,6 +519,20 @@ export const DEFINICIONS = [
         input_schema: { type: 'object', properties: { expressio: str, missatge: str }, required: ['expressio'], additionalProperties: false },
     },
     {
+        name: 'tradueix',
+        description: 'Tradueix partides, capítols (amb tot el que contenen) o tot el projecte a un altre idioma: descripcions, textos llargs, descomposat, base de preus dels seus codis i, si linies no és false, les línies d\'amidament. Codis, unitats, preus i fórmules no es toquen. Fes-la servir en comptes de reescriure els textos amb modifica_partida: és més barata i es desfà d\'un cop. Sense codis, tot el projecte (pregunta-ho abans si és gran).',
+        input_schema: {
+            type: 'object',
+            properties: {
+                idioma: { type: 'string', enum: IDIOMES_TRADUCCIO.map(x => x.id), description: 'ca català, es castellà, en anglès, fr francès' },
+                codis: { type: 'array', items: str, description: 'Codis de partides o capítols. Buit o absent: tot el projecte.' },
+                linies: { type: 'boolean', description: 'També la descripció de les línies d\'amidament (per defecte, sí).' },
+            },
+            required: ['idioma'],
+            additionalProperties: false,
+        },
+    },
+    {
         name: 'esborra',
         description: 'Esborra un capítol o una partida (per codi), un paràmetre (per nom) o una condició (per expressió).',
         input_schema: { type: 'object', properties: { codi: str, parametre: str, condicio: str }, additionalProperties: false },
@@ -559,6 +574,36 @@ export const validaInput = (nom, input) => {
 };
 
 /**
+ * Tradueix amb el mateix camí que el botó «Tradueix» (`utils/traduccio.js`): la traducció la fa
+ * `ctx.tradueix(textos, idioma)`, que el panell connecta a l'API amb esforç baix, i no passa pel
+ * context de la conversa. L'estat es torna a llegir després, com a `cype_importa`.
+ */
+const tradueixEina = async ({ idioma, codis = [], linies = true }, llegeix, ctx) => {
+    if (!ctx.tradueix) throw new ErrorEina('La traducció no està disponible aquí');
+    const abans = llegeix();
+    const ids = [];
+    const noTrobats = [];
+    codis.forEach(c => {
+        const n = buscaNode(abans.budget.chapters || [], c);
+        if (n) ids.push(n.id); else noTrobats.push(c);
+    });
+    if (codis.length && !ids.length) throw new ErrorEina(`No hi ha cap partida ni capítol amb els codis ${codis.join(', ')}`);
+    const abasts = ids.length ? ids : [null];
+    const textos = [...new Set(abasts.flatMap(idNode => recullTextos(abans, { idNode, linies })))];
+    if (!textos.length) return { estat: abans, resultat: { fet: true, traduits: 0, avis: 'No hi ha cap text per traduir' }, resum: 'Res a traduir' };
+
+    const { mapa, pendents } = await ctx.tradueix(textos, idioma);
+    let estat = llegeix();
+    abasts.forEach(idNode => { estat = aplicaTraduccions(estat, mapa, { idNode, linies }); });
+    const nomIdioma = IDIOMES_TRADUCCIO.find(x => x.id === idioma)?.nom || idioma;
+    return {
+        estat,
+        resultat: { fet: true, traduits: mapa.size, pendents, ...(noTrobats.length ? { codis_no_trobats: noTrobats } : {}) },
+        resum: `Traduïts ${mapa.size} textos al ${nomIdioma.toLowerCase()}${ids.length ? ` (${codis.filter(c => !noTrobats.includes(c)).join(', ')})` : ' (tot el projecte)'}${pendents ? ` · ${pendents} pendents` : ''}`,
+    };
+};
+
+/**
  * Executa una eina. `ctx.xarxa` porta `navegaCype`, `fitxaCype` i `baixaPartidaCype`;
  * `ctx.idioma`, l'idioma del Generador de Preus triat al panell (`ca` o `es`).
  * Torna `{ estat, resultat, resum }`; l'estat és el mateix objecte si l'eina no l'ha canviat.
@@ -569,6 +614,7 @@ export const validaInput = (nom, input) => {
  */
 export const executaEina = async (nom, input, estatOFuncio, ctx = {}) => {
     const llegeix = () => (typeof estatOFuncio === 'function' ? estatOFuncio() : estatOFuncio);
+    if (nom === 'tradueix') return tradueixEina(input, llegeix, ctx);
     if (nom === 'cype_importa') {
         const importada = await ctx.xarxa.baixaPartidaCype(input.url_bc3);
         return posaPartidaCype(llegeix(), importada, { capitol: input.capitol, codi: input.codi });

@@ -285,3 +285,57 @@ describe('idioma del Generador de Preus', () => {
         expect(crides).toEqual([[undefined, 'es']]);
     });
 });
+
+describe('eina tradueix', () => {
+    const estat = () => ({
+        budget: {
+            chapters: [
+                { id: 'c1', code: '01', description: 'Fábricas', subChapters: [], items: [
+                    { id: 'p1', code: 'P1', unit: 'm2', description: 'Muro de bloque', fullDescription: 'Muro de bloque de hormigón', price: 10, measurements: [{ id: 'l1', description: 'Fachada', units: 2, length: 3 }] },
+                    { id: 'p2', code: 'P2', unit: 'm2', description: 'Enfoscado', price: 5, measurements: [] },
+                ] },
+            ],
+            parametres: [], condicions: [],
+        },
+        priceDatabase: { P1: { code: 'P1', price: 10, summary: 'Muro de bloque' } },
+    });
+    const crides = [];
+    const tradueix = async (textos, idioma) => {
+        crides.push({ textos, idioma });
+        return { mapa: new Map(textos.map(t => [t, `[${idioma}] ${t}`])), pendents: 0, errors: [] };
+    };
+
+    it('tradueix només les partides demanades, amb el descomposat i la base de preus', async () => {
+        crides.length = 0;
+        const r = await executaEina('tradueix', { idioma: 'ca', codis: ['P1'] }, estat(), { tradueix });
+        const [p1, p2] = r.estat.budget.chapters[0].items;
+        expect(p1.description).toBe('[ca] Muro de bloque');
+        expect(p1.fullDescription).toBe('[ca] Muro de bloque de hormigón');
+        expect(p1.measurements[0].description).toBe('[ca] Fachada');
+        expect(p1.price).toBe(10);
+        expect(p2.description).toBe('Enfoscado');
+        expect(r.estat.budget.chapters[0].description).toBe('Fábricas');
+        expect(r.estat.priceDatabase.P1.summary).toBe('[ca] Muro de bloque');
+        expect(r.resultat).toMatchObject({ fet: true, traduits: 3, pendents: 0 });
+        expect(crides).toHaveLength(1);
+    });
+
+    it('sense codis, tot el projecte; sense línies si es demana', async () => {
+        const r = await executaEina('tradueix', { idioma: 'en', linies: false }, estat(), { tradueix });
+        expect(r.estat.budget.chapters[0].description).toBe('[en] Fábricas');
+        expect(r.estat.budget.chapters[0].items[1].description).toBe('[en] Enfoscado');
+        expect(r.estat.budget.chapters[0].items[0].measurements[0].description).toBe('Fachada');
+    });
+
+    it('avisa dels codis que no hi són i falla si no n\'hi ha cap', async () => {
+        const r = await executaEina('tradueix', { idioma: 'ca', codis: ['P2', 'NO'] }, estat(), { tradueix });
+        expect(r.resultat.codis_no_trobats).toEqual(['NO']);
+        await expect(executaEina('tradueix', { idioma: 'ca', codis: ['NO'] }, estat(), { tradueix })).rejects.toThrow(/cap partida/);
+    });
+
+    it('valida l\'idioma', () => {
+        expect(validaInput('tradueix', { idioma: 'ca' })).toBeNull();
+        expect(validaInput('tradueix', { idioma: 'de' })).toMatch(/ca, es, en, fr/);
+        expect(validaInput('tradueix', {})).toMatch(/falta idioma/);
+    });
+});
