@@ -59,6 +59,7 @@ import {
     formatNumber,
     getComponentCategory,
     calcMeasureTotal,
+    columnesMesura,
     calcItemTotalQty,
     getItemUnitPrice,
     calcItemCertifiedQty,
@@ -116,7 +117,14 @@ import { baixaFitxer } from './utils/baixa';
 
 const formatPrice = (val) => formatNumber(val, 2);
 
-const flattenBudget = (nodes, level = 0, parentRef = '', counterObj = { val: 0 }, config, priceDatabase) => {
+// Amb «amagar import 0», ni les partides ni els capítols amb import 0 surten a la impressió.
+// Tots els camins (previsualització, PDF d'amidaments i de resum) han de passar per aquí.
+const ambImport = (nodes, config, priceDatabase) => (config.hideZeroItems
+    ? nodes.filter(n => (n.unit ? calcItemTotalAmount(n, priceDatabase) : calcChapterTotal(n, priceDatabase)) !== 0)
+    : nodes);
+
+const flattenBudget = (nodesAll, level = 0, parentRef = '', counterObj = { val: 0 }, config, priceDatabase) => {
+    const nodes = ambImport(nodesAll, config, priceDatabase);
     // Sense preus, la taula perd les columnes Preu i Import: 8 columnes en comptes de 10
     const prices = config.showPrices !== false;
     const cols = prices ? 10 : 8;
@@ -192,19 +200,12 @@ const flattenBudget = (nodes, level = 0, parentRef = '', counterObj = { val: 0 }
 
                 // Measurement Lines
                 if (config.showMeasurements && node.measurements && node.measurements.length > 0) {
+                    const subtotal = node.measurements.filter(l => !l.isIncrement).reduce((acc, l) => acc + calcMeasureTotal(l), 0);
                     node.measurements.forEach((m) => {
+                        const c = columnesMesura(m, subtotal);
                         rows.push({
                             type: 'measurement',
-                            data: [
-                                '',
-                                m.description || '',
-                                formatNumber(m.units, 0),
-                                m.length > 1 || (m.width === 1 && m.height === 1 && m.length !== 0) ? formatNumber(m.length, 2) : '',
-                                m.width > 1 ? formatNumber(m.width, 2) : '',
-                                m.height > 1 ? formatNumber(m.height, 2) : '',
-                                formatNumber(m.units * m.length * m.width * m.height, 2),
-                                ...Array(cols - 7).fill('')
-                            ]
+                            data: ['', m.description || '', c.units, c.length, c.width, c.height, c.partial, ...Array(cols - 7).fill('')]
                         });
                     });
                 }
@@ -301,18 +302,24 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, setConfig, onOp
                                 {/* Measurement Lines */}
                                 {config.showMeasurements && node.measurements && node.measurements.length > 0 && (
                                     <>
-                                        {node.measurements.map((m, i) => (
-                                            <tr key={i} className="text-[9px] text-slate-600 align-top border-none leading-tight">
-                                                <td className="p-1"></td>
-                                                <td className="p-0.5 px-4 italic">{m.description}</td>
-                                                <td className="p-0.5 text-center font-mono">{formatNumber(m.units, 0)}</td>
-                                                <td className="p-0.5 text-right font-mono">{m.length > 1 || (m.width === 1 && m.height === 1 && m.length !== 0) ? formatNumber(m.length, 2) : ''}</td>
-                                                <td className="p-0.5 text-right font-mono">{m.width > 1 ? formatNumber(m.width, 2) : ''}</td>
-                                                <td className="p-0.5 text-right font-mono">{m.height > 1 ? formatNumber(m.height, 2) : ''}</td>
-                                                <td className="p-0.5 text-right font-mono">{formatNumber(m.units * m.length * m.width * m.height, 2)}</td>
-                                                <td className="p-0.5" colSpan={cols - 7}></td>
-                                            </tr>
-                                        ))}
+                                        {(() => {
+                                            const subtotal = node.measurements.filter(l => !l.isIncrement).reduce((acc, l) => acc + calcMeasureTotal(l), 0);
+                                            return node.measurements.map((m, i) => {
+                                                const c = columnesMesura(m, subtotal);
+                                                return (
+                                                    <tr key={i} className="text-[9px] text-slate-600 align-top border-none leading-tight">
+                                                        <td className="p-1"></td>
+                                                        <td className="p-0.5 px-4 italic">{m.description}</td>
+                                                        <td className="p-0.5 text-center font-mono">{c.units}</td>
+                                                        <td className="p-0.5 text-right font-mono">{c.length}</td>
+                                                        <td className="p-0.5 text-right font-mono">{c.width}</td>
+                                                        <td className="p-0.5 text-right font-mono">{c.height}</td>
+                                                        <td className="p-0.5 text-right font-mono">{c.partial}</td>
+                                                        <td className="p-0.5" colSpan={cols - 7}></td>
+                                                    </tr>
+                                                );
+                                            });
+                                        })()}
                                     </>
                                 )}
 
@@ -369,7 +376,7 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, setConfig, onOp
                 )}
 
                 {/* Recursive Children - Determine if they bubble up or start fresh counter */}
-                {[...(node.subChapters || []), ...(node.items || [])].map((child) => (
+                {ambImport([...(node.subChapters || []), ...(node.items || [])], config, priceDatabase).map((child) => (
                     renderPrintNode(
                         child,
                         isChapter ? (shouldShowHeader ? level + 1 : level) : level + 1,
@@ -535,7 +542,7 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, setConfig, onOp
                             <tbody>
                                 {(() => {
                                     const counter = { val: 0 };
-                                    return (budget.chapters || []).map(node => renderPrintNode(node, 0, '', counter));
+                                    return ambImport(budget.chapters || [], config, priceDatabase).map(node => renderPrintNode(node, 0, '', counter));
                                 })()}
                             </tbody>
                             {prices && (
@@ -559,7 +566,7 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, setConfig, onOp
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {budget.chapters.map((ch, index) => {
+                                    {ambImport(budget.chapters, config, priceDatabase).map((ch, index) => {
                                         const total = calcChapterTotal(ch, priceDatabase);
                                         const percentage = (total / budgetTotal) * 100;
                                         return (
@@ -860,6 +867,10 @@ const PrintConfigModal = ({ config, setConfig, onClose }) => {
                             <label className="flex items-center gap-2 cursor-pointer">
                                 <input type="checkbox" checked={config.chaptersOnNewPage} onChange={e => setConfig({ ...config, chaptersOnNewPage: e.target.checked })} />
                                 <span className="text-xs text-slate-600">Cada capítol en pàgina nova</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" checked={!!config.hideZeroItems} onChange={e => setConfig({ ...config, hideZeroItems: e.target.checked })} />
+                                <span className="text-xs text-slate-600">Amagar partides amb import 0</span>
                             </label>
                         </div>
                     </div>
@@ -1174,6 +1185,7 @@ export default function App() {
         showPrices: true,
         useCorrelativeCodes: true,
         chaptersOnNewPage: true,
+        hideZeroItems: true,
         certItemDetail: true,
         date: '',
         ge: { enabled: false, percentage: 13 },
@@ -1734,13 +1746,14 @@ export default function App() {
             });
         };
 
+        const capitols = ambImport(resolvedChapters, config, priceDatabase);
         if (config.chaptersOnNewPage) {
-            resolvedChapters.forEach((ch, idx) => {
+            capitols.forEach((ch, idx) => {
                 if (idx > 0) doc.addPage();
                 generateTableForNodes([ch], idx === 0, counter);
             });
         } else {
-            generateTableForNodes(resolvedChapters, true, counter);
+            generateTableForNodes(capitols, true, counter);
         }
 
         let finalY = doc.lastAutoTable.finalY + 10;
@@ -1780,7 +1793,7 @@ export default function App() {
         const VAT = config.iva.enabled ? PECValue * (config.iva.percentage / 100) : 0;
         const PVValue = PECValue + VAT;
 
-        const rows = resolvedChapters.map((ch, index) => {
+        const rows = ambImport(resolvedChapters, config, priceDatabase).map((ch, index) => {
             const total = calcChapterTotal(ch, priceDatabase);
             const percentage = (total / PEMValue) * 100;
             return [
