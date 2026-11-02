@@ -3,6 +3,7 @@ import { X, Sparkles, Send, Square, KeyRound, Wrench, RotateCcw, AlertCircle, Pa
 import { executaEina } from '../utils/assistent/eines';
 import * as xarxa from '../utils/assistent/cype';
 import { ACCEPTA, tipusAdmes, preparaAdjunt, comprovaAdjunts, contingutMissatge } from '../utils/assistent/adjunts';
+import { llegeixClau, desaClau, llegeixPref, desaPref, PREF_MODEL } from '../utils/assistent/clau';
 import { MODELS, ESFORCOS, MODEL_PER_DEFECTE, ESFORC_PER_DEFECTE, model as infoModel, esforcValid, costUs } from '../utils/assistent/models';
 
 /**
@@ -19,18 +20,12 @@ import { MODELS, ESFORCOS, MODEL_PER_DEFECTE, ESFORC_PER_DEFECTE, model as infoM
  * La clau de l'API és de l'usuari i es desa en aquest navegador (`localStorage`). No passa
  * per cap servidor nostre: va directament a Anthropic.
  */
-const CLAU = 'amidaments:clau-anthropic';
 
-const llegeixClau = () => { try { return localStorage.getItem(CLAU) || ''; } catch { return ''; } };
-const desaClau = (v) => { try { if (v) localStorage.setItem(CLAU, v); else localStorage.removeItem(CLAU); } catch { /* res */ } };
 
 // El model i l'esforç triats són una preferència d'aquest navegador.
-const PREF_MODEL = 'amidaments:assistent-model';
 const PREF_ESFORC = 'amidaments:assistent-esforc';
 const PREF_IDIOMA = 'amidaments:assistent-idioma-cype';
 const IDIOMES_CYPE = [{ id: 'ca', nom: 'Català' }, { id: 'es', nom: 'Castellà' }];
-const llegeixPref = (clau, perDefecte) => { try { return localStorage.getItem(clau) || perDefecte; } catch { return perDefecte; } };
-const desaPref = (clau, v) => { try { localStorage.setItem(clau, v); } catch { /* res */ } };
 
 const SUGGERIMENTS = [
     'Fes un sistema d\'envà de placa de guix de 15+48+15 amb la llargària i l\'alçada com a paràmetres.',

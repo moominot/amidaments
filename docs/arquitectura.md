@@ -53,8 +53,10 @@ Navegador
 | `src/components/FormulaInput.jsx` | — | Camp d'amidament que accepta número o fórmula. |
 | `src/components/SistemesModal.jsx` | — | Galeria de sistemes, inserció amb paràmetres i desar com a sistema. |
 | `src/utils/assistent/` | — | Assistent amb Claude: bucle amb l'API (`agent.js`), eines (`eines.js`), lectura del Generador de Preus (`cype.js`) i indicacions. Veure [`docs/assistent.md`](assistent.md). |
+| `src/utils/traduccio.js` | — | Traducció del projecte o d'una part: recollir i aplicar els textos. Veure [`docs/traduccio.md`](traduccio.md). |
+| `src/components/TraduccioModal.jsx` | — | Quadre de traducció. |
 | `src/components/AssistentPanel.jsx` | — | Xat de l'assistent (columna de l'esquerra o calaix). |
-| `test/` | 222 tests | Vitest sobre els càlculs, el parser i l'escriptor. Veure [`docs/tests.md`](tests.md). |
+| `test/` | 231 tests | Vitest sobre els càlculs, el parser i l'escriptor. Veure [`docs/tests.md`](tests.md). |
 
 ## Estructura interna d'`App.jsx`
 

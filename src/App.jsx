@@ -5,6 +5,7 @@ import {
     Blocks,
     Variable,
     Sparkles,
+    Languages,
     ListPlus,
     FileText,
     Trash2,
@@ -91,6 +92,7 @@ import { resolveMeasurementRefs, isRefLine, refLabel } from './utils/measurement
 import { resolveFormules, usosDeParametres, reescriuFormules, comprovaCondicions } from './utils/parametres';
 import ParametresPanel from './components/ParametresPanel';
 import AssistentPanel from './components/AssistentPanel';
+import TraduccioModal from './components/TraduccioModal';
 import { processBC3Data } from './utils/bc3Parser';
 import { generateBC3, nomFitxerCertificacio } from './utils/bc3Writer';
 import { numberToTextCatalan } from './utils/numberToText';
@@ -1174,6 +1176,8 @@ export default function App() {
     const [showCreator, setShowCreator] = useState(false);
     // Quadre de sistemes: `null` tancat, o `{ vista, docADesar }` (veure `components/SistemesModal`).
     const [quadreSistemes, setQuadreSistemes] = useState(null);
+    // Quadre de traducció: `{}` per a tot el projecte, `{ id, codi, nom }` per a un node.
+    const [quadreTraduccio, setQuadreTraduccio] = useState(null);
     // Instància de sistema per la qual es filtra l'editor (`budget.sistemes[].id`), o `null`.
     const [filtreSistema, setFiltreSistema] = useState(null);
     const [showPrintConfigModal, setShowPrintConfigModal] = useState(false);
@@ -5090,6 +5094,16 @@ export default function App() {
                 />
             )}
 
+            {quadreTraduccio && (
+                <TraduccioModal
+                    abast={quadreTraduccio}
+                    getEstat={getEstatAssistent}
+                    aplicaEstat={aplicaEstatAssistent}
+                    onTanca={() => setQuadreTraduccio(null)}
+                    notify={notify}
+                />
+            )}
+
             {quadreSistemes && (
                 <SistemesModal
                     budget={budget}
@@ -5811,6 +5825,16 @@ export default function App() {
                                     <span className="hidden md:inline text-[11px] font-bold uppercase tracking-widest">Sistema</span>
                                 </button>
 
+                                <button
+                                    onClick={() => setQuadreTraduccio({})}
+                                    disabled={!budget.chapters?.length}
+                                    className="flex items-center gap-2 bg-white border border-slate-200 hover:border-violet-400 hover:text-violet-700 text-slate-600 px-3 md:px-4 py-3 transition-colors flex-shrink-0 touch-manipulation disabled:opacity-40"
+                                    title="Tradueix tot el projecte a un altre idioma (fa servir la clau de l'API de l'assistent)"
+                                >
+                                    <Languages size={16} />
+                                    <span className="hidden lg:inline text-[11px] font-bold uppercase tracking-widest">Tradueix</span>
+                                </button>
+
                                 {/* Nova Entrada Button */}
                                 <button
                                     onClick={() => setShowCreator(true)}
@@ -6006,6 +6030,13 @@ export default function App() {
                                                     className="flex items-center gap-1 text-[10px] font-bold text-slate-500 hover:text-blue-600 hover:bg-blue-50 border border-slate-200 px-1.5 py-0.5 rounded touch-manipulation"
                                                 >
                                                     <ClipboardPaste size={10} /> Enganxa
+                                                </button>
+                                                <button
+                                                    onClick={() => setQuadreTraduccio({ id: node.id, codi: node.code, nom: node.description })}
+                                                    title={`Tradueix ${node.unit ? 'aquesta partida' : 'aquest capítol i tot el que conté'} a un altre idioma`}
+                                                    className="flex items-center gap-1 text-[10px] font-bold text-slate-500 hover:text-violet-600 hover:bg-violet-50 border border-slate-200 px-1.5 py-0.5 rounded touch-manipulation"
+                                                >
+                                                    <Languages size={10} /> Tradueix
                                                 </button>
                                                 <button
                                                     onClick={() => { setSelectedId(null); setShowMobileSidebar(false); }}
