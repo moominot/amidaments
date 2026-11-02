@@ -59,6 +59,7 @@ import {
     formatNumber,
     getComponentCategory,
     calcMeasureTotal,
+    columnesMesura,
     calcItemTotalQty,
     getItemUnitPrice,
     calcItemCertifiedQty,
@@ -199,19 +200,12 @@ const flattenBudget = (nodesAll, level = 0, parentRef = '', counterObj = { val: 
 
                 // Measurement Lines
                 if (config.showMeasurements && node.measurements && node.measurements.length > 0) {
+                    const subtotal = node.measurements.filter(l => !l.isIncrement).reduce((acc, l) => acc + calcMeasureTotal(l), 0);
                     node.measurements.forEach((m) => {
+                        const c = columnesMesura(m, subtotal);
                         rows.push({
                             type: 'measurement',
-                            data: [
-                                '',
-                                m.description || '',
-                                formatNumber(m.units, 0),
-                                m.length > 1 || (m.width === 1 && m.height === 1 && m.length !== 0) ? formatNumber(m.length, 2) : '',
-                                m.width > 1 ? formatNumber(m.width, 2) : '',
-                                m.height > 1 ? formatNumber(m.height, 2) : '',
-                                formatNumber(m.units * m.length * m.width * m.height, 2),
-                                ...Array(cols - 7).fill('')
-                            ]
+                            data: ['', m.description || '', c.units, c.length, c.width, c.height, c.partial, ...Array(cols - 7).fill('')]
                         });
                     });
                 }
@@ -308,18 +302,24 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, setConfig, onOp
                                 {/* Measurement Lines */}
                                 {config.showMeasurements && node.measurements && node.measurements.length > 0 && (
                                     <>
-                                        {node.measurements.map((m, i) => (
-                                            <tr key={i} className="text-[9px] text-slate-600 align-top border-none leading-tight">
-                                                <td className="p-1"></td>
-                                                <td className="p-0.5 px-4 italic">{m.description}</td>
-                                                <td className="p-0.5 text-center font-mono">{formatNumber(m.units, 0)}</td>
-                                                <td className="p-0.5 text-right font-mono">{m.length > 1 || (m.width === 1 && m.height === 1 && m.length !== 0) ? formatNumber(m.length, 2) : ''}</td>
-                                                <td className="p-0.5 text-right font-mono">{m.width > 1 ? formatNumber(m.width, 2) : ''}</td>
-                                                <td className="p-0.5 text-right font-mono">{m.height > 1 ? formatNumber(m.height, 2) : ''}</td>
-                                                <td className="p-0.5 text-right font-mono">{formatNumber(m.units * m.length * m.width * m.height, 2)}</td>
-                                                <td className="p-0.5" colSpan={cols - 7}></td>
-                                            </tr>
-                                        ))}
+                                        {(() => {
+                                            const subtotal = node.measurements.filter(l => !l.isIncrement).reduce((acc, l) => acc + calcMeasureTotal(l), 0);
+                                            return node.measurements.map((m, i) => {
+                                                const c = columnesMesura(m, subtotal);
+                                                return (
+                                                    <tr key={i} className="text-[9px] text-slate-600 align-top border-none leading-tight">
+                                                        <td className="p-1"></td>
+                                                        <td className="p-0.5 px-4 italic">{m.description}</td>
+                                                        <td className="p-0.5 text-center font-mono">{c.units}</td>
+                                                        <td className="p-0.5 text-right font-mono">{c.length}</td>
+                                                        <td className="p-0.5 text-right font-mono">{c.width}</td>
+                                                        <td className="p-0.5 text-right font-mono">{c.height}</td>
+                                                        <td className="p-0.5 text-right font-mono">{c.partial}</td>
+                                                        <td className="p-0.5" colSpan={cols - 7}></td>
+                                                    </tr>
+                                                );
+                                            });
+                                        })()}
                                     </>
                                 )}
 
