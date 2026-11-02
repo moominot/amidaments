@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { llegeixNavegacio, llegeixFitxa, llegeixPartidaBC3 } from '../src/utils/assistent/cype';
+import { llegeixNavegacio, llegeixFitxa, llegeixPartidaBC3, arrelCype } from '../src/utils/assistent/cype';
 import { executaEina, validaInput, posaPartidaCype, ErrorEina, DEFINICIONS } from '../src/utils/assistent/eines';
 import { calcItemTotalQty, getItemUnitPrice, normalizeCode } from '../src/utils/calculations';
 import { opcionsPeticio, einesWeb, costUs } from '../src/utils/assistent/models';
@@ -267,5 +267,21 @@ describe('model i esforç', () => {
         expect(costUs(us, 'claude-haiku-5-5')).toBeCloseTo(3); // > 100.000: 0,50 + 2,50
         expect(costUs({ input_tokens: 50000, output_tokens: 1e6 }, 'claude-haiku-5-5')).toBeCloseTo(0.005 + 0.5);
         expect(costUs({ cache_read_input_tokens: 1e6 }, 'claude-opus-5-5')).toBeCloseTo(0.2);
+    });
+});
+
+describe('idioma del Generador de Preus', () => {
+    it('per defecte en català; en castellà si es tria', () => {
+        expect(arrelCype()).toBe('https://generadordepreus.info/obra_nova/');
+        expect(arrelCype('ca')).toBe('https://generadordepreus.info/obra_nova/');
+        expect(arrelCype('es')).toBe('https://generadordeprecios.info/obra_nueva/');
+        expect(arrelCype('xx')).toBe('https://generadordepreus.info/obra_nova/');
+    });
+
+    it('cype_navega passa a la xarxa l\'idioma triat', async () => {
+        const crides = [];
+        const xarxa = { navegaCype: async (url, idioma) => { crides.push([url, idioma]); return { url, titol: 'Arrel', capitols: [], partides: [] }; } };
+        await executaEina('cype_navega', {}, { budget: { chapters: [] }, priceDatabase: {} }, { xarxa, idioma: 'es' });
+        expect(crides).toEqual([[undefined, 'es']]);
     });
 });

@@ -27,6 +27,8 @@ const desaClau = (v) => { try { if (v) localStorage.setItem(CLAU, v); else local
 // El model i l'esforç triats són una preferència d'aquest navegador.
 const PREF_MODEL = 'amidaments:assistent-model';
 const PREF_ESFORC = 'amidaments:assistent-esforc';
+const PREF_IDIOMA = 'amidaments:assistent-idioma-cype';
+const IDIOMES_CYPE = [{ id: 'ca', nom: 'Català' }, { id: 'es', nom: 'Castellà' }];
 const llegeixPref = (clau, perDefecte) => { try { return localStorage.getItem(clau) || perDefecte; } catch { return perDefecte; } };
 const desaPref = (clau, v) => { try { localStorage.setItem(clau, v); } catch { /* res */ } };
 
@@ -130,6 +132,10 @@ const AssistentPanel = ({ getEstat, aplicaEstat, onTanca }) => {
     const [cost, setCost] = useState({ dolars: 0, cerques: 0 });
     const [idModel, setIdModel] = useState(() => infoModel(llegeixPref(PREF_MODEL, MODEL_PER_DEFECTE)).id);
     const [esforc, setEsforc] = useState(() => esforcValid(llegeixPref(PREF_ESFORC, ESFORC_PER_DEFECTE)));
+    const [idioma, setIdioma] = useState(() => {
+        const v = llegeixPref(PREF_IDIOMA, xarxa.IDIOMA_CYPE_PER_DEFECTE);
+        return xarxa.ARRELS_CYPE[v] ? v : xarxa.IDIOMA_CYPE_PER_DEFECTE;
+    });
     const [adjunts, setAdjunts] = useState([]);
     const [preparant, setPreparant] = useState(0);
     const [sobre, setSobre] = useState(false);
@@ -196,7 +202,7 @@ const AssistentPanel = ({ getEstat, aplicaEstat, onTanca }) => {
                 model: idModel,
                 esforc,
                 executa: async (nom, input) => {
-                    const r = await executaEina(nom, input, getEstat, { xarxa });
+                    const r = await executaEina(nom, input, getEstat, { xarxa, idioma });
                     if (r.estat !== getEstat()) aplicaEstat(r.estat);
                     return r;
                 },
@@ -387,6 +393,16 @@ const AssistentPanel = ({ getEstat, aplicaEstat, onTanca }) => {
                                     aria-label="Esforç de l'assistent"
                                 >
                                     {ESFORCOS.map(x => <option key={x.id} value={x.id}>{x.nom}</option>)}
+                                </select>
+                                <select
+                                    value={idioma}
+                                    onChange={(e) => { setIdioma(e.target.value); desaPref(PREF_IDIOMA, e.target.value); }}
+                                    disabled={treballant}
+                                    className="bg-transparent border border-slate-200 hover:border-violet-400 px-1 py-0.5 text-[10px] text-slate-500 font-mono outline-none disabled:opacity-50 touch-manipulation"
+                                    title="Idioma del Generador de Preus de CYPE: el de les partides i els textos que s'importen"
+                                    aria-label="Idioma del Generador de Preus"
+                                >
+                                    {IDIOMES_CYPE.map(x => <option key={x.id} value={x.id}>{x.nom}</option>)}
                                 </select>
                             </div>
                             <span title="Estimació a partir dels tòquens; les cerques web es facturen a part">

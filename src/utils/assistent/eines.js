@@ -4,7 +4,7 @@ import {
 import { resolveFormules, comprovaCondicions, resumLimits } from '../parametres';
 import { resolveMeasurementRefs } from '../measurementRefs';
 import { interpretaCamp, esNomValid } from '../formules';
-import { ARREL_CYPE, resumPartida } from './cype';
+import { resumPartida } from './cype';
 
 /**
  * Eines de l'assistent sobre el projecte obert (veure `docs/assistent.md`).
@@ -413,7 +413,7 @@ export const DEFINICIONS = [
     },
     {
         name: 'cype_navega',
-        description: `Llista els capítols i les partides d'una pàgina del Generador de Preus de CYPE. Sense url, l'arrel (${ARREL_CYPE}). Navega de capítol en capítol fins a trobar la partida.`,
+        description: 'Llista els capítols i les partides d\'una pàgina del Generador de Preus de CYPE. Sense url, l\'arrel en l\'idioma que l\'usuari ha triat al panell (català o castellà). Navega de capítol en capítol fins a trobar la partida.',
         input_schema: { type: 'object', properties: { url: str }, additionalProperties: false },
     },
     {
@@ -559,7 +559,8 @@ export const validaInput = (nom, input) => {
 };
 
 /**
- * Executa una eina. `ctx.xarxa` porta `navegaCype`, `fitxaCype` i `baixaPartidaCype`.
+ * Executa una eina. `ctx.xarxa` porta `navegaCype`, `fitxaCype` i `baixaPartidaCype`;
+ * `ctx.idioma`, l'idioma del Generador de Preus triat al panell (`ca` o `es`).
  * Torna `{ estat, resultat, resum }`; l'estat és el mateix objecte si l'eina no l'ha canviat.
  *
  * `estatOFuncio` pot ser l'estat o una funció que el torna: les eines que baixen alguna cosa
@@ -582,7 +583,7 @@ export const executaEina = async (nom, input, estatOFuncio, ctx = {}) => {
             return sense(r, `Consulta preus «${input.cerca || ''}»: ${r.total}`);
         }
         case 'cype_navega': {
-            const r = await ctx.xarxa.navegaCype(input.url);
+            const r = await ctx.xarxa.navegaCype(input.url, ctx.idioma);
             return sense(r, `CYPE · ${r.titol.split('.')[0] || 'arrel'}`);
         }
         case 'cype_fitxa': {

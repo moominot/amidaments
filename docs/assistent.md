@@ -78,6 +78,13 @@ l'aplica (`aplicaEstat` → `setBudget` i `setPriceDatabase`). Les eines treball
 
 ## CYPE
 
+**Idioma**: el Generador de Preus té un domini per idioma, amb la mateixa estructura i els
+mateixos codis: `generadordepreus.info/obra_nova/` en català i
+`generadordeprecios.info/obra_nueva/` en castellà (`ARRELS_CYPE`, a `cype.js`). Les partides i
+els textos dels BC3 surten en l'idioma de l'arrel per on s'entra. Es tria al peu del panell
+(`amidaments:assistent-idioma-cype`, per defecte català) i arriba a les eines per `ctx.idioma`.
+La descripció de l'eina no porta l'adreça, perquè canviar d'idioma no refaci la memòria cau.
+
 Les pàgines del Generador de Preus i els BC3 es baixen pels proxys CORS de `utils/corsProxy.js`
 (`descarregaPagina`, `descarregaBC3`). **Les opcions d'una partida no es poden canviar des de
 l'assistent**: passen per una verificació de seguretat de CYPE. El BC3 que es baixa és el de la

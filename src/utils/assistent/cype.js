@@ -20,7 +20,17 @@ import { getItemUnitPrice, normalizeCode } from '../calculations';
  * configuració, l'usuari la tria al navegador i en dona l'enllaç del BC3.
  */
 
-export const ARREL_CYPE = 'https://generadordeprecios.info/obra_nueva/';
+/**
+ * El Generador de Preus és el mateix en cada idioma, amb un domini i uns camins propis: les
+ * pàgines, els noms de les partides i els BC3 (textos, criteris d'amidament) surten en l'idioma
+ * de l'arrel per on s'entra. L'estructura de l'HTML és la mateixa, i també els codis.
+ */
+export const ARRELS_CYPE = {
+    ca: 'https://generadordepreus.info/obra_nova/',
+    es: 'https://generadordeprecios.info/obra_nueva/',
+};
+export const IDIOMA_CYPE_PER_DEFECTE = 'ca';
+export const arrelCype = (idioma) => ARRELS_CYPE[idioma] || ARRELS_CYPE[IDIOMA_CYPE_PER_DEFECTE];
 
 const net = (s) => decodificaEntitats(String(s || '').replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
 
@@ -162,8 +172,8 @@ export const resumPartida = (partida, prices) => ({
 
 // ─── Accés a la xarxa (navegador) ───
 
-export const navegaCype = async (url = ARREL_CYPE) => {
-    const adreca = url || ARREL_CYPE;
+export const navegaCype = async (url, idioma = IDIOMA_CYPE_PER_DEFECTE) => {
+    const adreca = url || arrelCype(idioma);
     const { text } = await descarregaPagina(adreca);
     return { url: adreca, ...llegeixNavegacio(text, adreca) };
 };
