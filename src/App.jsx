@@ -116,10 +116,10 @@ import { baixaFitxer } from './utils/baixa';
 
 const formatPrice = (val) => formatNumber(val, 2);
 
-// Amb «amagar partides a zero», les partides (fulles) amb import 0 no surten a la impressió.
-// Els capítols es mantenen, encara que quedin buits.
+// Amb «amagar import 0», ni les partides ni els capítols amb import 0 surten a la impressió.
+// Tots els camins (previsualització, PDF d'amidaments i de resum) han de passar per aquí.
 const ambImport = (nodes, config, priceDatabase) => (config.hideZeroItems
-    ? nodes.filter(n => !n.unit || calcItemTotalAmount(n, priceDatabase) !== 0)
+    ? nodes.filter(n => (n.unit ? calcItemTotalAmount(n, priceDatabase) : calcChapterTotal(n, priceDatabase)) !== 0)
     : nodes);
 
 const flattenBudget = (nodesAll, level = 0, parentRef = '', counterObj = { val: 0 }, config, priceDatabase) => {
@@ -542,7 +542,7 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, setConfig, onOp
                             <tbody>
                                 {(() => {
                                     const counter = { val: 0 };
-                                    return (budget.chapters || []).map(node => renderPrintNode(node, 0, '', counter));
+                                    return ambImport(budget.chapters || [], config, priceDatabase).map(node => renderPrintNode(node, 0, '', counter));
                                 })()}
                             </tbody>
                             {prices && (
@@ -566,7 +566,7 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, setConfig, onOp
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {budget.chapters.map((ch, index) => {
+                                    {ambImport(budget.chapters, config, priceDatabase).map((ch, index) => {
                                         const total = calcChapterTotal(ch, priceDatabase);
                                         const percentage = (total / budgetTotal) * 100;
                                         return (
@@ -1746,13 +1746,14 @@ export default function App() {
             });
         };
 
+        const capitols = ambImport(resolvedChapters, config, priceDatabase);
         if (config.chaptersOnNewPage) {
-            resolvedChapters.forEach((ch, idx) => {
+            capitols.forEach((ch, idx) => {
                 if (idx > 0) doc.addPage();
                 generateTableForNodes([ch], idx === 0, counter);
             });
         } else {
-            generateTableForNodes(resolvedChapters, true, counter);
+            generateTableForNodes(capitols, true, counter);
         }
 
         let finalY = doc.lastAutoTable.finalY + 10;
@@ -1792,7 +1793,7 @@ export default function App() {
         const VAT = config.iva.enabled ? PECValue * (config.iva.percentage / 100) : 0;
         const PVValue = PECValue + VAT;
 
-        const rows = resolvedChapters.map((ch, index) => {
+        const rows = ambImport(resolvedChapters, config, priceDatabase).map((ch, index) => {
             const total = calcChapterTotal(ch, priceDatabase);
             const percentage = (total / PEMValue) * 100;
             return [
