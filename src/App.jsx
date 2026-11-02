@@ -1185,7 +1185,7 @@ export default function App() {
         showPrices: true,
         useCorrelativeCodes: true,
         chaptersOnNewPage: true,
-        hideZeroItems: false,
+        hideZeroItems: true,
         certItemDetail: true,
         date: '',
         ge: { enabled: false, percentage: 13 },
