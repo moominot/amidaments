@@ -59,7 +59,7 @@ Navegador
 | `src/utils/traduccio.js` | — | Traducció del projecte o d'una part: recollir i aplicar els textos. Veure [`docs/traduccio.md`](traduccio.md). |
 | `src/components/TraduccioModal.jsx` | — | Quadre de traducció. |
 | `src/components/AssistentPanel.jsx` | — | Xat de l'assistent (columna de l'esquerra o calaix). |
-| `test/` | 263 tests | Vitest sobre els càlculs, el parser i l'escriptor. Veure [`docs/tests.md`](tests.md). |
+| `test/` | 267 tests | Vitest sobre els càlculs, el parser i l'escriptor. Veure [`docs/tests.md`](tests.md). |
 
 ## Estructura interna d'`App.jsx`
 

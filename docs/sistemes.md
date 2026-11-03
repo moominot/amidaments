@@ -219,7 +219,8 @@ paràmetres**. Les regles són les de les línies d'amidament:
 Un sistema pot portar un **esquema**: una imatge o un SVG amb les cotes dels paràmetres, que es
 veu en inserir-lo i al bloc de la instància del panell de paràmetres (`utils/esquema.js`,
 `components/Esquema.jsx`). S'afegeix des del panell de paràmetres del projecte que es desarà
-com a sistema.
+com a sistema, o el posa l'assistent amb `posa_esquema`: en dibuixa un en SVG amb les cotes amb el
+nom dels paràmetres, o fa servir un croquis que l'usuari li hagi adjuntat al xat.
 
 **Viabilitat i on es desa.** Es desa com a data URL dins de `budget.esquema` (`{ dades, nom }`),
 del document de sistema (`doc.esquema`) i de cada instància (`budget.sistemes[].esquema`), així

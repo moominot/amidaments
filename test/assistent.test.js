@@ -339,3 +339,38 @@ describe('eina tradueix', () => {
         expect(validaInput('tradueix', {})).toMatch(/falta idioma/);
     });
 });
+
+describe('eina posa_esquema', () => {
+    const estat = () => ({ budget: { chapters: [], parametres: [], condicions: [] }, priceDatabase: {} });
+    const SVG = '<svg viewBox="0 0 100 60"><rect x="10" y="10" width="80" height="40" fill="none" stroke="#000"/><text x="50" y="8">B</text></svg>';
+
+    it('desa un SVG com a esquema, amb l\'xmlns que li falta', async () => {
+        const r = await executaEina('posa_esquema', { svg: SVG }, estat(), {});
+        expect(r.estat.budget.esquema.dades).toMatch(/^data:image\/svg\+xml;base64,/);
+        const text = new TextDecoder().decode(Uint8Array.from(atob(r.estat.budget.esquema.dades.split(',')[1]), c => c.charCodeAt(0)));
+        expect(text).toMatch(/^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" viewBox/);
+        expect(r.resultat).toMatchObject({ fet: true });
+    });
+
+    it('accepta accents i signes (UTF-8)', async () => {
+        const r = await executaEina('posa_esquema', { svg: '<svg xmlns="http://www.w3.org/2000/svg"><text>Alçada ≥ 2 m²</text></svg>' }, estat(), {});
+        const text = new TextDecoder().decode(Uint8Array.from(atob(r.estat.budget.esquema.dades.split(',')[1]), c => c.charCodeAt(0)));
+        expect(text).toContain('Alçada ≥ 2 m²');
+    });
+
+    it('rebutja el que no és un SVG o porta scripts', async () => {
+        await expect(executaEina('posa_esquema', { svg: '<div>no</div>' }, estat(), {})).rejects.toThrow(/SVG sencer/);
+        await expect(executaEina('posa_esquema', { svg: '<svg onload="x()"></svg>' }, estat(), {})).rejects.toThrow(/scripts/);
+        await expect(executaEina('posa_esquema', { svg: '<svg><script>x()</script></svg>' }, estat(), {})).rejects.toThrow(/scripts/);
+        await expect(executaEina('posa_esquema', { svg: SVG, treu: true }, estat(), {})).rejects.toThrow(/o bé/);
+    });
+
+    it('fa servir una imatge adjunta i el treu', async () => {
+        const esquema = { dades: 'data:image/png;base64,iVBORw0KGgo=', nom: 'croquis.png' };
+        const r = await executaEina('posa_esquema', { adjunt: 'croquis.png' }, estat(), { esquemaDAdjunt: async (nom) => ({ ...esquema, nom }) });
+        expect(r.estat.budget.esquema).toEqual(esquema);
+        const t = await executaEina('posa_esquema', { treu: true }, r.estat, {});
+        expect(t.estat.budget.esquema).toBeUndefined();
+        expect((await executaEina('llegeix_projecte', {}, r.estat, {})).resultat.te_esquema).toBe(true);
+    });
+});

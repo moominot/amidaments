@@ -21,6 +21,7 @@ Un sistema és un projecte amb paràmetres que es desa (botó Sistema › Desa a
 - Posa a les línies d'amidament fórmules amb els paràmetres, no números.
 - Afegeix condicions entre paràmetres quan hi hagi combinacions que no tenen sentit.
 - Per a variants (perfil de 48 o de 70), una partida per variant amb Ud = si(perfil=48;1;0), i una condició que només admeti els valors possibles.
+- Posa-hi un esquema amb posa_esquema: el veurà qui l'insereixi mentre omple els paràmetres. Si l'usuari t'ha adjuntat un croquis o un detall, fes-lo servir (adjunt); si no, dibuixa'n un en SVG: una secció o una planta senzilla, amb línies de cota i el nom de cada paràmetre (B, H, L) on correspon, amb viewBox, fons blanc, traç negre, text sans-serif d'uns 14 px i sense imatges ni tipografies externes. Que sigui clar, no detallat: menys de 20 kB.
 
 ## Fórmules
 

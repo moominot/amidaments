@@ -6,6 +6,7 @@ import { resolveMeasurementRefs } from '../measurementRefs';
 import { interpretaCamp, esNomValid } from '../formules';
 import { resumPartida } from './cype';
 import { recullTextos, aplicaTraduccions, IDIOMES_TRADUCCIO } from '../traduccio';
+import { svgAEsquema, midaDataUrl } from '../esquema';
 
 /**
  * Eines de l'assistent sobre el projecte obert (veure `docs/assistent.md`).
@@ -130,6 +131,7 @@ const llegeixProjecte = ({ budget, priceDatabase }) => {
     return {
         nom: budget.name,
         pem: round2(chapters.reduce((a, c) => a + calcChapterTotal(c, priceDatabase), 0)),
+        te_esquema: !!budget.esquema,
         parametres: (budget.parametres || []).map(p => ({
             nom: p.nom,
             ...(p.formula ? { formula: p.formula } : { valor: p.valor }),
@@ -539,6 +541,19 @@ export const DEFINICIONS = [
         },
     },
     {
+        name: 'posa_esquema',
+        description: 'Posa l\'esquema del sistema: la imatge que es veurà en inserir-lo, amb les cotes dels paràmetres. O bé un SVG que dibuixis tu (svg), o bé una imatge que l\'usuari t\'hagi adjuntat al xat (adjunt, amb el nom del fitxer). Amb treu: true, el treu. Substitueix el que hi hagi.',
+        input_schema: {
+            type: 'object',
+            properties: {
+                svg: { type: 'string', description: 'Un SVG sencer, de <svg ...> a </svg>, amb viewBox. Sense scripts ni imatges externes.' },
+                adjunt: { type: 'string', description: 'Nom d\'una imatge adjunta al xat (no un PDF).' },
+                treu: { type: 'boolean' },
+            },
+            additionalProperties: false,
+        },
+    },
+    {
         name: 'esborra',
         description: 'Esborra un capítol o una partida (per codi), un paràmetre (per nom) o una condició (per expressió).',
         input_schema: { type: 'object', properties: { codi: str, parametre: str, condicio: str }, additionalProperties: false },
@@ -577,6 +592,31 @@ export const validaInput = (nom, input) => {
         return null;
     };
     return comprova(def.input_schema, input, nom);
+};
+
+/**
+ * L'esquema del sistema (`utils/esquema.js`), a `budget.esquema`. Un adjunt el demana a
+ * `ctx.esquemaDAdjunt(nom)`, que el panell connecta a les imatges enviades al xat.
+ */
+const posaEsquema = async ({ svg, adjunt, treu }, llegeix, ctx) => {
+    const quants = [svg !== undefined, adjunt !== undefined, !!treu].filter(Boolean).length;
+    if (quants !== 1) throw new ErrorEina('Dona o bé svg, o bé adjunt, o bé treu: true');
+    let esquema = null;
+    if (svg !== undefined) {
+        try { esquema = svgAEsquema(svg); } catch (e) { throw new ErrorEina(e.message); }
+    } else if (adjunt !== undefined) {
+        if (!ctx.esquemaDAdjunt) throw new ErrorEina('Aquí no hi ha imatges adjuntes');
+        esquema = await ctx.esquemaDAdjunt(adjunt);
+    }
+    const { budget, priceDatabase } = llegeix();
+    // eslint-disable-next-line no-unused-vars
+    const { esquema: _vell, ...resta } = budget;
+    const kB = esquema ? Math.max(1, Math.round(midaDataUrl(esquema.dades) / 1024)) : 0;
+    return {
+        estat: { budget: esquema ? { ...resta, esquema } : resta, priceDatabase },
+        resultat: esquema ? { fet: true, mida_kB: kB } : { fet: true, tret: true },
+        resum: esquema ? `Esquema del sistema (${svg !== undefined ? 'SVG' : adjunt}, ${kB} kB)` : 'Esquema tret',
+    };
 };
 
 /**
@@ -621,6 +661,7 @@ const tradueixEina = async ({ idioma, codis = [], linies = true }, llegeix, ctx)
 export const executaEina = async (nom, input, estatOFuncio, ctx = {}) => {
     const llegeix = () => (typeof estatOFuncio === 'function' ? estatOFuncio() : estatOFuncio);
     if (nom === 'tradueix') return tradueixEina(input, llegeix, ctx);
+    if (nom === 'posa_esquema') return posaEsquema(input, llegeix, ctx);
     if (nom === 'cype_importa') {
         const importada = await ctx.xarxa.baixaPartidaCype(input.url_bc3);
         return posaPartidaCype(llegeix(), importada, { capitol: input.capitol, codi: input.codi });

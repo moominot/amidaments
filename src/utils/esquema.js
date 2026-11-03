@@ -84,3 +84,33 @@ export const preparaEsquema = async (fitxer) => {
     bitmap.close?.();
     throw new Error(`La imatge «${nom}» no es pot reduir prou: prova'n una de més senzilla`);
 };
+
+/** Base64 d'un text en UTF-8 (`btoa` sol només accepta Latin-1). */
+const base64Utf8 = (text) => {
+    const bytes = new TextEncoder().encode(text);
+    let bin = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return btoa(bin);
+};
+
+/**
+ * Un SVG escrit a mà (o per l'assistent) com a esquema. Comprova que sigui un SVG sencer i que
+ * no passi del límit, i hi posa l'`xmlns` si no el porta: sense, un `<img>` no el dibuixa.
+ * Encara que es mostri amb `<img>` (que no executa res), es rebutja el que porti scripts:
+ * un esquema no en necessita mai. Llança amb el motiu.
+ */
+export const svgAEsquema = (svg, nom = 'esquema.svg') => {
+    let t = String(svg || '').trim().replace(/^<\?xml[^>]*\?>\s*/, '');
+    if (!/^<svg[\s>]/i.test(t) || !/<\/svg>\s*$/i.test(t)) throw new Error('No és un SVG sencer: ha de començar per <svg i acabar amb </svg>');
+    if (/<script|javascript:|\son\w+\s*=/i.test(t)) throw new Error('L\'SVG no pot portar scripts ni esdeveniments');
+    if (!/^<svg[^>]*\sxmlns=/i.test(t)) t = t.replace(/^<svg/i, '<svg xmlns="http://www.w3.org/2000/svg"');
+    const dades = `data:image/svg+xml;base64,${base64Utf8(t)}`;
+    if (midaDataUrl(dades) > MAX_BYTES) throw new Error(`L'SVG passa de ${Math.round(MAX_BYTES / 1024)} kB`);
+    return { dades, nom };
+};
+
+/** Una imatge ja carregada (data URL, p. ex. un adjunt del xat) com a esquema, reduïda. */
+export const esquemaDeDataUrl = async (dataUrl, nom = 'esquema') => {
+    const blob = await (await fetch(dataUrl)).blob();
+    return preparaEsquema(new File([blob], nom, { type: blob.type }));
+};

@@ -4,6 +4,7 @@ import { executaEina } from '../utils/assistent/eines';
 import * as xarxa from '../utils/assistent/cype';
 import { ACCEPTA, tipusAdmes, preparaAdjunt, comprovaAdjunts, contingutMissatge } from '../utils/assistent/adjunts';
 import { llegeixClau, desaClau, llegeixPref, desaPref, PREF_MODEL } from '../utils/assistent/clau';
+import { esquemaDeDataUrl } from '../utils/esquema';
 import { MODELS, ESFORCOS, MODEL_PER_DEFECTE, ESFORC_PER_DEFECTE, model as infoModel, esforcValid, costUs } from '../utils/assistent/models';
 
 /**
@@ -59,7 +60,7 @@ const NOMS_EINES = {
     cype_navega: 'Generador de Preus', cype_fitxa: 'Fitxa de CYPE', cype_importa: 'Importa de CYPE',
     crea_capitol: 'Crea un capítol', crea_partida: 'Crea una partida', modifica_partida: 'Modifica una partida',
     posa_linies: 'Línies d\'amidament', posa_parametre: 'Paràmetre', posa_condicio: 'Condició', esborra: 'Esborra',
-    tradueix: 'Tradueix',
+    tradueix: 'Tradueix', posa_esquema: 'Esquema del sistema',
 };
 
 const FormulariClau = ({ onDesa }) => {
@@ -136,6 +137,8 @@ const AssistentPanel = ({ getEstat, aplicaEstat, onTanca }) => {
     const [preparant, setPreparant] = useState(0);
     const [sobre, setSobre] = useState(false);
     const selector = useRef(null);
+    // Les imatges enviades en aquesta conversa, pel nom: l'assistent en pot fer l'esquema del sistema.
+    const imatgesEnviades = useRef(new Map());
     const historial = useRef([]);
     const control = useRef(null);
     const caixa = useRef(null);
@@ -178,6 +181,7 @@ const AssistentPanel = ({ getEstat, aplicaEstat, onTanca }) => {
             return;
         }
         const enviats = adjunts;
+        enviats.filter(a => a.tipus === 'imatge').forEach(a => imatgesEnviades.current.set(a.nom, a));
         setEntrada('');
         setAdjunts([]);
         // Al xat només hi queden la miniatura i el nom; les dades van a l'historial de l'API.
@@ -201,6 +205,15 @@ const AssistentPanel = ({ getEstat, aplicaEstat, onTanca }) => {
                     const r = await executaEina(nom, input, getEstat, {
                         xarxa,
                         idioma,
+                        esquemaDAdjunt: async (nom) => {
+                            const a = imatgesEnviades.current.get(nom)
+                                || [...imatgesEnviades.current.values()].find(x => x.nom.toLowerCase() === String(nom).toLowerCase());
+                            if (!a) {
+                                const noms = [...imatgesEnviades.current.keys()];
+                                throw new Error(noms.length ? `No hi ha cap imatge «${nom}». Les adjuntes són: ${noms.join(', ')}` : 'L\'usuari no ha adjuntat cap imatge en aquesta conversa');
+                            }
+                            return esquemaDeDataUrl(`data:${a.mediaType};base64,${a.dades}`, a.nom);
+                        },
                         // Les traduccions van per peticions a part, amb esforç baix: no passen
                         // pel context de la conversa i en surten molt més barates.
                         tradueix: async (textos, idiomaDesti) => {
@@ -261,6 +274,7 @@ const AssistentPanel = ({ getEstat, aplicaEstat, onTanca }) => {
     const nova = () => {
         if (treballant) return;
         historial.current = [];
+        imatgesEnviades.current = new Map();
         setElements([]);
         setAdjunts([]);
         setCost({ dolars: 0, cerques: 0 });
