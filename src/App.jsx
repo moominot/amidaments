@@ -3880,7 +3880,11 @@ export default function App() {
     const toggleChapter = (id) => setExpandedChapters(prev => ({ ...prev, [id]: !prev[id] }));
 
     // --- Render Helper ---
-    const renderJustificationTable = (node) => {
+    /**
+     * La justificació de preu d'una partida: les línies del descomposat per categoria i el cost
+     * directe total. La fan servir la taula i la capçalera plegada del panell de detall.
+     */
+    const calculaJustificacio = (node) => {
         const categories = {
             material: { label: 'Materials (MT/MQ)', items: [], total: 0, color: 'text-emerald-600', bg: 'bg-emerald-50' },
             labor: { label: 'Mà d\'Obra (MO)', items: [], total: 0, color: 'text-amber-600', bg: 'bg-amber-50' },
@@ -3926,7 +3930,11 @@ export default function App() {
         });
 
         const totalCost = round2(categories.material.total + categories.labor.total + categories.directCost.total + categories.percent.total);
+        return { categories, totalCost };
+    };
 
+    const renderJustificationTable = (node) => {
+        const { categories, totalCost } = calculaJustificacio(node);
         return (
             <div className="bg-white border border-slate-300 animate-in fade-in duration-300">
                 {/* El títol ja el porta la secció del panell: aquí només hi van les accions. */}
@@ -6014,9 +6022,9 @@ export default function App() {
                                             <span className="text-[10px] font-black bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">{node.code}</span>
                                             <h2 className="text-sm font-bold text-slate-800 truncate">{node.description}</h2>
                                         </div>
-                                        <div className="flex items-center justify-between">
-                                            <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest">{node.unit ? 'Detall de Partida' : 'Detall de Capítol'}</p>
-                                            <div className="flex items-center gap-1">
+                                        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
+                                            <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest whitespace-nowrap">{node.unit ? 'Detall de Partida' : 'Detall de Capítol'}</p>
+                                            <div className="flex flex-wrap items-center justify-end gap-1">
                                                 <button
                                                     onClick={() => copiaAlPortaRetalls(node)}
                                                     title={`Copia ${node.unit ? 'la partida' : 'el capítol i tot el que conté'} per enganxar-ho en una altra finestra (Ctrl+C)`}
@@ -6134,11 +6142,17 @@ export default function App() {
                                                     onClick={() => toggleSidebarSection('measurements')}
                                                     className="w-full px-3 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between hover:bg-slate-100 transition-colors"
                                                 >
-                                                    <div className="flex items-center gap-2">
-                                                        <Calculator size={12} className="text-slate-400" />
-                                                        <span className="text-[11px] md:text-[10px] font-bold uppercase text-slate-600 tracking-wider">Detall d'Amidament</span>
+                                                    <div className="flex items-center gap-2 min-w-0">
+                                                        <Calculator size={12} className="text-slate-400 flex-shrink-0" />
+                                                        <span className="text-[11px] md:text-[10px] font-bold uppercase text-slate-600 tracking-wider truncate">Detall d'Amidament</span>
                                                     </div>
-                                                    {expandedSidebarSections.measurements ? <ChevronDown size={12} className="text-slate-400" /> : <ChevronRight size={12} className="text-slate-400" />}
+                                                    {/* El total també a la capçalera: es veu amb les línies plegades. */}
+                                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                                        <span className="text-[11px] md:text-[10px] font-mono font-bold text-blue-700" title="Amidament total">
+                                                            {formatNumber(calcItemTotalQty(node), 2)} {node.unit}
+                                                        </span>
+                                                        {expandedSidebarSections.measurements ? <ChevronDown size={12} className="text-slate-400" /> : <ChevronRight size={12} className="text-slate-400" />}
+                                                    </div>
                                                 </button>
                                                 {expandedSidebarSections.measurements && (
                                                     <div className="p-0">
@@ -6269,11 +6283,18 @@ export default function App() {
                                                     onClick={() => toggleSidebarSection('justification')}
                                                     className="w-full px-3 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between hover:bg-slate-100 transition-colors"
                                                 >
-                                                    <div className="flex items-center gap-2">
-                                                        <List size={12} className="text-slate-400" />
-                                                        <span className="text-[10px] font-bold uppercase text-slate-600 tracking-wider">Justificació de Preu</span>
+                                                    <div className="flex items-center gap-2 min-w-0">
+                                                        <List size={12} className="text-slate-400 flex-shrink-0" />
+                                                        <span className="text-[10px] font-bold uppercase text-slate-600 tracking-wider truncate">Justificació de Preu</span>
                                                     </div>
-                                                    {expandedSidebarSections.justification ? <ChevronDown size={12} className="text-slate-400" /> : <ChevronRight size={12} className="text-slate-400" />}
+                                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                                        {(node.breakdown || []).length > 0 && (
+                                                            <span className="text-[11px] md:text-[10px] font-mono font-bold text-blue-700" title="Cost directe total">
+                                                                {formatCurrency(calculaJustificacio(node).totalCost)}
+                                                            </span>
+                                                        )}
+                                                        {expandedSidebarSections.justification ? <ChevronDown size={12} className="text-slate-400" /> : <ChevronRight size={12} className="text-slate-400" />}
+                                                    </div>
                                                 </button>
                                                 {expandedSidebarSections.justification && (
                                                     <div className="p-0">
