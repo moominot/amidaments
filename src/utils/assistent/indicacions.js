@@ -29,6 +29,7 @@ Un sistema és un projecte amb paràmetres que es desa (botó Sistema › Desa a
 - Noms de paràmetre: lletres, xifres i _, començant per lletra. Distingeixen majúscules.
 - A les línies: Ud × Ll × Am × Al. Un camp buit val 1 (una línia amb només Ud = 5 val 5). Una fórmula de dimensió que dona 0 deixa la línia a 0.
 - El títol (descripcio) i el text llarg d'una partida o d'un capítol poden portar variables entre claus, que es resolen amb els paràmetres: «Biga de {B*100}x{H*100} cm» o {si(acabat=1; "encofrat vist"; "per revestir")}. En un sistema, fes-les servir perquè el text digui les mides i les variants triades; partint d'una partida de CYPE, substitueix les mides fixes del text per variables. llegeix_partida torna el text amb les variables a resum_amb_variables i text_amb_variables.
+- Els rendiments del descomposat també poden ser fórmules (B*H m³ de formigó per metre de biga): així el preu segueix els paràmetres. Quan converteixis una partida de CYPE en variable, fes variables els rendiments que depenen de les mides, no només el text, o el preu no quadrarà amb la descripció. Per canviar un descomposat importat, torna a passar-lo sencer a modifica_partida.
 
 ## Croquis, fotos i plànols
 

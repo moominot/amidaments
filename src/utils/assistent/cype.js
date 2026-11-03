@@ -166,6 +166,8 @@ export const resumPartida = (partida, prices) => ({
     preu: getItemUnitPrice(partida, prices),
     descomposat: (partida.breakdown || []).map(b => ({
         codi: b.code, descripcio: b.description, unitat: b.unit, rendiment: b.yield,
+        ...(b.formulaRendiment ? { formula_rendiment: b.formulaRendiment } : {}),
+        ...(b.errorRendiment ? { error_rendiment: b.errorRendiment } : {}),
         preu: prices[normalizeCode(b.code)]?.price ?? b.price,
     })),
 });

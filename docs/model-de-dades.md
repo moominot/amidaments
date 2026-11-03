@@ -161,6 +161,7 @@ es reflecteix tot sol; si s'esborra, la línia queda a 0 i es marca com a «lín
   description: "Oficial 1a",
   unit: "h",
   yield: 0.35,                // rendiment
+  formulaRendiment: "B*H",    // opcional: si hi és, mana sobre `yield` (es resol a resolvedChapters)
   price: 21.4,                // preu de la línia; priceDatabase té preferència
   total: 7.49                 // informatiu, no és font de veritat
 }

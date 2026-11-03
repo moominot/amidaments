@@ -5,7 +5,7 @@ npm test          # una passada
 npm run test:watch
 ```
 
-**Vitest**, 250 tests en quinze fitxers, poc més d'un segon. `vitest.config.js` és a part de
+**Vitest**, 256 tests en quinze fitxers, poc més d'un segon. `vitest.config.js` és a part de
 `vite.config.js` a posta: els tests són tots de lògica de càlcul i no munten cap component, de
 manera que no els cal ni el plugin de React ni l'entorn de navegador.
 
@@ -42,7 +42,7 @@ que has canviat és correcte abans de moure el número esperat.
 | `assistent.test.js` | Lectura de la navegació i les fitxes de CYPE, els camps de la petició i el cost de cada model, validació dels inputs, les eines d'edició (quantitats, descomposat, errors de fórmula, condicions) i la importació d'una partida de CYPE amb `cype-pilar.bc3` (fusió de capítols, preus del projecte que manen). La xarxa s'injecta |
 | `adjunts.test.js` | Imatges i PDF de l'assistent: la mida a què es redueixen les imatges (2576 px, 3,75 MP), el contingut del missatge (adjunts davant del text) i els límits d'imatges i de pes de tota la conversa |
 | `traduccio.test.js` | Traducció contra el BC3 de referència amb una «traducció» que marca els textos: arriba a descripcions, textos llargs, descomposat i base de preus; el PEM, els codis i les quantitats no es mouen; només l'abast triat |
-| `plantilles.test.js` | Títols i descripcions amb variables: números i `si()` amb textos, errors, reanomenar, dins d'un sistema (es demanen, es reanomenen en inserir i tornen en extreure), BC3 i porta-retalls amb el text omplert |
+| `plantilles.test.js` | Rendiments amb fórmula (el preu segueix els paràmetres: 35,02 → 28,84 €/m fet a mà; error a 0; BC3 amb el preu i el rendiment calculats). Títols i descripcions amb variables: números i `si()` amb textos, errors, reanomenar, dins d'un sistema (es demanen, es reanomenen en inserir i tornen en extreure), BC3 i porta-retalls amb el text omplert |
 | `cad.test.js` | El text del LISP `AMIDA` i què en surt segons la unitat (m2, m, ud, m3). Sense fitxer real: el text el genera el LISP |
 
 ## Per què aquests i no uns altres

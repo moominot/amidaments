@@ -5,6 +5,7 @@ import { llegeixDocument, instancia, extreuInstancia, parametresADemanar, FORMAT
 import { generateBC3 } from '../src/utils/bc3Writer';
 import { processBC3Data } from '../src/utils/bc3Parser';
 import { creaFragment, llegeixFragment } from '../src/utils/portaRetalls';
+import { getItemUnitPrice, calcChapterTotal, normalizeCode } from '../src/utils/calculations';
 
 /**
  * Títols i descripcions amb variables: `{expressió}` i `{si(condició; "text"; "text")}`.
@@ -141,5 +142,76 @@ describe('en un sistema', () => {
         const budget = { chapters: r.chapters, parametres: [{ id: 'q', nom: 'B', valor: 1 }, ...r.parametres], condicions: r.condicions || [], sistemes: [r.instancia] };
         const doc = extreuInstancia(budget, r.prices, 'I2');
         expect(doc.chapters[0].items[0].description).toBe('Biga de {B*100}x{H*100} cm');
+    });
+});
+
+describe('rendiments amb fórmula', () => {
+    // Biga de B×H: formigó 100 €/m³ amb rendiment B*H m³/m, mà d'obra 20 €/h × 0,5 h/m i un 3 %
+    // de costos indirectes. Amb B 0,4 i H 0,6: 24 + 10 = 34, + 1,02 = 35,02 €/m.
+    // Amb B 0,3: 18 + 10 = 28, + 0,84 = 28,84 €/m.
+    const preus = {
+        mtFORM: { code: 'mtFORM', price: 100, unit: 'm3', summary: 'Formigó HA-25' },
+        moOFI: { code: 'moOFI', price: 20, unit: 'h', summary: 'Oficial 1a' },
+        '%CI': { code: '%CI', price: 0, unit: '%', summary: 'Costos indirectes' },
+    };
+    const biga = () => partida({
+        breakdown: [
+            { code: 'mtFORM', description: 'Formigó HA-25', unit: 'm3', yield: 0, formulaRendiment: 'B*H', price: 100 },
+            { code: 'moOFI', description: 'Oficial 1a', unit: 'h', yield: 0.5, price: 20 },
+            { code: '%CI', description: 'Costos indirectes', unit: '%', yield: 3, price: 0 },
+        ],
+    });
+    const preuAmb = (params) => getItemUnitPrice(resolveFormules(arbre(biga()), params).chapters[0].items[0], preus);
+
+    it('el preu segueix els paràmetres', () => {
+        expect(preuAmb(PARAMS)).toBe(35.02);
+        expect(preuAmb(PARAMS.map(x => (x.nom === 'B' ? { ...x, valor: 0.3 } : x)))).toBe(28.84);
+    });
+
+    it('el resolt porta el rendiment calculat i conserva la fórmula', () => {
+        const c = resolveFormules(arbre(biga()), PARAMS).chapters[0].items[0].breakdown[0];
+        expect(c.yield).toBeCloseTo(0.24, 9);
+        expect(c.formulaRendiment).toBe('B*H');
+    });
+
+    it('una fórmula amb error deixa el component a 0 i ho diu', () => {
+        const p = biga();
+        p.breakdown[0].formulaRendiment = 'B*G';
+        const c = resolveFormules(arbre(p), PARAMS).chapters[0].items[0];
+        expect(c.breakdown[0].yield).toBe(0);
+        expect(c.breakdown[0].errorRendiment).toMatch(/G/);
+        expect(getItemUnitPrice(c, preus)).toBe(10.3);   // 10 + 3 %
+    });
+
+    it('es reanomena i compta com a ús', () => {
+        const r = reescriuFormules({ chapters: arbre(biga()), parametres: PARAMS }, new Map([['H', 'alt']]));
+        expect(r.chapters[0].items[0].breakdown[0].formulaRendiment).toBe('B*alt');
+        expect(usosDeParametres(arbre(biga()), []).get('B')).toBe(4);   // capítol, títol, descripció i rendiment
+    });
+
+    it('el BC3 escriu el rendiment i el preu calculats, i el cicle conserva l\'import', () => {
+        const chapters = resolveFormules(arbre(biga()), PARAMS).chapters;
+        const bc3 = generateBC3({ budget: { name: 'Prova', chapters }, chapters, priceDatabase: preus });
+        expect(bc3).toMatch(/~C\|BIGA#?\|m\|[^|]*\|35[.,]02\|/);
+        expect(bc3).toMatch(/~D\|BIGA#?\|mtFORM\\1\\0[.,]24\\/);
+        const r = processBC3Data(bc3);
+        const p = r.chapters[0].items.find(i => normalizeCode(i.code) === 'BIGA');
+        expect(getItemUnitPrice(p, r.prices)).toBe(35.02);
+        expect(calcChapterTotal(r.chapters[0], r.prices)).toBe(350.2);   // 10 m × 35,02
+    });
+
+    it('en un sistema, el rendiment es reanomena en inserir i torna en extreure', () => {
+        const doc = llegeixDocument({
+            format: FORMAT_SISTEMA, versio: 1, nom: 'Biga', descripcio: '',
+            parametres: [{ id: 'b', nom: 'B', valor: 0.4 }, { id: 'h', nom: 'H', valor: 0.6 }, { id: 'a', nom: 'acabat', valor: 1 }],
+            condicions: [], chapters: arbre(biga()), prices: preus,
+        });
+        const projecte = [{ id: 'q', nom: 'B', valor: 1 }];
+        const r = instancia(doc, { nomInstancia: 'Biga 2', parametresProjecte: projecte, id: 'I3' });
+        expect(r.chapters[0].items[0].breakdown[0].formulaRendiment).toBe('B_2*H');
+        const resolt = resolveFormules(r.chapters, [...projecte, ...r.parametres]).chapters[0].items[0];
+        expect(getItemUnitPrice(resolt, preus)).toBe(35.02);
+        const budget = { chapters: r.chapters, parametres: [...projecte, ...r.parametres], condicions: [], sistemes: [r.instancia] };
+        expect(extreuInstancia(budget, preus, 'I3').chapters[0].items[0].breakdown[0].formulaRendiment).toBe('B*H');
     });
 });

@@ -11,7 +11,7 @@ npm install
 npm run dev
 npm run build     # ha de passar sempre abans de donar una feina per acabada
 npm run lint      # cobreix .js i .jsx; l'arbre ha de quedar amb 0 errors
-npm test          # Vitest; 250 tests sobre els càlculs, el parser i l'escriptor
+npm test          # Vitest; 256 tests sobre els càlculs, el parser i l'escriptor
 npm run test:watch
 ```
 
@@ -95,7 +95,9 @@ del sector: *amidament*, *partida*, *capítol*, *descomposat*, *rendiment*, *cer
   s'ha d'afegir a `reescriuFormules`, o reanomenar un paràmetre el deixarà orfe. El títol i la
   descripció tècnica poden portar variables entre claus (`utils/plantilles.js`): el text amb les
   claus és a `budget.chapters` i el resolt a `resolvedChapters`, amb l'original a `plantilles`; els
-  camps d'edició han de mostrar `node.plantilles?.camp ?? node.camp`. Veure
+  camps d'edició han de mostrar `node.plantilles?.camp ?? node.camp`. Els rendiments del
+  descomposat també poden ser fórmula (`breakdown[].formulaRendiment`, mana sobre `yield`): el
+  preu d'una partida amb descomposat només és bo calculat sobre `resolvedChapters`. Veure
   `docs/sistemes.md`.
 - **Els sistemes constructius són documents** (`utils/sistemesDoc.js`): un projecte amb
   paràmetres que s'insereix en un altre demanant-los. Cada línia inserida porta `sistema` (l'id

@@ -3791,6 +3791,30 @@ export default function App() {
     };
 
     /**
+     * Rendiment d'un component: número o fórmula amb paràmetres (`components/FormulaInput`).
+     * Com a les línies d'amidament, un número treu la fórmula i una fórmula mana sobre el
+     * número desat (veure `utils/parametres.js`).
+     */
+    const updateRendiment = (itemId, idx, entrada) => {
+        const updateInTree = (nodes) => nodes.map(node => {
+            if (node.id === itemId) {
+                const breakdown = [...(node.breakdown || [])];
+                const actual = { ...breakdown[idx] };
+                if ('valor' in entrada) {
+                    delete actual.formulaRendiment;
+                    actual.yield = entrada.valor;
+                } else {
+                    actual.formulaRendiment = entrada.formula;
+                }
+                breakdown[idx] = actual;
+                return { ...node, breakdown };
+            }
+            return { ...node, subChapters: updateInTree(node.subChapters || []), items: updateInTree(node.items || []) };
+        });
+        setBudget(prev => ({ ...prev, chapters: updateInTree(prev.chapters) }));
+    };
+
+    /**
      * @param {string} itemId partida a la qual s'afegeix la línia
      * @param {object} [concepte] concepte del banc de preus; sense ell, línia en blanc
      */
@@ -3991,10 +4015,13 @@ export default function App() {
                                             </td>
                                             <td className="p-2 text-right w-24">
                                                 <div className="relative">
-                                                    <NumberInput
+                                                    <FormulaInput
                                                         className="w-full text-right font-mono bg-transparent outline-none border-b border-transparent focus:border-blue-300"
                                                         value={line.yield}
-                                                        onChange={v => updateBreakdownLine(node.id, line.idx, 'yield', v)}
+                                                        formula={line.formulaRendiment}
+                                                        error={line.errorRendiment}
+                                                        teclatText={teParametres}
+                                                        onChange={(e) => updateRendiment(node.id, line.idx, e)}
                                                     />
                                                     {line.isPercentage && <span className="absolute top-0 right-[-10px] text-[9px]">%</span>}
                                                 </div>

@@ -218,7 +218,10 @@ const descomposatDe = (linies, priceDatabase) => {
             preus[codi] = { code: codi, summary: l.descripcio, unit: l.unitat, price: Number(l.preu), ...(l.font ? { font: l.font } : {}) };
         }
         const d = preus[codi];
-        return { code: codi, description: d.summary, unit: d.unit, yield: Number(l.rendiment), price: d.price };
+        // Un rendiment de text és una fórmula amb paràmetres (`B*H` m³ de formigó per metre de
+        // biga): es resol amb el projecte, i el preu de la partida la segueix.
+        const r = typeof l.rendiment === 'string' ? interpretaCamp(l.rendiment) : { valor: Number(l.rendiment) };
+        return { code: codi, description: d.summary, unit: d.unit, yield: r.valor ?? 0, ...(r.formula ? { formulaRendiment: r.formula } : {}), price: d.price };
     });
     return { breakdown, preus, avisos };
 };
@@ -450,7 +453,7 @@ export const DEFINICIONS = [
                     type: 'array',
                     items: {
                         type: 'object',
-                        properties: { codi: str, rendiment: num, descripcio: str, unitat: str, preu: num, font: str },
+                        properties: { codi: str, rendiment: { type: ['number', 'string'], description: 'Número o fórmula amb paràmetres (B*H, 0,05*L).' }, descripcio: str, unitat: str, preu: num, font: str },
                         required: ['codi', 'rendiment'],
                         additionalProperties: false,
                     },
@@ -471,7 +474,7 @@ export const DEFINICIONS = [
                     type: 'array',
                     items: {
                         type: 'object',
-                        properties: { codi: str, rendiment: num, descripcio: str, unitat: str, preu: num, font: str },
+                        properties: { codi: str, rendiment: { type: ['number', 'string'], description: 'Número o fórmula amb paràmetres (B*H, 0,05*L).' }, descripcio: str, unitat: str, preu: num, font: str },
                         required: ['codi', 'rendiment'],
                         additionalProperties: false,
                     },

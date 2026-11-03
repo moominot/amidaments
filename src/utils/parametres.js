@@ -107,6 +107,7 @@ export const resolveFormules = (chapters = [], parametres = []) => {
     const busca = (nodes) => nodes.some(n =>
         (n.measurements || []).some(teFormules)
         || CAMPS_PLANTILLA.some(c => esPlantilla(n[c]))
+        || (n.breakdown || []).some(b => b.formulaRendiment)
         || busca([...(n.subChapters || []), ...(n.items || [])]));
     hiHa = busca(chapters);
     if (!hiHa) return { chapters, liniesAmbError, parametres: resolts };
@@ -153,12 +154,25 @@ export const resolveFormules = (chapters = [], parametres = []) => {
         return { ...camps, plantilles, ...(errors.length ? { errorsPlantilla: errors } : {}) };
     };
 
+    // Rendiments amb fórmula (`breakdown[].formulaRendiment`): com a les línies, mana la fórmula
+    // i el número desat pot ser antic. Amb un error, rendiment 0 (el component no compta) i
+    // l'error a `errorRendiment`. El preu de la partida es calcula del descomposat, així que
+    // segueix els paràmetres.
+    const resolComponent = (b) => {
+        // eslint-disable-next-line no-unused-vars
+        const { errorRendiment, ...net } = b;
+        if (!b.formulaRendiment) return net;
+        const r = avalua(b.formulaRendiment, resolts.valorDe);
+        return r.error ? { ...net, yield: 0, errorRendiment: r.error } : { ...net, yield: r.valor };
+    };
+
     const resolNode = (n) => {
         // eslint-disable-next-line no-unused-vars
         const { plantilles, errorsPlantilla, ...net } = n;
         return {
             ...net,
             ...resolTextos(net),
+            ...(n.breakdown?.some(b => b.formulaRendiment || b.errorRendiment) ? { breakdown: n.breakdown.map(resolComponent) } : {}),
             ...(n.measurements ? { measurements: n.measurements.map(resolLinia) } : {}),
             subChapters: (n.subChapters || []).map(resolNode),
             items: (n.items || []).map(resolNode),
@@ -177,6 +191,7 @@ export const usosDeParametres = (chapters = [], parametres = [], condicions = []
             if (teFormules(m)) CAMPS_FORMULA.forEach(c => { if (m.formules[c]) compta(m.formules[c]); });
         });
         CAMPS_PLANTILLA.forEach(c => referenciesPlantilla(n[c]).forEach(nom => usos.set(nom, (usos.get(nom) || 0) + 1)));
+        (n.breakdown || []).forEach(b => { if (b.formulaRendiment) compta(b.formulaRendiment); });
         recorre([...(n.subChapters || []), ...(n.items || [])]);
     });
     recorre(chapters);
@@ -226,6 +241,9 @@ export const reescriuFormules = ({ chapters = [], parametres = [], condicions = 
     const node = (n) => ({
         ...n,
         ...textos(n),
+        ...(n.breakdown?.some(b => b.formulaRendiment)
+            ? { breakdown: n.breakdown.map(b => (b.formulaRendiment ? { ...b, formulaRendiment: fn(b.formulaRendiment) } : b)) }
+            : {}),
         ...(n.measurements ? { measurements: n.measurements.map(linia) } : {}),
         subChapters: (n.subChapters || []).map(node),
         items: (n.items || []).map(node),

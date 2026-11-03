@@ -189,7 +189,8 @@ poden portar expressions entre claus que es resolen amb els paràmetres (`utils/
 - El que no es pot resoldre es deixa amb les claus i el detall ho diu en vermell.
 
 Així, d'una partida fixa de CYPE se'n fa una de variable: s'hi substitueixen les mides del text per
-variables i les quantitats per fórmules.
+variables, les quantitats per fórmules i els rendiments que depenen de les mides també (veure més
+avall).
 
 Com les fórmules de les línies: **es desa i s'edita el text amb les claus** (`budget.chapters`), i
 `resolveFormules` en posa el resolt a `resolvedChapters` (amb l'original a `plantilles`, que és el
@@ -198,5 +199,17 @@ veuen el text omplert. Els paràmetres que només surten al text també es deman
 sistema, i `reescriuFormules` els reanomena també dins de les claus. Copiar a una altra finestra
 porta el text omplert, no les variables (els paràmetres poden no existir-hi).
 
-El preu encara no és variable: el descomposat té rendiments fixos. Si el text diu 50x30 i el
-descomposat és el de 40x20, el preu no ho segueix.
+## Rendiments amb fórmula
+
+El rendiment d'un component del descomposat pot ser una fórmula (`breakdown[].formulaRendiment`),
+que s'escriu al mateix camp de la justificació de preu: `B*H` m³ de formigó per metre de biga.
+Com que el preu d'una partida amb descomposat surt dels rendiments, **el preu segueix els
+paràmetres**. Les regles són les de les línies d'amidament:
+
+- Mana la fórmula; el número desat a `yield` pot ser antic. `resolveFormules` en posa el valor a
+  `resolvedChapters`, i qualsevol càlcul de preu ha d'anar sobre el resolt.
+- Una fórmula amb error deixa el component a rendiment 0 (no compta al preu) i l'error a
+  `errorRendiment`; el camp es veu en vermell.
+- `reescriuFormules` la reanomena, `usosDeParametres` la compta i els sistemes la tenen en compte.
+- El BC3 porta el rendiment calculat al `~D` i, al `~C` d'una partida amb descomposat, el preu
+  que en surt (no el desat al node, que pot haver quedat antic).
