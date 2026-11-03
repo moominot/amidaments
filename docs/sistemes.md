@@ -213,3 +213,44 @@ paràmetres**. Les regles són les de les línies d'amidament:
 - `reescriuFormules` la reanomena, `usosDeParametres` la compta i els sistemes la tenen en compte.
 - El BC3 porta el rendiment calculat al `~D` i, al `~C` d'una partida amb descomposat, el preu
   que en surt (no el desat al node, que pot haver quedat antic).
+
+## Esquema del sistema
+
+Un sistema pot portar un **esquema**: una imatge o un SVG amb les cotes dels paràmetres, que es
+veu en inserir-lo i al bloc de la instància del panell de paràmetres (`utils/esquema.js`,
+`components/Esquema.jsx`). S'afegeix des del panell de paràmetres del projecte que es desarà
+com a sistema.
+
+**Viabilitat i on es desa.** Es desa com a data URL dins de `budget.esquema` (`{ dades, nom }`),
+del document de sistema (`doc.esquema`) i de cada instància (`budget.sistemes[].esquema`), així
+que viatja amb el `.amid` sense cap fitxer a part. El límit real és l'espai: la biblioteca de
+projectes i la galeria de sistemes comparteixen el `localStorage`, uns 5 MB. Per això:
+
+- les imatges es redueixen a 1600 px i es desen en PNG o JPEG, el que pesi menys, fins a 400 kB;
+  un esquema de línies queda en uns 20-60 kB;
+- un SVG va tal qual fins a 400 kB. Es mostra sempre amb `<img>`, que no executa scripts ni
+  carrega res de fora, de manera que no cal netejar-lo;
+- `esquemaValid` descarta qualsevol cosa que no sigui un data URL d'imatge.
+
+El BC3 no el porta (el FIEBDC només hi pot fer referència a fitxers externs). Un DWG o un DXF
+no es pot llegir: s'ha d'exportar a SVG o PNG des del CAD.
+
+## Zona de cada instància
+
+En inserir un sistema es demana el **nom de la zona o del detall** (el nom de la instància) i,
+per defecte, cada partida amb línies en porta una al davant amb aquest nom, a 0 i marcada amb
+`zona: true`. A les partides on s'ajunten línies de diverses instàncies es veu de quina zona és
+cada grup. La línia té `sistema`, així que es filtra i es treu amb la instància; en extreure la
+instància no es copia (en tornar-la a inserir se'n posa una de nova). A la impressió surt només
+el nom.
+
+Si una partida variable (text amb variables o rendiments amb fórmula) ja és al projecte i s'hi
+afegeixen les línies d'una altra instància, el títol i el preu continuen sent els de la primera:
+el quadre de duplicats ho avisa i recomana afegir-la com a partida nova.
+
+## Panell de paràmetres
+
+Els paràmetres del projecte van al davant, agrupats per grup. Cada instància de sistema té un
+bloc plegable propi amb el seu esquema, els seus paràmetres (agrupats pel grup que tenien al
+sistema) i les seves condicions; el bloc diu si alguna condició no es compleix. La instància
+que s'acaba d'inserir s'obre i plega les altres.

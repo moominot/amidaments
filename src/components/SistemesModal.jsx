@@ -1,8 +1,9 @@
 import { useState, useMemo, useRef } from 'react';
 import {
-    X, Blocks, ArrowLeft, Upload, Download, Trash2, Pencil, Save, AlertCircle, CheckCircle2, Link as LinkIcon, ChevronRight, Sparkles,
+    X, Blocks, ArrowLeft, Upload, Download, Trash2, Pencil, Save, AlertCircle, CheckCircle2, Link as LinkIcon, ChevronRight, Sparkles, Image as ImageIcon,
 } from 'lucide-react';
 import FormulaInput from './FormulaInput';
+import Esquema from './Esquema';
 import { formatCurrency, formatNumber } from '../utils/calculations';
 import { resumLimits } from '../utils/parametres';
 import { referencies } from '../utils/formules';
@@ -127,6 +128,7 @@ const SistemesModal = ({
                                     <div className="flex items-center gap-2">
                                         <span className="text-xs font-bold text-slate-800 truncate">{s.nom}</span>
                                         <span className="text-[10px] text-violet-600 font-mono whitespace-nowrap">{s.nParametres} paràm.</span>
+                                        {s.teEsquema && <ImageIcon size={12} className="text-slate-400 flex-shrink-0" aria-label="Té esquema" />}
                                     </div>
                                     {s.descripcio && <p className="text-[11px] text-slate-500 leading-snug mt-0.5">{s.descripcio}</p>}
                                 </button>
@@ -191,6 +193,7 @@ const VistaParametres = ({ doc, budget, priceDatabase, destiLabel, onInsereix, o
     const [nomInstancia, setNomInstancia] = useState(() => nomInstanciaLliure(doc.nom, budget.sistemes || []));
     const [aLArrel, setALArrel] = useState(true);
     const [ometZero, setOmetZero] = useState(false);
+    const [liniaZona, setLiniaZona] = useState(true);
     // Per defecte es fa servir el paràmetre del projecte amb el mateix nom si és del projecte
     // (una «alçada de planta» comuna), però no si és d'una altra instància: la segona instància
     // d'un mateix sistema no ha de tenir per força les mides de la primera.
@@ -226,24 +229,39 @@ const VistaParametres = ({ doc, budget, priceDatabase, destiLabel, onInsereix, o
     ];
 
     const insereix = () => {
-        const inst = instancia(doc, { respostes, nomInstancia: nomInstancia.trim() || doc.nom, parametresProjecte, ometZero });
+        const inst = instancia(doc, { respostes, nomInstancia: nomInstancia.trim() || doc.nom, parametresProjecte, ometZero, liniaZona });
         onInsereix(inst, { aLArrel });
     };
 
     return (
         <>
-            <div className="flex-1 min-h-0 overflow-y-auto">
+            <div className={`flex-1 min-h-0 overflow-y-auto ${doc.esquema ? 'md:grid md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] md:items-start' : ''}`}>
+                {/* Amb esquema, a l'escriptori va en una columna fixa: es veu mentre s'omplen els paràmetres. */}
+                {doc.esquema && (
+                    <div className="px-4 pt-3 md:sticky md:top-0 md:pb-3">
+                        <Esquema esquema={doc.esquema} className="max-h-56 md:max-h-[60vh]" titol={`Esquema de ${doc.nom}`} />
+                    </div>
+                )}
+                <div className="min-w-0">
                 {doc.descripcio && <p className="px-4 pt-3 text-[11px] text-slate-500 leading-snug">{doc.descripcio}</p>}
                 <div className="p-4 grid sm:grid-cols-2 gap-3 border-b border-slate-100">
-                    <label className="block">
-                        <span className="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Nom de la instància</span>
-                        <input
-                            value={nomInstancia}
-                            onChange={e => setNomInstancia(e.target.value)}
-                            className="w-full border border-slate-200 px-2 py-1.5 text-xs focus:border-blue-500 outline-none"
-                        />
-                        <span className="block text-[10px] text-slate-400 mt-1">Agrupa els seus paràmetres i permet filtrar-la després</span>
-                    </label>
+                    <div>
+                        <label className="block">
+                            <span className="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Nom de la zona o del detall</span>
+                            <input
+                                value={nomInstancia}
+                                onChange={e => setNomInstancia(e.target.value)}
+                                placeholder="Façana nord, Banc del pati…"
+                                className="w-full border border-slate-200 px-2 py-1.5 text-xs focus:border-blue-500 outline-none"
+                                aria-label="Nom de la zona o del detall"
+                            />
+                            <span className="block text-[10px] text-slate-400 mt-1">Agrupa els seus paràmetres i permet filtrar-la després</span>
+                        </label>
+                        <label className="flex items-start gap-2 mt-2 text-[11px] text-slate-600 cursor-pointer select-none touch-manipulation">
+                            <input type="checkbox" checked={liniaZona} onChange={e => setLiniaZona(e.target.checked)} className="w-4 h-4 mt-0.5 accent-blue-600 flex-shrink-0" />
+                            <span>Posa una línia amb aquest nom al davant de les seves línies d&apos;amidament</span>
+                        </label>
+                    </div>
                     <div>
                         <span className="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">On</span>
                         <label className="flex items-center gap-2 text-xs py-1 cursor-pointer touch-manipulation">
@@ -350,6 +368,7 @@ const VistaParametres = ({ doc, budget, priceDatabase, destiLabel, onInsereix, o
                         ))}
                     </div>
                 )}
+                </div>
             </div>
 
             <div className="border-t border-slate-200 p-3 md:p-4 flex flex-col sm:flex-row sm:items-center gap-3 flex-shrink-0 bg-white">
@@ -427,6 +446,16 @@ const VistaDesa = ({ budget, priceDatabase, docADesar, onExporta, onDesat, notif
                         <input type="checkbox" checked={substitueix} onChange={e => setSubstitueix(e.target.checked)} className="w-4 h-4 accent-blue-600" />
                         Substitueix «{origen.nom}» a la galeria (si no, se&apos;n desa un de nou)
                     </label>
+                )}
+                {(docADesar ? docADesar.esquema : budget.esquema) ? (
+                    <div>
+                        <span className="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Esquema</span>
+                        <Esquema esquema={docADesar ? docADesar.esquema : budget.esquema} className="max-h-40" />
+                    </div>
+                ) : !docADesar && (
+                    <p className="text-[10px] text-slate-400 leading-snug">
+                        Hi pots afegir un esquema (una imatge o un SVG amb les cotes dels paràmetres) des de la barra de paràmetres: es veurà en inserir-lo.
+                    </p>
                 )}
                 <div className={`text-[11px] leading-snug p-3 border ${nParams ? 'bg-slate-50 border-slate-200 text-slate-500' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
                     {nParams

@@ -3,6 +3,7 @@ import { resolveFormules, reescriuFormules, nomLliure, CAMPS_FORMULA, teFormules
 import { CAMPS_PLANTILLA, referenciesPlantilla } from './plantilles';
 import { resolveMeasurementRefs } from './measurementRefs';
 import { referencies } from './formules';
+import { esquemaValid } from './esquema';
 
 /**
  * Sistemes constructius com a documents.
@@ -100,8 +101,11 @@ const netejaCondicio = (c) => {
  * Document de sistema a partir d'un projecte: tot l'arbre i tots els paràmetres.
  * `chapters` ha de ser `budget.chapters` (amb les fórmules i els vincles), no el resolt.
  */
-export const documentDeProjecte = ({ chapters = [], parametres = [], condicions = [], name } = {}, priceDatabase = {}, { nom, descripcio } = {}) => {
-    const arbre = netejaArbre(chapters);
+export const documentDeProjecte = ({ chapters = [], parametres = [], condicions = [], name, esquema } = {}, priceDatabase = {}, { nom, descripcio } = {}) => {
+    // Les línies de zona d'una instància (`zona`) no són del sistema: en tornar-lo a inserir se'n
+    // posen de noves amb el nom de la nova instància.
+    const arbre = netejaArbre(chapters, m => !m.zona);
+    const imatge = esquemaValid(esquema);
     return {
         format: FORMAT_SISTEMA,
         versio: 1,
@@ -115,6 +119,7 @@ export const documentDeProjecte = ({ chapters = [], parametres = [], condicions 
         condicions: condicions.map(netejaCondicio),
         chapters: arbre,
         prices: preusDe(arbre, priceDatabase),
+        ...(imatge ? { esquema: imatge } : {}),
     };
 };
 
@@ -131,6 +136,7 @@ export const projecteDeDocument = (doc) => ({
         parametres: doc.parametres,
         condicions: doc.condicions || [],
         certifications: [],
+        ...(esquemaValid(doc.esquema) ? { esquema: esquemaValid(doc.esquema) } : {}),
     },
     priceDatabase: doc.prices || {},
 });
@@ -143,8 +149,12 @@ export const llegeixDocument = (dades) => {
     if (!dades || typeof dades !== 'object') return null;
     if (dades.format === FORMAT_SISTEMA) {
         if (!Array.isArray(dades.chapters)) return null;
+        // eslint-disable-next-line no-unused-vars
+        const { esquema, ...resta } = dades;
+        const imatge = esquemaValid(esquema);
         return {
-            ...dades,
+            ...resta,
+            ...(imatge ? { esquema: imatge } : {}),
             parametres: Array.isArray(dades.parametres) ? dades.parametres : [],
             condicions: Array.isArray(dades.condicions) ? dades.condicions : [],
             prices: dades.prices && typeof dades.prices === 'object' ? dades.prices : {},
@@ -195,6 +205,10 @@ const grupDe = (nomInstancia, grup) => (grup ? `${nomInstancia} · ${grup}` : no
  * i marcat, els paràmetres i les condicions que s'han d'afegir al projecte, els preus, l'entrada
  * per a `budget.sistemes` i les partides que s'han deixat fora.
  *
+ * Amb `liniaZona`, cada partida amb línies en porta una al davant amb el nom de la instància, a
+ * 0 i marcada amb `zona`: així, a les partides on s'ajunten línies de diverses instàncies (o de
+ * l'obra), es veu de quina zona o detall és cada grup.
+ *
  * Amb `ometZero` no s'insereixen les partides que, amb aquests valors, surten a zero (ni els
  * capítols que es queden buits per això). És el que es vol en un sistema amb variants, on un
  * paràmetre posa a zero les partides de les variants que no es trien: si no, es quedarien al
@@ -207,6 +221,7 @@ export const instancia = (doc, {
     parametresProjecte = [],
     id = crypto.randomUUID(),
     ometZero = false,
+    liniaZona = false,
 } = {}) => {
     const ocupats = new Set(parametresProjecte.map(p => p.nom));
     const canvis = new Map();
@@ -235,17 +250,19 @@ export const instancia = (doc, {
     const copia = (nodes) => nodes.map(n => {
         // eslint-disable-next-line no-unused-vars
         const { certifications, ...resta } = n;
+        const linies = (n.measurements || []).filter(m => !m.zona).map(m => ({
+            ...netejaLinia(m),
+            id: idsLinies.get(m.id) || crypto.randomUUID(),
+            ...(m.refLineId && idsLinies.has(m.refLineId) ? { refLineId: idsLinies.get(m.refLineId) } : {}),
+            sistema: id,
+        }));
+        const zona = liniaZona && n.unit && linies.length
+            ? [{ id: crypto.randomUUID(), description: nomInstancia, units: 0, length: 0, width: 0, height: 0, sistema: id, zona: true }]
+            : [];
         return {
             ...resta,
             id: crypto.randomUUID(),
-            ...(n.measurements ? {
-                measurements: n.measurements.map(m => ({
-                    ...netejaLinia(m),
-                    id: idsLinies.get(m.id) || crypto.randomUUID(),
-                    ...(m.refLineId && idsLinies.has(m.refLineId) ? { refLineId: idsLinies.get(m.refLineId) } : {}),
-                    sistema: id,
-                })),
-            } : {}),
+            ...(n.measurements ? { measurements: [...zona, ...linies] } : {}),
             subChapters: copia(n.subChapters || []),
             items: copia(n.items || []),
         };
@@ -292,7 +309,7 @@ export const instancia = (doc, {
         parametres: nous,
         condicions: reescrit.condicions,
         prices: ometZero ? preusDe(chapters, doc.prices || {}) : (doc.prices || {}),
-        instancia: { id, nom: nomInstancia, sistema: doc.nom },
+        instancia: { id, nom: nomInstancia, sistema: doc.nom, ...(esquemaValid(doc.esquema) ? { esquema: esquemaValid(doc.esquema) } : {}) },
         omeses,
     };
 };
@@ -378,7 +395,7 @@ export const extreuInstancia = (budget, priceDatabase, id) => {
     ];
     const reescrit = reescriuFormules({ chapters, parametres, condicions: propiesCond }, canvis);
     return documentDeProjecte(
-        { chapters: reescrit.chapters, parametres: reescrit.parametres, condicions: reescrit.condicions },
+        { chapters: reescrit.chapters, parametres: reescrit.parametres, condicions: reescrit.condicions, esquema: inst?.esquema },
         priceDatabase,
         { nom: inst?.sistema || inst?.nom || 'Sistema', descripcio: inst ? `Extret de la instància «${inst.nom}»` : '' },
     );

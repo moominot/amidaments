@@ -408,3 +408,64 @@ describe('ometre les partides que surten a zero', () => {
         expect(Object.keys(partides(r.chapters)).sort()).toEqual(['A48', 'PLACA']);
     });
 });
+
+describe('línia de zona de cada instància', () => {
+    it('cada partida amb línies en porta una al davant, a 0, amb el nom de la instància', () => {
+        const r = instancia(MUR, { nomInstancia: 'Façana nord', liniaZona: true, id: 'Z1' });
+        const ps = Object.values(partides(r.chapters));
+        expect(ps.length).toBeGreaterThan(0);
+        ps.filter(p => (p.measurements || []).length).forEach(p => {
+            expect(p.measurements[0]).toMatchObject({ description: 'Façana nord', units: 0, zona: true, sistema: 'Z1' });
+            expect(p.measurements.filter(m => m.zona)).toHaveLength(1);
+        });
+    });
+
+    it('no canvia cap quantitat ni el total', () => {
+        const amb = instancia(MUR, { liniaZona: true });
+        const sense = instancia(MUR, { liniaZona: false });
+        expect(quantitats(resol(amb.chapters, amb.parametres))).toEqual(quantitats(resol(sense.chapters, sense.parametres)));
+        expect(Object.values(partides(sense.chapters)).some(p => (p.measurements || []).some(m => m.zona))).toBe(false);
+    });
+
+    it('extreure la instància no s\'emporta la línia de zona, i tornar-la a inserir en posa una de nova', () => {
+        const inst = instancia(MUR, { nomInstancia: 'Pati', liniaZona: true, id: 'Z2' });
+        const budget = { chapters: inst.chapters, parametres: inst.parametres, condicions: inst.condicions, sistemes: [inst.instancia] };
+        const doc = extreuInstancia(budget, inst.prices, 'Z2');
+        expect(Object.values(partides(doc.chapters)).some(p => (p.measurements || []).some(m => m.zona))).toBe(false);
+        const dues = instancia(doc, { nomInstancia: 'Jardí', liniaZona: true });
+        const p = Object.values(partides(dues.chapters))[0];
+        expect(p.measurements.filter(m => m.zona).map(m => m.description)).toEqual(['Jardí']);
+    });
+
+    it('treure la instància treu també la línia de zona', () => {
+        const inst = instancia(MUR, { nomInstancia: 'Pati', liniaZona: true, id: 'Z3' });
+        const budget = { chapters: inst.chapters, parametres: inst.parametres, condicions: inst.condicions, sistemes: [inst.instancia] };
+        const r = treuInstancia(budget, 'Z3');
+        expect(Object.values(partides(r.chapters))).toHaveLength(0);
+    });
+});
+
+describe('esquema del sistema', () => {
+    const esquema = { dades: 'data:image/svg+xml;base64,PHN2Zy8+', nom: 'mur.svg' };
+
+    it('passa del projecte al document, a la instància i torna en extreure', () => {
+        const doc = documentDeProjecte({ chapters: MUR.chapters, parametres: MUR.parametres, esquema }, {}, { nom: 'Mur' });
+        expect(doc.esquema).toEqual(esquema);
+        expect(llegeixDocument(JSON.parse(JSON.stringify(doc))).esquema).toEqual(esquema);
+        const inst = instancia(doc, { id: 'E1' });
+        expect(inst.instancia.esquema).toEqual(esquema);
+        const budget = { chapters: inst.chapters, parametres: inst.parametres, condicions: inst.condicions, sistemes: [inst.instancia] };
+        expect(extreuInstancia(budget, inst.prices, 'E1').esquema).toEqual(esquema);
+    });
+
+    it('un projecte amb esquema es pot obrir com a sistema', () => {
+        const doc = llegeixDocument({ budget: { chapters: MUR.chapters, parametres: MUR.parametres, esquema }, priceDatabase: {} });
+        expect(doc.esquema).toEqual(esquema);
+    });
+
+    it('descarta el que no és una imatge', () => {
+        expect(llegeixDocument({ ...MUR, esquema: { dades: 'javascript:alert(1)' } }).esquema).toBeUndefined();
+        expect(llegeixDocument({ ...MUR, esquema: { dades: 'data:text/html;base64,PGI+' } }).esquema).toBeUndefined();
+        expect(documentDeProjecte({ chapters: [], esquema: 'no' }).esquema).toBeUndefined();
+    });
+});

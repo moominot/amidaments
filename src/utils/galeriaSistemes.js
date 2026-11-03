@@ -19,6 +19,7 @@ const metaDe = (id, doc, extra = {}) => ({
     nom: doc.nom,
     descripcio: doc.descripcio || '',
     nParametres: (doc.parametres || []).filter(p => !p.formula).length,
+    teEsquema: !!doc.esquema,
     ...extra,
 });
 

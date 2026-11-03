@@ -47,6 +47,8 @@ Navegador
 | `public/manifest.json` | — | PWA + `file_handlers` (`.amid`, `.json`, `.bc3`) i `share_target`. |
 | `src/utils/formules.js` | — | Analitzador i avaluador de fórmules (sense `eval`). Veure [`docs/sistemes.md`](sistemes.md). |
 | `src/utils/parametres.js` | — | Paràmetres del projecte i resolució de les línies amb fórmula. |
+| `src/utils/esquema.js` | — | Esquema d'un sistema (imatge o SVG): reducció i validació. |
+| `src/components/Esquema.jsx` | — | L'esquema, que s'amplia en tocar-lo. |
 | `src/utils/plantilles.js` | — | Títols i descripcions amb variables entre claus. |
 | `src/utils/sistemesDoc.js` | — | Sistemes constructius com a documents: crear, inserir, filtrar, extreure, treure. |
 | `src/utils/galeriaSistemes.js` | — | Galeria de sistemes, desats al navegador. |
@@ -57,7 +59,7 @@ Navegador
 | `src/utils/traduccio.js` | — | Traducció del projecte o d'una part: recollir i aplicar els textos. Veure [`docs/traduccio.md`](traduccio.md). |
 | `src/components/TraduccioModal.jsx` | — | Quadre de traducció. |
 | `src/components/AssistentPanel.jsx` | — | Xat de l'assistent (columna de l'esquerra o calaix). |
-| `test/` | 256 tests | Vitest sobre els càlculs, el parser i l'escriptor. Veure [`docs/tests.md`](tests.md). |
+| `test/` | 263 tests | Vitest sobre els càlculs, el parser i l'escriptor. Veure [`docs/tests.md`](tests.md). |
 
 ## Estructura interna d'`App.jsx`
 

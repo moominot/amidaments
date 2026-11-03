@@ -5,7 +5,7 @@ npm test          # una passada
 npm run test:watch
 ```
 
-**Vitest**, 256 tests en quinze fitxers, poc més d'un segon. `vitest.config.js` és a part de
+**Vitest**, 263 tests en quinze fitxers, poc més d'un segon. `vitest.config.js` és a part de
 `vite.config.js` a posta: els tests són tots de lògica de càlcul i no munten cap component, de
 manera que no els cal ni el plugin de React ni l'entorn de navegador.
 
@@ -38,7 +38,7 @@ que has canviat és correcte abans de moure el número esperat.
 | `certificacions.test.js` | Anterior, període i origen; el període és una resta, no una dada |
 | `projecte.test.js` | El fitxer `.amid`, `safeFileName` i la migració d'esquema |
 | `formules.test.js` | Sintaxi de les fórmules, errors, paràmetres amb cicles i en cadena, línies amb fórmula (una dimensió a 0 val 0), vincles sobre fórmules, reanomenar, comparacions i lògica, límits i condicions dels paràmetres |
-| `sistemes.test.js` | Un sistema de prova (un mur genèric) amb les xifres fetes a mà; crear un sistema d'un projecte, inserir-lo (reanomenar, enllaçar, respostes amb fórmula, vincles), filtrar, extreure i treure instàncies, condicions, ometre les partides a zero i el cicle BC3 ×3 amb fórmules |
+| `sistemes.test.js` | Un sistema de prova (un mur genèric) amb les xifres fetes a mà; línia de zona de cada instància (no canvia cap quantitat, no es copia en extreure, es treu amb la instància); esquema del document a la instància i de tornada, i què es descarta; crear un sistema d'un projecte, inserir-lo (reanomenar, enllaçar, respostes amb fórmula, vincles), filtrar, extreure i treure instàncies, condicions, ometre les partides a zero i el cicle BC3 ×3 amb fórmules |
 | `assistent.test.js` | Lectura de la navegació i les fitxes de CYPE, els camps de la petició i el cost de cada model, validació dels inputs, les eines d'edició (quantitats, descomposat, errors de fórmula, condicions) i la importació d'una partida de CYPE amb `cype-pilar.bc3` (fusió de capítols, preus del projecte que manen). La xarxa s'injecta |
 | `adjunts.test.js` | Imatges i PDF de l'assistent: la mida a què es redueixen les imatges (2576 px, 3,75 MP), el contingut del missatge (adjunts davant del text) i els límits d'imatges i de pes de tota la conversa |
 | `traduccio.test.js` | Traducció contra el BC3 de referència amb una «traducció» que marca els textos: arriba a descripcions, textos llargs, descomposat i base de preus; el PEM, els codis i les quantitats no es mouen; només l'abast triat |

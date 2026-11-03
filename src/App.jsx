@@ -94,6 +94,7 @@ import ParametresPanel from './components/ParametresPanel';
 import AssistentPanel from './components/AssistentPanel';
 import TraduccioModal from './components/TraduccioModal';
 import VistaPlantilla from './components/VistaPlantilla';
+import { CAMPS_PLANTILLA, esPlantilla } from './utils/plantilles';
 import { processBC3Data } from './utils/bc3Parser';
 import { generateBC3, nomFitxerCertificacio } from './utils/bc3Writer';
 import { numberToTextCatalan } from './utils/numberToText';
@@ -648,7 +649,7 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, setConfig, onOp
 };
 
 // --- Modal de Confirmació d'Importació ---
-const ImportConfirmModal = ({ code, description, nLinies = 0, index, total, onConfirm, onAfegeixLinies, onSkip, onCancel }) => {
+const ImportConfirmModal = ({ code, description, nLinies = 0, variable = false, index, total, onConfirm, onAfegeixLinies, onSkip, onCancel }) => {
     const [aTots, setATots] = useState(false);
     const restants = total - index;
     return (
@@ -666,9 +667,17 @@ const ImportConfirmModal = ({ code, description, nLinies = 0, index, total, onCo
                     <p className="text-sm text-slate-600 mb-4">
                         La partida amb codi <span className="font-mono font-bold text-slate-900 bg-slate-100 px-1">{code}</span> ja existeix al projecte.
                     </p>
-                    <div className="bg-slate-50 p-3 border border-slate-200 mb-6 font-medium text-xs text-slate-500 italic">
+                    <div className={`bg-slate-50 p-3 border border-slate-200 font-medium text-xs text-slate-500 italic ${variable ? 'mb-3' : 'mb-6'}`}>
                         "{description}"
                     </div>
+                    {/* Una partida amb el text o el preu variables (variables al títol, rendiments amb
+                        fórmula) depèn dels paràmetres de qui la va inserir primer. */}
+                    {variable && (
+                        <p className="mb-6 text-[11px] leading-snug text-amber-800 bg-amber-50 border border-amber-200 p-2">
+                            Aquesta partida té el text o el preu en funció dels paràmetres. Si hi afegeixes les línies, el títol i el preu
+                            continuaran sent els de la que ja hi ha; per tenir-los amb els paràmetres d&apos;aquesta, afegeix-la com a partida nova.
+                        </p>
+                    )}
                     {restants > 1 && (
                         <label className="flex items-center gap-2 mb-4 -mt-2 py-1 text-xs text-slate-600 cursor-pointer select-none touch-manipulation">
                             <input
@@ -2834,7 +2843,10 @@ export default function App() {
         const findDuplicates = (nodes) => {
             nodes.forEach(n => {
                 if (n.unit && existingCodes.has(normalizeCode(n.code))) {
-                    duplicates.push({ id: n.id, code: n.code, description: n.description, nLinies: (n.measurements || []).length });
+                    duplicates.push({
+                        id: n.id, code: n.code, description: n.description, nLinies: (n.measurements || []).length,
+                        variable: CAMPS_PLANTILLA.some(c => esPlantilla(n[c])) || (n.breakdown || []).some(b => b.formulaRendiment),
+                    });
                 }
                 if (n.subChapters) findDuplicates(n.subChapters);
                 if (n.items) findDuplicates(n.items);
@@ -3579,6 +3591,7 @@ export default function App() {
             parametres: doc.parametres,
             condicions: doc.condicions || [],
             certifications: [],
+            ...(doc.esquema ? { esquema: doc.esquema } : {}),
             // En desar-lo com a sistema, es proposarà substituir l'original de la galeria.
             sistemaGaleria: idGaleria ? { id: idGaleria, nom: doc.nom } : null,
         });
@@ -5690,6 +5703,14 @@ export default function App() {
                             onCanvia={canviaParametre}
                             onReanomena={reanomenaParametre}
                             onEsborra={esborraParametre}
+                            sistemes={budget.sistemes || []}
+                            esquema={budget.esquema || null}
+                            onCanviaEsquema={(e) => setBudget(prev => {
+                                // eslint-disable-next-line no-unused-vars
+                                const { esquema, ...resta } = prev;
+                                return e ? { ...resta, esquema: e } : resta;
+                            })}
+                            notify={notify}
                             onTanca={() => commutaParametres(false)}
                         />
                     </div>
@@ -6242,7 +6263,23 @@ export default function App() {
                                                                 ))}
 
                                                                 {/* Normal Lines */}
-                                                                {(node.measurements || []).filter(m => !m.isIncrement && !isRefLine(m)).map(m => (
+                                                                {(node.measurements || []).filter(m => !m.isIncrement && !isRefLine(m)).map(m => (m.zona ? (
+                                                                    // Línia de zona d'una instància de sistema: el nom, a tota l'amplada.
+                                                                    <tr key={m.id} className="group bg-violet-50/70">
+                                                                        <td colSpan={5} className="p-1.5">
+                                                                            <input type="text" value={m.description} onChange={(e) => updateMeasurement(node.id, m.id, 'description', e.target.value)} className="w-full bg-transparent border-none font-bold text-violet-800 outline-none p-0" aria-label="Nom de la zona" />
+                                                                        </td>
+                                                                        <td className="p-1.5 text-right">
+                                                                            <button
+                                                                                onClick={() => deleteMeasurementLine(node.id, m.id)}
+                                                                                className="opacity-60 md:opacity-0 md:group-hover:opacity-100 text-slate-400 hover:text-red-500 p-2 -m-1 touch-manipulation"
+                                                                                title="Treu la línia de zona"
+                                                                            >
+                                                                                <X size={10} />
+                                                                            </button>
+                                                                        </td>
+                                                                    </tr>
+                                                                ) : (
                                                                     <tr key={m.id} className="group">
                                                                         <td className="p-1.5"><input type="text" value={m.description} onChange={(e) => updateMeasurement(node.id, m.id, 'description', e.target.value)} className="w-full bg-transparent border-none text-slate-600 outline-none p-0" /></td>
                                                                         <td className="p-1.5"><FormulaInput value={m.units} formula={m.formules?.units} error={m.errorsFormula?.units} teclatText={teParametres} onChange={(e) => updateMeasurementCamp(node.id, m.id, 'units', e)} className="w-full text-right bg-transparent border-none font-mono outline-none p-0" /></td>
@@ -6263,7 +6300,7 @@ export default function App() {
                                                                             </div>
                                                                         </td>
                                                                     </tr>
-                                                                ))}
+                                                                )))}
 
                                                                 {/* Increment Lines */}
                                                                 {(node.measurements || []).filter(m => m.isIncrement).map(m => {
@@ -6399,6 +6436,7 @@ export default function App() {
                     code={importPending.duplicates[importPending.currentIdx].code}
                     description={importPending.duplicates[importPending.currentIdx].description}
                     nLinies={importPending.duplicates[importPending.currentIdx].nLinies}
+                    variable={!!importPending.duplicates[importPending.currentIdx].variable}
                     onConfirm={(aTots) => handleConfirmDuplicate(true, aTots)}
                     onAfegeixLinies={(aTots) => handleConfirmDuplicate('linies', aTots)}
                     onSkip={(aTots) => handleConfirmDuplicate(false, aTots)}

@@ -32,6 +32,8 @@ export const calcMeasureTotal = (m) => round2((m.units || 0) * (m.length || 1) *
  */
 export const columnesMesura = (m, subtotal = 0) => {
     const dim = (v) => (v && v !== 1 ? formatNumber(v, 2) : '');
+    // La línia de zona d'una instància de sistema és un títol: només el nom.
+    if (m.zona) return { units: '', length: '', width: '', height: '', partial: '' };
     if (m.isIncrement) {
         const pct = parseFloat(m.units) || 0;
         return { units: `${formatNumber(pct, 2)} %`, length: '', width: '', height: '', partial: formatNumber(round2(subtotal * (pct / 100)), 2) };

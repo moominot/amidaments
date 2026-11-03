@@ -11,7 +11,7 @@ npm install
 npm run dev
 npm run build     # ha de passar sempre abans de donar una feina per acabada
 npm run lint      # cobreix .js i .jsx; l'arbre ha de quedar amb 0 errors
-npm test          # Vitest; 256 tests sobre els càlculs, el parser i l'escriptor
+npm test          # Vitest; 263 tests sobre els càlculs, el parser i l'escriptor
 npm run test:watch
 ```
 
@@ -103,7 +103,10 @@ del sector: *amidament*, *partida*, *capítol*, *descomposat*, *rendiment*, *cer
   paràmetres que s'insereix en un altre demanant-los. Cada línia inserida porta `sistema` (l'id
   de la instància, a `budget.sistemes`), que és el que permet filtrar-la, extreure-la i treure-la.
   Entren per `insereixNodes`, el camí d'enganxar, amb els paràmetres i la instància dins del
-  resultat de la importació perquè cancel·lar no deixi res a mitges.
+  resultat de la importació perquè cancel·lar no deixi res a mitges. L'esquema (imatge o SVG) va
+  en data URL a `budget.esquema`, al document i a `budget.sistemes[]`: tot el que es desa comparteix
+  els ~5 MB del `localStorage`, i per això `utils/esquema.js` el limita a 400 kB. Les línies amb
+  `zona: true` són el títol d'una instància a cada partida (a 0) i no es copien en extreure-la.
 - **L'assistent** (`utils/assistent/`, `components/AssistentPanel.jsx`) crida l'API d'Anthropic
   des del navegador amb la clau de l'usuari (a `localStorage`). Les eines reben i tornen
   `{ budget, priceDatabase }`; qualsevol eina nova ha de validar l'input (`validaInput`), perquè
