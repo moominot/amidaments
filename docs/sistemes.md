@@ -175,3 +175,28 @@ cadascú o a un fitxer.
 - **Vincle amb AutoCAD**: una galeria de detalls constructius amb el seu amidament.
 - Un sistema dins d'un altre: ara les instàncies d'un projecte desat com a sistema es
   converteixen en grups de paràmetres normals.
+
+## Títols i descripcions amb variables
+
+El títol (`description`) i la descripció tècnica (`fullDescription`) d'una partida o d'un capítol
+poden portar expressions entre claus que es resolen amb els paràmetres (`utils/plantilles.js`):
+
+    Biga de formigó armat de {B*100}x{H*100} cm, {si(acabat=1; "encofrat vist"; "per revestir")}
+
+- `{expressió}`: una fórmula com les de les línies; el número surt amb coma i sense zeros sobrers.
+- `{si(condició; "text"; "altre text")}`: tria un text. Les branques poden ser text entre cometes,
+  un altre `si(...)` o una fórmula.
+- El que no es pot resoldre es deixa amb les claus i el detall ho diu en vermell.
+
+Així, d'una partida fixa de CYPE se'n fa una de variable: s'hi substitueixen les mides del text per
+variables i les quantitats per fórmules.
+
+Com les fórmules de les línies: **es desa i s'edita el text amb les claus** (`budget.chapters`), i
+`resolveFormules` en posa el resolt a `resolvedChapters` (amb l'original a `plantilles`, que és el
+que mostren els camps del detall). Per això l'arbre, la impressió, l'exportació BC3 i l'assistent
+veuen el text omplert. Els paràmetres que només surten al text també es demanen en inserir el
+sistema, i `reescriuFormules` els reanomena també dins de les claus. Copiar a una altra finestra
+porta el text omplert, no les variables (els paràmetres poden no existir-hi).
+
+El preu encara no és variable: el descomposat té rendiments fixos. Si el text diu 50x30 i el
+descomposat és el de 40x20, el preu no ho segueix.

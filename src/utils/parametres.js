@@ -1,4 +1,5 @@
 import { avalua, ErrorFormula, esNomValid, reanomenaA, referencies } from './formules';
+import { CAMPS_PLANTILLA, esPlantilla, omplePlantilla, referenciesPlantilla, reescriuPlantilla } from './plantilles';
 
 /**
  * Paràmetres del projecte i línies d'amidament amb fórmula.
@@ -105,6 +106,7 @@ export const resolveFormules = (chapters = [], parametres = []) => {
     let hiHa = false;
     const busca = (nodes) => nodes.some(n =>
         (n.measurements || []).some(teFormules)
+        || CAMPS_PLANTILLA.some(c => esPlantilla(n[c]))
         || busca([...(n.subChapters || []), ...(n.items || [])]));
     hiHa = busca(chapters);
     if (!hiHa) return { chapters, liniesAmbError, parametres: resolts };
@@ -131,12 +133,37 @@ export const resolveFormules = (chapters = [], parametres = []) => {
         return out;
     };
 
-    const resolNode = (n) => ({
-        ...n,
-        ...(n.measurements ? { measurements: n.measurements.map(resolLinia) } : {}),
-        subChapters: (n.subChapters || []).map(resolNode),
-        items: (n.items || []).map(resolNode),
-    });
+    // Títol i descripció amb variables (`utils/plantilles.js`): el resolt substitueix el camp i
+    // el text amb les claus queda a `plantilles`, que és el que s'edita.
+    const valorSegur = (nom) => {
+        try { return resolts.valorDe(nom); } catch { return undefined; }
+    };
+    const resolTextos = (n) => {
+        if (!CAMPS_PLANTILLA.some(c => esPlantilla(n[c]))) return {};
+        const plantilles = {};
+        const camps = {};
+        const errors = [];
+        CAMPS_PLANTILLA.forEach(c => {
+            if (!esPlantilla(n[c])) return;
+            plantilles[c] = n[c];
+            const r = omplePlantilla(n[c], valorSegur);
+            camps[c] = r.text;
+            errors.push(...r.errors);
+        });
+        return { ...camps, plantilles, ...(errors.length ? { errorsPlantilla: errors } : {}) };
+    };
+
+    const resolNode = (n) => {
+        // eslint-disable-next-line no-unused-vars
+        const { plantilles, errorsPlantilla, ...net } = n;
+        return {
+            ...net,
+            ...resolTextos(net),
+            ...(n.measurements ? { measurements: n.measurements.map(resolLinia) } : {}),
+            subChapters: (n.subChapters || []).map(resolNode),
+            items: (n.items || []).map(resolNode),
+        };
+    };
 
     return { chapters: chapters.map(resolNode), liniesAmbError, parametres: resolts };
 };
@@ -149,6 +176,7 @@ export const usosDeParametres = (chapters = [], parametres = [], condicions = []
         (n.measurements || []).forEach(m => {
             if (teFormules(m)) CAMPS_FORMULA.forEach(c => { if (m.formules[c]) compta(m.formules[c]); });
         });
+        CAMPS_PLANTILLA.forEach(c => referenciesPlantilla(n[c]).forEach(nom => usos.set(nom, (usos.get(nom) || 0) + 1)));
         recorre([...(n.subChapters || []), ...(n.items || [])]);
     });
     recorre(chapters);
@@ -190,8 +218,14 @@ export const reescriuFormules = ({ chapters = [], parametres = [], condicions = 
         CAMPS_FORMULA.forEach(c => { if (m.formules[c]) formules[c] = fn(m.formules[c]); });
         return { ...m, formules };
     };
+    const textos = (n) => {
+        const out = {};
+        CAMPS_PLANTILLA.forEach(c => { if (esPlantilla(n[c])) out[c] = reescriuPlantilla(n[c], fn); });
+        return out;
+    };
     const node = (n) => ({
         ...n,
+        ...textos(n),
         ...(n.measurements ? { measurements: n.measurements.map(linia) } : {}),
         subChapters: (n.subChapters || []).map(node),
         items: (n.items || []).map(node),

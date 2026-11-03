@@ -93,6 +93,7 @@ import { resolveFormules, usosDeParametres, reescriuFormules, comprovaCondicions
 import ParametresPanel from './components/ParametresPanel';
 import AssistentPanel from './components/AssistentPanel';
 import TraduccioModal from './components/TraduccioModal';
+import VistaPlantilla from './components/VistaPlantilla';
 import { processBC3Data } from './utils/bc3Parser';
 import { generateBC3, nomFitxerCertificacio } from './utils/bc3Writer';
 import { numberToTextCatalan } from './utils/numberToText';
@@ -6112,12 +6113,25 @@ export default function App() {
                                                 <div className="p-3 space-y-3">
                                                     <div>
                                                         <label className="text-[10px] md:text-[9px] font-bold text-slate-400 uppercase mb-1 block">Concepte / Títol</label>
+                                                        {/* Amb variables ({B*100}), s'edita el text amb les claus i a sota es
+                                                            veu com queda amb els valors d'ara (`utils/plantilles.js`). */}
                                                         <textarea
                                                             className="w-full p-2 text-xs border border-slate-200 rounded focus:border-blue-500 outline-none transition-all resize-none font-medium text-slate-700"
                                                             rows={2}
-                                                            value={node.description}
+                                                            value={node.plantilles?.description ?? node.description}
                                                             onChange={(e) => updateDescription(node.id, e.target.value)}
                                                         />
+                                                        <VistaPlantilla plantilla={node.plantilles?.description} resolt={node.description} />
+                                                        {teParametres && !node.plantilles && (
+                                                            <p className="mt-1 text-[10px] text-slate-400 leading-snug">
+                                                                Hi pots posar paràmetres entre claus: <span className="font-mono text-violet-600">{'{B*100}'}</span> o <span className="font-mono text-violet-600">{'{si(A=1; "amb"; "sense")}'}</span>.
+                                                            </p>
+                                                        )}
+                                                        {node.errorsPlantilla?.length > 0 && (
+                                                            <p className="mt-1 text-[10px] text-red-600 leading-snug">
+                                                                Variables que no es poden resoldre (al títol o a la descripció): {node.errorsPlantilla.map(e => `{${e.expressio}}: ${e.error}`).join(' · ')}
+                                                            </p>
+                                                        )}
                                                     </div>
                                                     {/* La unitat tenia una secció pròpia, plegada per defecte, per a un sol camp */}
                                                     {node.unit && (
@@ -6320,10 +6334,11 @@ export default function App() {
                                                 <div className="p-3">
                                                     <textarea
                                                         className="w-full p-3 text-xs border border-slate-200 rounded focus:border-blue-500 outline-none transition-all min-h-[150px] font-sans text-slate-600 leading-relaxed"
-                                                        value={node.fullDescription || ''}
+                                                        value={node.plantilles?.fullDescription ?? (node.fullDescription || '')}
                                                         onChange={(e) => updateFullDescription(node.id, e.target.value)}
-                                                        placeholder="Escriu la descripció detallada..."
+                                                        placeholder={teParametres ? 'Escriu la descripció detallada... Pots fer servir paràmetres entre claus: {L}' : 'Escriu la descripció detallada...'}
                                                     />
+                                                    <VistaPlantilla plantilla={node.plantilles?.fullDescription} resolt={node.fullDescription} />
                                                 </div>
                                             )}
                                         </div>

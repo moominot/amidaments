@@ -1,5 +1,6 @@
 import { normalizeCode, calcChapterTotal, calcItemTotalQty } from './calculations';
 import { resolveFormules, reescriuFormules, nomLliure, CAMPS_FORMULA, teFormules, comprovaCondicions } from './parametres';
+import { CAMPS_PLANTILLA, referenciesPlantilla } from './plantilles';
 import { resolveMeasurementRefs } from './measurementRefs';
 import { referencies } from './formules';
 
@@ -78,6 +79,8 @@ const nomsReferits = (chapters, parametres, condicions = []) => {
     recorre(chapters, n => (n.measurements || []).forEach(m => {
         if (teFormules(m)) CAMPS_FORMULA.forEach(c => m.formules[c] && referencies(m.formules[c]).forEach(x => noms.add(x)));
     }));
+    // Els paràmetres que només surten al títol o a la descripció (`{B*100}`) també compten.
+    recorre(chapters, n => CAMPS_PLANTILLA.forEach(c => referenciesPlantilla(n[c]).forEach(x => noms.add(x))));
     parametres.forEach(p => p.formula && referencies(p.formula).forEach(x => noms.add(x)));
     condicions.forEach(c => c.expressio && referencies(c.expressio).forEach(x => noms.add(x)));
     return noms;

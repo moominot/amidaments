@@ -33,6 +33,7 @@ const indicacions = (idioma) => {
     return `Tradueixes textos d'un pressupost d'obra (amidaments, partides, descomposats, plecs de condicions) al ${nom}.
 
 - Fes servir la terminologia tècnica de la construcció en aquest idioma, la que faria servir un arquitecte o un aparellador, no una traducció literal. Sigues coherent: un mateix terme, la mateixa traducció a tots els textos.
+- Conserva exactament el que hi ha entre claus {…}: són variables i fórmules. Tradueix només els textos entre cometes de dins de les claus.
 - Conserva tal qual els codis, les unitats (m², m³, kg, Ud), les xifres, les referències a normativa (CTE DB-SE, UNE-EN 197-1, EHE, Codi Estructural) i els noms comercials i de fabricants.
 - Conserva els salts de línia, les majúscules d'un text que sigui tot en majúscules i la puntuació de les llistes.
 - No afegeixis ni treguis contingut, ni expliquis res. Si un text ja és en aquest idioma, torna'l igual.

@@ -43,8 +43,10 @@ const congelaLinia = (lin) => {
 };
 
 const netejaNode = (node) => {
+    // El títol i la descripció ja vénen resolts (es copia de `resolvedChapters`): el text amb
+    // variables no viatja, perquè a l'altra finestra els paràmetres poden no existir.
     // eslint-disable-next-line no-unused-vars
-    const { certifications, ...resta } = node;
+    const { certifications, plantilles, errorsPlantilla, ...resta } = node;
     return {
         ...resta,
         measurements: (node.measurements || []).map(congelaLinia),

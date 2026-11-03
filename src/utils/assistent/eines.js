@@ -153,6 +153,9 @@ const llegeixPartida = ({ budget, priceDatabase }, { codi }) => {
         quantitat: calcItemTotalQty(p),
         import: calcItemTotalAmount(p, priceDatabase),
         linies: (original.measurements || []).map(textLinia),
+        // El títol i el text amb les variables tal com s'han escrit, per poder-los modificar.
+        ...(p.plantilles?.description ? { resum_amb_variables: p.plantilles.description } : {}),
+        ...(p.plantilles?.fullDescription ? { text_amb_variables: p.plantilles.fullDescription.slice(0, 1500) } : {}),
     };
 };
 
