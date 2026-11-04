@@ -244,8 +244,17 @@ describe('d\'on surt cada paràmetre per defecte', () => {
         expect(dubte.ambiguA).toEqual(['X1', 'X2']);
     });
 
-    it('el perímetre i la llargada pel nom o la descripció, no per la unitat sola', () => {
-        const r = assignacioPerDefecte([p('A', 'm2'), p('Lsoc', 'm', 'Sòcol de la sala'), p('H', 'm', 'Alçada'), p('Lmur', 'm', 'Longitud del mur')]);
-        expect(r.assignacio).toEqual({ A: 'area', Lsoc: 'perimetre', H: 'sistema', Lmur: 'llargada' });
+    it('el perímetre pel nom o la descripció; la llargada només pel nom', () => {
+        const r = assignacioPerDefecte([p('A', 'm2'), p('Lsoc', 'm', 'Sòcol de la sala'), p('H', 'm', 'Alçada'), p('L', 'm', 'Longitud del mur')]);
+        expect(r.assignacio).toEqual({ A: 'area', Lsoc: 'perimetre', H: 'sistema', L: 'llargada' });
+    });
+
+    it('les mides dels elements d\'un sistema no es prenen del dibuix (el bany)', () => {
+        const r = assignacioPerDefecte([
+            p('S_TOTAL', 'm2', 'Superfície total del bany'), p('DUTXA', 'ut', 'Plat de dutxa (1 sí, 0 no)'),
+            p('DUTXA_L', 'm', 'Llargada del plat de dutxa'), p('BANY_L', 'm', 'Llargada de la paret del lavabo'),
+            p('BANY_A', 'm', 'Amplada de l\'entrada'), p('ALT_REVEST', 'm', 'Alçada del revestiment de rajola'),
+        ]);
+        expect(r.assignacio).toEqual({ S_TOTAL: 'area', DUTXA: 'sistema', DUTXA_L: 'sistema', BANY_L: 'sistema', BANY_A: 'sistema', ALT_REVEST: 'sistema' });
     });
 });

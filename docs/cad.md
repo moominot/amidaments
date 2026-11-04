@@ -57,8 +57,9 @@ sistema» (`components/CadSistemaModal.jsx`, `utils/cadSistemes.js`):
    **d'on surt cada paràmetre**: àrea, perímetre, llargada de les obertes, nombre d'entitats o el
    valor del sistema (comú a totes les zones). Per defecte (`assignacioPerDefecte`): l'àrea és
    l'únic paràmetre en m² o, si n'hi ha diversos, el que diu superfície o àrea al nom o a la
-   descripció (si no se'n pot triar cap, el quadre demana quin); el perímetre i la llargada, pel
-   nom o la descripció (sòcol, contorn, longitud), mai una alçada, un gruix o una amplada. Si cap
+   descripció (si no se'n pot triar cap, el quadre demana quin); el perímetre, pel nom o la
+   descripció (sòcol, contorn), mai una alçada, un gruix o una amplada; la llargada, només pel
+   nom (`L`, `LL`, `Long`): «Llargada del plat de dutxa» és la mida d'un element, no del dibuix. Si cap
    paràmetre surt del CAD, el quadre ho avisa. Només es recorda per sistema el que s'ha triat a
    mà.
 3. **Taula de zones**: nom i valors editables, amb el total i les condicions de cada una. Una

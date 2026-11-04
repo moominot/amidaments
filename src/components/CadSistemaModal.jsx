@@ -233,10 +233,14 @@ const CadSistemaModal = ({ dades, budget, priceDatabase, onInsereix, onActualitz
                                         {demanats.map(p => {
                                             const font = assignacio[p.nom] || 'sistema';
                                             return (
-                                                <div key={p.nom} className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                                                    <span className="w-28 min-w-0 text-[11px] truncate" title={p.descripcio}>
-                                                        <span className="font-mono font-bold text-violet-700">{p.nom}</span> <span className="text-slate-500">{p.descripcio}</span>
+                                                // La descripció ocupa tot l'espai que queda i, si no hi cap, salta de línia:
+                                                // retallada, «Superfície t…» no deia quin paràmetre era.
+                                                <div key={p.nom} className="flex flex-col sm:flex-row sm:items-center gap-x-3 gap-y-1 py-0.5">
+                                                    <span className="sm:flex-1 min-w-0 text-[11px] leading-snug">
+                                                        <span className="font-mono font-bold text-violet-700">{p.nom}</span>{' '}
+                                                        <span className="text-slate-500">{p.descripcio}</span>
                                                     </span>
+                                                    <span className="flex items-center gap-2 flex-shrink-0">
                                                     <select
                                                         value={font}
                                                         onChange={e => {
@@ -245,23 +249,27 @@ const CadSistemaModal = ({ dades, budget, priceDatabase, onInsereix, onActualitz
                                                             setTocats(prev => ({ ...prev, [p.nom]: v }));
                                                             if (v === 'area') setAmbiguA([]);
                                                         }}
-                                                        className="border border-slate-200 px-1.5 py-1 text-[11px] outline-none focus:border-blue-500 bg-white"
+                                                        className="w-40 border border-slate-200 px-1.5 py-1 text-[11px] outline-none focus:border-blue-500 bg-white"
                                                         aria-label={`D'on surt ${p.nom}`}
                                                     >
                                                         {FONTS.map(f => <option key={f.id} value={f.id}>{f.nom}</option>)}
                                                     </select>
-                                                    {font === 'sistema' && (
-                                                        <span className="flex items-center gap-1">
-                                                            <NumberInput
-                                                                value={comuns[p.nom] ?? 0}
-                                                                onChange={v => setComuns(prev => ({ ...prev, [p.nom]: v }))}
-                                                                className="w-20 border border-slate-200 px-1.5 py-1 text-[11px] font-mono text-right outline-none focus:border-blue-500"
-                                                                aria-label={`Valor de ${p.nom} per a totes les zones`}
-                                                            />
-                                                            <span className="text-[10px] text-slate-400 font-mono">{p.unitat}</span>
-                                                            <span className="text-[10px] text-slate-400">per a totes</span>
-                                                        </span>
-                                                    )}
+                                                    {/* Amplada fixa, també buida: així les columnes queden alineades. */}
+                                                    <span className="flex items-center gap-1 w-44">
+                                                        {font === 'sistema' && (
+                                                            <>
+                                                                <NumberInput
+                                                                    value={comuns[p.nom] ?? 0}
+                                                                    onChange={v => setComuns(prev => ({ ...prev, [p.nom]: v }))}
+                                                                    className="w-20 border border-slate-200 px-1.5 py-1 text-[11px] font-mono text-right outline-none focus:border-blue-500"
+                                                                    aria-label={`Valor de ${p.nom} per a totes les zones`}
+                                                                />
+                                                                <span className="text-[10px] text-slate-400 font-mono">{p.unitat}</span>
+                                                                <span className="text-[10px] text-slate-400 whitespace-nowrap">per a totes</span>
+                                                            </>
+                                                        )}
+                                                    </span>
+                                                    </span>
                                                 </div>
                                             );
                                         })}

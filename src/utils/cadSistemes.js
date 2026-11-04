@@ -98,7 +98,9 @@ const diuArea = (p) => /^(a|s|sup|area|àrea)$/i.test(String(p.nom || '')) || /s
 // descripció parli del sòcol («Alçada del sòcol»).
 const esMidaSeccio = (p) => /al[cç]ada|altura|gruix|espessor|amplada|ample|cantell|fondària|profunditat/.test(textDe(p));
 const diuPerimetre = (p) => !esMidaSeccio(p) && (/^(p|per|perim)$/i.test(String(p.nom || '')) || /per[ií]metre|perim|s[oò]col|contorn/.test(textDe(p)));
-const diuLlargada = (p) => !esMidaSeccio(p) && (/^(l|ll|long)$/i.test(String(p.nom || '')) || /llarg|longitud/.test(textDe(p)));
+// La llargada, només pel nom: «Llargada del plat de dutxa» és la mida d'un element del sistema,
+// no la del dibuix, i a la descripció hi surt sovint.
+const diuLlargada = (p) => !esMidaSeccio(p) && /^(l|ll|long)$/i.test(String(p.nom || ''));
 const diuNombre = (p) => /^(n|num|nombre)$/i.test(String(p.nom || '')) || /\bnombre\b|quantitat d'/.test(textDe(p));
 
 /** Per a un paràmetre sol, la font que s'hi intueix pel nom (veure `assignacioPerDefecte`). */
@@ -117,8 +119,9 @@ export const fontPerDefecte = (p) => {
  * - **Àrea**: si només n'hi ha un en m², aquest; si n'hi ha diversos, el que diu superfície o
  *   àrea al nom o a la descripció. Si no se'n pot triar cap, cap: es torna a `ambiguA` perquè
  *   el quadre ho digui.
- * - **Perímetre**, **llargada** i **nombre**: pel nom o la descripció (un paràmetre en m pot ser
- *   una alçada, així que la unitat sola no basta).
+ * - **Perímetre** i **nombre**: pel nom o la descripció; **llargada**, només pel nom (la
+ *   descripció d'un paràmetre en m sovint és la mida d'un element: «Llargada del plat de dutxa»).
+ *   La unitat sola no basta: un paràmetre en m pot ser una alçada.
  * Torna `{ assignacio, ambiguA }`.
  */
 export const assignacioPerDefecte = (parametres = []) => {
