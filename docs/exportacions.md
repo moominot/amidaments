@@ -18,6 +18,9 @@ Definit a `App.jsx:931`, editable des de `PrintConfigModal`:
 | `showBreakdown` | Mostra la taula de descomposat sota cada partida |
 | `useCorrelativeCodes` | Substitueix els codis originals per numeració 1, 1.1, 1.1.2… |
 | `chaptersOnNewPage` | Salt de pàgina per capítol (i, a l'Excel, **un full per capítol**) |
+| `hideZeroItems` | Amaga partides i capítols amb import 0 |
+| `pdfBookmarks` | Marcadors de capítol/subcapítol al PDF d'amidaments (panell del lector) |
+| `pdfBookmarksItems` | A més, un marcador per partida (requereix `pdfBookmarks`) |
 | `ge` / `ip` / `iva` | Despeses Generals (13%), Benefici Industrial (6%), IVA (21%) — només al Resum |
 
 Els percentatges G.G. / B.I. / IVA **només s'apliquen al PDF de resum**
@@ -59,6 +62,24 @@ altre amb el subarbre sencer d'un capítol aplanat (que supera `maxLevels`) desa
 PDF en lloc de pujar al nivell del pare. Qualsevol sortida nova que recorri l'arbre de
 pressupost ha de cridar `walkPrintTree` en lloc de tornar-se a escriure la numeració i
 l'aplanament. Els tests de `test/printTree.test.js` fixen aquest comportament.
+
+### Marcadors (`pdfBookmarks` / `pdfBookmarksItems`)
+
+El panell d'`outline` de jsPDF (`doc.outline.add(parent, títol, { pageNumber })`) és natiu:
+no cal cap plugin extra. `flattenBudget` ja etiqueta les files `chapter` amb `level` i totes
+dues (`chapter` i `item`) amb `bookmarkTitle`; `generateTableForNodes` escolta el hook
+`didDrawCell` d'`autoTable` (no `didParseCell`, que es dispara abans de saber en quina pàgina
+acabarà la fila) i, a la primera columna de cada fila del **cos** (`data.row.section ===
+'body'`; `didDrawCell` també es dispara per la capçalera repetida de cada pàgina, amb el seu
+propi `row.index` començant a 0 — descartar-la evita duplicar el primer marcador), apunta
+`{ level, títol, pageNumber }` a `bookmarkEvents`, compartit entre totes les taules encara que
+`chaptersOnNewPage` en generi una per capítol.
+
+Un cop dibuixades totes les taules, una pila (`stack`) construeix l'arbre real: cada capítol
+hi entra sota l'últim capítol obert de nivell inferior (fent `pop` dels que tenen nivell igual
+o superior), i cada partida (si `pdfBookmarksItems`) penja del capítol que estigui obert en
+aquell moment. `doc.outline.add` només aconsegueix saltar a la part superior de la pàgina, no
+a la fila exacta — és una limitació del plugin, no un defecte a corregir aquí.
 
 ## PDF de resum — `handleExportSummaryPDF` (`App.jsx:1231`)
 

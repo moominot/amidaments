@@ -135,9 +135,11 @@ const flattenBudget = (nodes, config, priceDatabase, counterObj = { val: 0 }) =>
     const rows = [];
 
     walkPrintTree(nodes, config, priceDatabase, {
-        onChapterHeader: ({ node, displayCode, totalAmount }) => {
+        onChapterHeader: ({ node, level, displayCode, totalAmount }) => {
             rows.push({
                 type: 'chapter',
+                level,
+                bookmarkTitle: `${displayCode}  ${node.description}`,
                 data: prices
                     ? [displayCode, { content: node.description.toUpperCase(), colSpan: 8 }, formatNumber(totalAmount, 2)]
                     : [displayCode, { content: node.description.toUpperCase(), colSpan: 7 }]
@@ -155,6 +157,7 @@ const flattenBudget = (nodes, config, priceDatabase, counterObj = { val: 0 }) =>
             // (Codi, Descripció, Ud, Long., Ampl., Alç., Parc., Quant., Preu, Import)
             rows.push({
                 type: 'item',
+                bookmarkTitle: `${displayCode}  ${node.description}`,
                 data: [
                     displayCode,
                     node.description,
@@ -847,6 +850,26 @@ const PrintConfigModal = ({ config, setConfig, onClose }) => {
                         </div>
                     </div>
 
+                    {/* PDF Bookmarks */}
+                    <div className="space-y-4">
+                        <p className="text-[11px] text-blue-600 uppercase font-bold tracking-wider border-b border-blue-100 pb-2">Marcadors del PDF</p>
+                        <div className="grid grid-cols-2 gap-4">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" checked={config.pdfBookmarks !== false} onChange={e => setConfig({ ...config, pdfBookmarks: e.target.checked })} />
+                                <span className="text-xs text-slate-600">Capítols i subcapítols</span>
+                            </label>
+                            <label className={`flex items-center gap-2 cursor-pointer ${config.pdfBookmarks === false ? 'opacity-40' : ''}`}>
+                                <input
+                                    type="checkbox"
+                                    disabled={config.pdfBookmarks === false}
+                                    checked={!!config.pdfBookmarksItems}
+                                    onChange={e => setConfig({ ...config, pdfBookmarksItems: e.target.checked })}
+                                />
+                                <span className="text-xs text-slate-600">Partides (pot ser-ne molts)</span>
+                            </label>
+                        </div>
+                    </div>
+
                     {/* Summary / Budget Settings */}
                     <div className="space-y-4">
                         <p className="text-[11px] text-emerald-600 uppercase font-bold tracking-wider border-b border-emerald-100 pb-2">Pressupost General (Resum i Totals)</p>
@@ -1162,6 +1185,8 @@ export default function App() {
         useCorrelativeCodes: true,
         chaptersOnNewPage: true,
         hideZeroItems: true,
+        pdfBookmarks: true,
+        pdfBookmarksItems: false,
         certItemDetail: true,
         date: '',
         ge: { enabled: false, percentage: 13 },
@@ -1609,6 +1634,9 @@ export default function App() {
         const counter = { val: 0 };
         const date = pdfDateText(config);
         const prices = config.showPrices !== false;
+        // Es recull en ordre de document a cada generateTableForNodes (compartit entre totes
+        // les crides, també amb chaptersOnNewPage) i es converteix en marcadors en acabar.
+        const bookmarkEvents = [];
 
         const generateTableForNodes = (nodes, isFirst, currentCounter) => {
             const rows = flattenBudget(nodes, config, priceDatabase, currentCounter);
@@ -1718,6 +1746,21 @@ export default function App() {
                         data.cell.styles.textColor = [90, 90, 90];
                         data.cell.styles.cellPadding = { top: 0.5, bottom: 0.5, left: 4, right: 1.5 };
                     }
+                },
+                didDrawCell: (data) => {
+                    // Una sola crida per fila (a la primera columna del cos), amb la pàgina on
+                    // s'ha dibuixat de debò: amb autoTable una fila mai es parteix entre
+                    // pàgines. didDrawCell també dispara per la capçalera repetida a cada
+                    // pàgina, amb el seu propi row.index començant a 0 — si no es descarta,
+                    // col·lideix amb la fila 0 del cos i duplica el primer marcador.
+                    if (data.row.section !== 'body' || data.column.index !== 0 || config.pdfBookmarks === false) return;
+                    const rowObj = rows[data.row.index];
+                    if (!rowObj) return;
+                    if (rowObj.type === 'chapter') {
+                        bookmarkEvents.push({ level: rowObj.level, title: rowObj.bookmarkTitle, pageNumber: doc.internal.getNumberOfPages() });
+                    } else if (rowObj.type === 'item' && config.pdfBookmarksItems) {
+                        bookmarkEvents.push({ level: null, title: rowObj.bookmarkTitle, pageNumber: doc.internal.getNumberOfPages() });
+                    }
                 }
             });
         };
@@ -1730,6 +1773,23 @@ export default function App() {
             });
         } else {
             generateTableForNodes(capitols, true, counter);
+        }
+
+        // Marcadors del PDF: un node per capítol/subcapítol (niats per nivell) i, si
+        // s'ha triat, un fill per partida sota el capítol que estigui obert en aquell moment.
+        if (config.pdfBookmarks !== false && bookmarkEvents.length > 0) {
+            const stack = [{ level: -1, node: null }];
+            bookmarkEvents.forEach(({ level, title, pageNumber }) => {
+                if (level === null) {
+                    doc.outline.add(stack[stack.length - 1].node, title, { pageNumber });
+                    return;
+                }
+                while (stack.length > 1 && stack[stack.length - 1].level >= level) {
+                    stack.pop();
+                }
+                const node = doc.outline.add(stack[stack.length - 1].node, title, { pageNumber });
+                stack.push({ level, node });
+            });
         }
 
         let finalY = doc.lastAutoTable.finalY + 10;
