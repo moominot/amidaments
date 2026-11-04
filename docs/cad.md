@@ -71,6 +71,15 @@ associativa): el de tots els contorns, l'exterior i els de les illes, que és el
 un sòcol. Si se seleccionen alhora la trama i la polilínia d'una mateixa sala, es compten dues
 vegades.
 
+### Amb l'assistent
+
+La sortida del LISP també es pot enganxar al camp de text del xat de l'assistent: no s'obre el
+quadre, es guarda com a «enganxat del CAD» (`cad1`, `cad2`...) i al model li arriba com una
+taula (`resumCad`) amb l'àrea, el perímetre o la llargada, la capa i el nom de sala de cada
+entitat. Les eines `galeria_sistemes`, `insereix_zones_cad` i `actualitza_zones_cad` fan el
+mateix que el quadre (veure `docs/assistent.md`). L'enganxat global de l'aplicació no actua
+dins del panell de l'assistent (`data-assistent-adjunts`).
+
 ## Detalls del LISP
 
 - Llargada amb `vlax-curve-getDistAtParam` sobre `LINE`, `ARC`, `CIRCLE`, `ELLIPSE`,

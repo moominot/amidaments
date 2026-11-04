@@ -1,8 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { llegeixNavegacio, llegeixFitxa, llegeixPartidaBC3, arrelCype } from '../src/utils/assistent/cype';
 import { executaEina, validaInput, posaPartidaCype, ErrorEina, DEFINICIONS } from '../src/utils/assistent/eines';
-import { calcItemTotalQty, getItemUnitPrice, normalizeCode } from '../src/utils/calculations';
+import { calcItemTotalQty, getItemUnitPrice, normalizeCode, round2 } from '../src/utils/calculations';
 import { opcionsPeticio, einesWeb, costUs } from '../src/utils/assistent/models';
+import { parseCadClipboard } from '../src/utils/cadPaste';
+import { resumCad } from '../src/utils/cadSistemes';
+import { llegeixDocument, FORMAT_SISTEMA } from '../src/utils/sistemesDoc';
 import { llegeixBC3, FITXERS } from './ajuda';
 
 /**
@@ -372,5 +375,93 @@ describe('eina posa_esquema', () => {
         const t = await executaEina('posa_esquema', { treu: true }, r.estat, {});
         expect(t.estat.budget.esquema).toBeUndefined();
         expect((await executaEina('llegeix_projecte', {}, r.estat, {})).resultat.te_esquema).toBe(true);
+    });
+});
+
+describe('eines del CAD als sistemes', () => {
+    // Les mateixes tres sales que a cadSistemes.test.js: 64,75 m² i 63 m en total.
+    const T = '\t';
+    const fila = (...c) => c.join(T);
+    const lisp = (cuina = ['14.0000', '12.0000']) => [
+        fila('AMIDAMENTS-CAD', '2', 'planta.dwg'),
+        fila('LWPOLYLINE', '1', ...cuina, 'A-PAVIMENT', '', '2F1', 'Cuina | 12,00 m²'),
+        fila('LWPOLYLINE', '1', '18.0000', '20.0000', 'A-PAVIMENT', '', '2F2', 'Menjador'),
+        fila('LWPOLYLINE', '1', '7.0000', '3.0000', 'A-PAVIMENT', '', '2F3', 'MENJADOR'),
+        fila('HATCH', '1', '24.0000', '29.7500', 'A-TRAMA', '', '2F4', 'Estar'),
+    ].join('\r\n');
+    const linia = (id, formules) => ({ id, description: 'Superfície', units: 1, length: 0, width: 0, height: 0, formules });
+    const PAVIMENT = llegeixDocument({
+        format: FORMAT_SISTEMA, versio: 1, nom: 'Paviment de gres', descripcio: '',
+        parametres: [
+            { id: 'a', nom: 'A', valor: 10, unitat: 'm2', descripcio: 'Superfície', min: 0.5 },
+            { id: 'p', nom: 'P', valor: 12, unitat: 'm', descripcio: 'Perímetre' },
+            { id: 'h', nom: 'h', valor: 0.07, unitat: 'm', descripcio: 'Alçada del sòcol' },
+        ],
+        condicions: [],
+        chapters: [{ id: 'c', code: 'PAV', description: 'PAVIMENTS', subChapters: [], items: [
+            { id: 'p1', code: 'GRES', unit: 'm2', description: 'Paviment de gres', price: 30, measurements: [linia('l1', { length: 'A' })] },
+            { id: 'p2', code: 'SOCOL', unit: 'm', description: 'Sòcol de gres', price: 8, measurements: [linia('l2', { length: 'P' })] },
+        ] }],
+        prices: {},
+    });
+    const ctx = (text = lisp()) => ({
+        cad: () => parseCadClipboard(text),
+        galeria: { llista: () => [{ id: 'g1', nom: 'Paviment de gres', descripcio: '' }], llegeix: () => PAVIMENT },
+    });
+    const buit = () => ({ budget: { chapters: [], parametres: [], condicions: [], sistemes: [] }, priceDatabase: {} });
+
+    it('el model rep una taula amb el nom de cada sala', () => {
+        const t = resumCad(parseCadClipboard(lisp()), 'cad1');
+        expect(t).toMatch(/^\[Entitats del CAD «cad1»: 4 de planta\.dwg/);
+        expect(t.split('\n')[2]).toBe(['0', 'LWPOLYLINE', 'tancada', '12', '14', 'A-PAVIMENT', 'Cuina', 'Cuina | 12,00 m²'].join('\t'));
+    });
+
+    it('galeria_sistemes dona els paràmetres', async () => {
+        const r = await executaEina('galeria_sistemes', {}, buit(), ctx());
+        expect(r.resultat.sistemes[0]).toMatchObject({ id: 'g1', nom: 'Paviment de gres' });
+        expect(r.resultat.sistemes[0].parametres.map(p => p.nom)).toEqual(['A', 'P', 'h']);
+    });
+
+    it('insereix una zona per sala, amb els valors comuns', async () => {
+        const r = await executaEina('insereix_zones_cad', { sistema: 'paviment de gres', agrupacio: 'retol', comuns: { h: 0.08 } }, buit(), ctx());
+        expect(r.resultat.zones.map(z => [z.nom, z.parametres])).toEqual([
+            ['Cuina', { A: 12, P: 14, h: 0.08 }],
+            ['Menjador', { A_2: 23, P_2: 25, h_2: 0.08 }],
+            ['Estar', { A_3: 29.75, P_3: 24, h_3: 0.08 }],
+        ]);
+        expect(r.resultat.pem).toBe(round2(64.75 * 30 + 63 * 8));
+        expect(r.estat.budget.sistemes.map(i => i.nom)).toEqual(['Cuina', 'Menjador', 'Estar']);
+    });
+
+    it('zones explícites per índex, i les partides que ja hi són hi reben les línies', async () => {
+        const primer = await executaEina('insereix_zones_cad', { sistema: 'g1', zones: [{ nom: 'Planta baixa', entitats: [0, 3] }] }, buit(), ctx());
+        expect(primer.resultat.zones[0].parametres.A).toBe(41.75);
+        const segon = await executaEina('insereix_zones_cad', { sistema: 'g1', zones: [{ nom: 'Menjador', entitats: [1, 2] }] }, primer.estat, ctx());
+        const pav = segon.estat.budget.chapters;
+        expect(pav).toHaveLength(1);
+        expect(pav[0].items[0].measurements.filter(m => m.zona).map(m => m.description)).toEqual(['Planta baixa', 'Menjador']);
+        expect(segon.resultat.pem).toBe(round2(64.75 * 30 + 63 * 8));
+    });
+
+    it('no repeteix entitats que ja són d\'una zona, i actualitza_zones_cad les posa al dia', async () => {
+        const fet = await executaEina('insereix_zones_cad', { sistema: 'g1', agrupacio: 'retol' }, buit(), ctx());
+        await expect(executaEina('insereix_zones_cad', { sistema: 'g1', zones: [{ nom: 'Cuina bis', entitats: [0] }] }, fet.estat, ctx()))
+            .rejects.toThrow(/actualitza_zones_cad/);
+        const r = await executaEina('actualitza_zones_cad', {}, fet.estat, ctx(lisp(['15.0000', '14.0000'])));
+        expect(r.resultat.canvis.map(c => [c.instancia, c.parametre, c.despres])).toEqual([['Cuina', 'A', 14], ['Cuina', 'P', 15]]);
+        expect(r.resultat.entitats_noves).toBe(0);
+    });
+
+    it('diu què falla: un paràmetre que no existeix, una condició o un sistema que no és a la galeria', async () => {
+        await expect(executaEina('insereix_zones_cad', { sistema: 'g1', assignacio: { X: 'area' } }, buit(), ctx())).rejects.toThrow(/no té els paràmetres X/);
+        await expect(executaEina('insereix_zones_cad', { sistema: 'g1', agrupacio: 'retol', assignacio: { A: 'llargada' } }, buit(), ctx())).rejects.toThrow(/condicions/);
+        await expect(executaEina('insereix_zones_cad', { sistema: 'Coberta' }, buit(), ctx())).rejects.toThrow(/Hi ha: Paviment de gres/);
+        await expect(executaEina('insereix_zones_cad', { sistema: 'g1' }, buit(), { ...ctx(), cad: () => null })).rejects.toThrow(/AMIDA/);
+    });
+
+    it('valida l\'assignació', () => {
+        expect(validaInput('insereix_zones_cad', { sistema: 'g1', assignacio: { A: 'area' }, comuns: { h: 0.1 } })).toBeNull();
+        expect(validaInput('insereix_zones_cad', { sistema: 'g1', assignacio: { A: 'volum' } })).toMatch(/assignacio\.A/);
+        expect(validaInput('insereix_zones_cad', { sistema: 'g1', comuns: { h: 'alt' } })).toMatch(/comuns\.h/);
     });
 });

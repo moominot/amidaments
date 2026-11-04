@@ -71,6 +71,9 @@ s'esborra sola.
 | `posa_linies` | Línies d'amidament amb números o fórmules; torna la quantitat i els errors de fórmula |
 | `posa_parametre`, `posa_condicio` | Paràmetres (valor o fórmula, límits) i condicions |
 | `posa_esquema` | L'esquema del sistema: un SVG que dibuixa el model (es valida i se li posa l'`xmlns`; sense scripts) o una imatge adjunta al xat pel nom, reduïda com qualsevol esquema (`ctx.esquemaDAdjunt`). També el treu |
+| `galeria_sistemes` | Els sistemes de la galeria amb els paràmetres que demanen |
+| `insereix_zones_cad` | Una instància d'un sistema per zona a partir d'un enganxat del CAD al xat (`ctx.cad(id)`), amb una agrupació o zones explícites per índex, l'assignació de cada paràmetre i els valors comuns. Comprova les condicions de cada zona, no repeteix entitats que ja són d'una zona i les partides que el projecte ja té hi reben les línies |
+| `actualitza_zones_cad` | Posa al dia els paràmetres de les zones que surten d'entitats del CAD amb les mides d'un enganxat nou |
 | `tradueix` | Partides, capítols o tot el projecte a un altre idioma, pel mateix camí que el botó (veure [`traduccio.md`](traduccio.md)). La traducció va per peticions a part amb esforç baix, injectades per `ctx.tradueix`: no passa pel context de la conversa |
 | `esborra` | Una partida o capítol, un paràmetre o una condició |
 

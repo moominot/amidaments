@@ -214,3 +214,44 @@ export const actualitzaDesDeCad = (budget, entitats = []) => {
         noves: entitats.filter(e => !e.handle || !usats.has(e.handle)),
     };
 };
+
+// ─── Per a l'assistent ───
+
+const n2 = (v) => (Math.round((v || 0) * 100) / 100).toString().replace('.', ',');
+
+/**
+ * Les entitats d'un enganxat del CAD com a text per al model: una fila per entitat amb el que
+ * cal per decidir les zones (índex, tipus, àrea, perímetre o llargada, capa, nom de sala i
+ * rètols). Es talla a `max` files.
+ */
+export const resumCad = (dades, id, max = 300) => {
+    const es = dades.entities || [];
+    const files = es.slice(0, max).map((e, i) => [
+        i, e.type, e.closed ? 'tancada' : 'oberta',
+        e.closed ? n2(e.area) : '', n2(e.length), e.layer || '', nomDeRetols(e.labels) || '', (e.labels || []).join(' | '),
+    ].join('\t'));
+    return [
+        `[Entitats del CAD «${id}»: ${es.length}${dades.drawing ? ` de ${dades.drawing}` : ''}. Àrea en m²; «perímetre o llargada» en m (el perímetre si és tancada).]`,
+        ['#', 'tipus', 'tancada', 'àrea', 'perímetre o llargada', 'capa', 'sala', 'rètols'].join('\t'),
+        ...files,
+        ...(es.length > max ? [`(… ${es.length - max} entitats més)`] : []),
+    ].join('\n');
+};
+
+/**
+ * Zones a partir de la indicació de l'assistent: una agrupació (`MODES`) o una llista
+ * explícita `[{ nom, entitats: [índexs] }]`. Llança amb el motiu si un índex no hi és.
+ */
+export const zonesDeIndicacio = (entitats, { agrupacio, zones } = {}) => {
+    if (zones?.length) {
+        return zones.map(z => {
+            const es = (z.entitats || []).map(i => {
+                if (!entitats[i]) throw new Error(`No hi ha cap entitat ${i}: n'hi ha de 0 a ${entitats.length - 1}`);
+                return entitats[i];
+            });
+            if (!es.length) throw new Error(`La zona «${z.nom}» no té cap entitat`);
+            return { nom: String(z.nom || 'Zona'), entitats: es, handles: es.map(e => e.handle).filter(Boolean), valors: z.valors || {} };
+        });
+    }
+    return agrupaEntitats(entitats, agrupacio || modePerDefecte(entitats));
+};

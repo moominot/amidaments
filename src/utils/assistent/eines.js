@@ -7,6 +7,10 @@ import { interpretaCamp, esNomValid } from '../formules';
 import { resumPartida } from './cype';
 import { recullTextos, aplicaTraduccions, IDIOMES_TRADUCCIO } from '../traduccio';
 import { svgAEsquema, midaDataUrl } from '../esquema';
+import { previsualitza } from '../sistemesDoc';
+import {
+    FONTS, MODES, fontPerDefecte, respostesDeZona, muntaInstancies, fusionaArbres, actualitzaDesDeCad, zonesDeIndicacio,
+} from '../cadSistemes';
 
 /**
  * Eines de l'assistent sobre el projecte obert (veure `docs/assistent.md`).
@@ -554,6 +558,50 @@ export const DEFINICIONS = [
         },
     },
     {
+        name: 'galeria_sistemes',
+        description: 'Llista els sistemes constructius de la galeria de l\'usuari amb els seus paràmetres (els que es demanen en inserir-los, amb unitat i descripció).',
+        input_schema: { type: 'object', properties: {}, additionalProperties: false },
+    },
+    {
+        name: 'insereix_zones_cad',
+        description: 'Insereix un sistema de la galeria per a cada zona (sala, tram) a partir de les entitats del CAD que l\'usuari ha enganxat al xat: una instància per zona, amb paràmetres propis trets de les magnituds de les seves entitats, i les partides compartides amb una línia amb el nom de cada zona. Les zones es fan amb una agrupació o amb una llista explícita d\'índexs d\'entitats. Les entitats que ja són d\'una zona del projecte no s\'hi tornen a posar: per a aquestes, actualitza_zones_cad.',
+        input_schema: {
+            type: 'object',
+            properties: {
+                sistema: { type: 'string', description: 'Nom o id del sistema de la galeria' },
+                cad: { type: 'string', description: 'Quin enganxat del CAD («cad1», «cad2»...). Per defecte, l\'últim.' },
+                agrupacio: { type: 'string', enum: MODES.map(m => m.id), description: 'retol: pel nom de sala de dins (sense distingir majúscules); cada: una zona per entitat; una: totes en una; capa: per capa' },
+                zones: {
+                    type: 'array',
+                    description: 'Zones explícites, en comptes d\'una agrupació. Els índexs són els de la taula de l\'enganxat.',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            nom: str,
+                            entitats: { type: 'array', items: { type: 'integer' } },
+                            valors: { type: 'object', additionalProperties: num, description: 'Valors que es posen a mà per a aquesta zona, per sobre dels del CAD' },
+                        },
+                        required: ['nom', 'entitats'],
+                        additionalProperties: false,
+                    },
+                },
+                assignacio: {
+                    type: 'object',
+                    additionalProperties: { type: 'string', enum: FONTS.map(f => f.id) },
+                    description: 'Paràmetre del sistema → d\'on surt: area, perimetre, llargada (de les obertes), nombre (d\'entitats) o sistema (el valor de comuns o el del sistema). Els que no s\'hi posen s\'intueixen pel nom (A àrea, P perímetre) o prenen el valor del sistema.',
+                },
+                comuns: { type: 'object', additionalProperties: num, description: 'Valors iguals per a totes les zones dels paràmetres que no surten del CAD' },
+            },
+            required: ['sistema'],
+            additionalProperties: false,
+        },
+    },
+    {
+        name: 'actualitza_zones_cad',
+        description: 'Actualitza els paràmetres de les zones del projecte que surten d\'entitats del CAD amb les mides de l\'enganxat (quan l\'usuari ha modificat el dibuix i les torna a copiar). Torna què ha canviat i quantes entitats són noves.',
+        input_schema: { type: 'object', properties: { cad: str }, additionalProperties: false },
+    },
+    {
         name: 'esborra',
         description: 'Esborra un capítol o una partida (per codi), un paràmetre (per nom) o una condició (per expressió).',
         input_schema: { type: 'object', properties: { codi: str, parametre: str, condicio: str }, additionalProperties: false },
@@ -578,8 +626,12 @@ export const validaInput = (nom, input) => {
         if (t === 'object') {
             for (const r of esquema.required || []) if (valor[r] === undefined) return `${cami}: falta ${r}`;
             for (const [k, v] of Object.entries(valor)) {
-                if (!esquema.properties?.[k]) return `${cami}: camp desconegut ${k}`;
-                const e = comprova(esquema.properties[k], v, `${cami}.${k}`);
+                // Un objecte amb claus lliures (un mapa nom → valor) porta l'esquema dels valors a
+                // `additionalProperties`.
+                const sub = esquema.properties?.[k]
+                    || (esquema.additionalProperties && typeof esquema.additionalProperties === 'object' ? esquema.additionalProperties : null);
+                if (!sub) return `${cami}: camp desconegut ${k}`;
+                const e = comprova(sub, v, `${cami}.${k}`);
                 if (e) return e;
             }
         }
@@ -592,6 +644,128 @@ export const validaInput = (nom, input) => {
         return null;
     };
     return comprova(def.input_schema, input, nom);
+};
+
+// ─── Del CAD als sistemes (`utils/cadSistemes.js`) ───
+//
+// Les entitats les dona `ctx.cad(id)` (els enganxats del LISP al xat) i els sistemes,
+// `ctx.galeria` (`{ llista, llegeix }`, de la galeria del navegador).
+
+const dadesCad = (ctx, id) => {
+    const d = ctx.cad?.(id);
+    if (!d) throw new ErrorEina(id ? `No hi ha cap enganxat del CAD «${id}» en aquesta conversa` : 'L\'usuari no ha enganxat cap sortida del CAD (ordre AMIDA) en aquesta conversa');
+    return d;
+};
+
+const sistemaDeGaleria = (ctx, nomOId) => {
+    if (!ctx.galeria) throw new ErrorEina('Aquí no hi ha galeria de sistemes');
+    const llista = ctx.galeria.llista();
+    const clau = String(nomOId || '').trim().toLowerCase();
+    const s = llista.find(x => x.id === nomOId) || llista.find(x => x.nom.trim().toLowerCase() === clau);
+    if (!s) throw new ErrorEina(`No hi ha cap sistema «${nomOId}» a la galeria${llista.length ? `. Hi ha: ${llista.map(x => x.nom).join(', ')}` : ': és buida'}`);
+    const doc = ctx.galeria.llegeix(s.id);
+    if (!doc) throw new ErrorEina(`No s'ha pogut llegir el sistema «${s.nom}»`);
+    return { id: s.id, doc };
+};
+
+const galeriaSistemes = (llegeix, ctx) => {
+    if (!ctx.galeria) throw new ErrorEina('Aquí no hi ha galeria de sistemes');
+    const sistemes = ctx.galeria.llista().map(s => {
+        const doc = ctx.galeria.llegeix(s.id);
+        return {
+            id: s.id, nom: s.nom, descripcio: s.descripcio || '',
+            parametres: (doc?.parametres || []).map(p => ({
+                nom: p.nom, unitat: p.unitat || '', descripcio: p.descripcio || '',
+                ...(p.formula ? { formula: p.formula } : { valor: p.valor }),
+            })),
+        };
+    });
+    return { estat: llegeix(), resultat: { sistemes }, resum: `Galeria: ${sistemes.length} ${sistemes.length === 1 ? 'sistema' : 'sistemes'}` };
+};
+
+const insereixZonesCad = async (input, llegeix, ctx) => {
+    const dades = dadesCad(ctx, input.cad);
+    const { id: idGaleria, doc } = sistemaDeGaleria(ctx, input.sistema);
+    const { budget, priceDatabase } = llegeix();
+
+    // Les entitats que ja són d'una zona es fan servir per actualitzar-la, no per repetir-la.
+    const vincle = actualitzaDesDeCad(budget, dades.entities);
+    const jaFetes = new Set(dades.entities.filter(e => !vincle.noves.includes(e)));
+    let zones;
+    try {
+        zones = input.zones?.length
+            ? zonesDeIndicacio(dades.entities, { zones: input.zones })
+            : zonesDeIndicacio(vincle.noves, { agrupacio: input.agrupacio });
+    } catch (e) {
+        throw new ErrorEina(e.message);
+    }
+    const repetides = zones.filter(z => z.entitats.some(e => jaFetes.has(e))).map(z => z.nom);
+    if (repetides.length) throw new ErrorEina(`Les zones ${repetides.join(', ')} tenen entitats que ja són de zones del projecte (${vincle.vinculades.join(', ')}): fes servir actualitza_zones_cad`);
+    if (!zones.length) throw new ErrorEina('No hi ha cap entitat nova per fer-ne zones');
+
+    const demanats = doc.parametres.filter(p => !p.formula);
+    const desconeguts = Object.keys(input.assignacio || {}).filter(n => !demanats.some(p => p.nom === n));
+    if (desconeguts.length) throw new ErrorEina(`El sistema no té els paràmetres ${desconeguts.join(', ')}. Té: ${demanats.map(p => p.nom).join(', ')}`);
+    const assignacio = Object.fromEntries(demanats.map(p => [p.nom, input.assignacio?.[p.nom] || fontPerDefecte(p)]));
+    const comuns = Object.fromEntries(demanats.filter(p => assignacio[p.nom] === 'sistema').map(p => [p.nom, input.comuns?.[p.nom] ?? p.valor ?? 0]));
+
+    // Les condicions del sistema s'han de complir a cada zona, com en inserir-lo a mà.
+    const incompliments = [];
+    zones.forEach(z => {
+        const pv = previsualitza(doc, {
+            respostes: respostesDeZona(z, assignacio, comuns), nomInstancia: z.nom,
+            parametresProjecte: budget.parametres || [], liniaZona: true, id: 'previsualitzacio',
+        }, priceDatabase);
+        if (pv.incomplertes > 0) {
+            const motius = [...pv.condicions.filter(c => !c.ok).map(c => c.missatge || c.expressio), ...[...pv.limitsPerNom.entries()].map(([n, m]) => `${n}: ${m[0]}`)];
+            incompliments.push(`${z.nom} (${motius.join('; ')})`);
+        }
+    });
+    if (incompliments.length) throw new ErrorEina(`No compleixen les condicions del sistema: ${incompliments.join(' · ')}`);
+
+    const r = muntaInstancies(doc, zones, {
+        assignacio, comuns,
+        parametresProjecte: budget.parametres || [], sistemesProjecte: budget.sistemes || [],
+        idGaleria, dibuix: dades.drawing,
+    });
+    // Les partides que el projecte ja té reben les línies de les zones (com «Afegir-hi les
+    // línies»); els preus del projecte manen.
+    const nouBudget = {
+        ...budget,
+        chapters: fusionaArbres(budget.chapters || [], r.chapters),
+        parametres: [...(budget.parametres || []), ...r.parametres],
+        condicions: [...(budget.condicions || []), ...r.condicions],
+        sistemes: [...(budget.sistemes || []), ...r.instancies],
+    };
+    const preus = { ...r.prices, ...priceDatabase };
+    const pem = round2(resol(nouBudget).reduce((a, c) => a + calcChapterTotal(c, preus), 0));
+    return {
+        estat: { budget: nouBudget, priceDatabase: preus },
+        resultat: {
+            fet: true,
+            zones: r.instancies.map(i => ({
+                nom: i.nom,
+                entitats: i.cad.handles.length,
+                parametres: Object.fromEntries(r.parametres.filter(p => p.sistema === i.id).map(p => [p.nom, p.valor])),
+            })),
+            pem,
+        },
+        resum: `${r.instancies.length} zones de «${doc.nom}» des del CAD: ${r.instancies.map(i => i.nom).join(', ')}`,
+    };
+};
+
+const actualitzaZonesCad = async (input, llegeix, ctx) => {
+    const dades = dadesCad(ctx, input.cad);
+    const estat = llegeix();
+    const r = actualitzaDesDeCad(estat.budget, dades.entities);
+    if (!r.vinculades.length) {
+        return { estat, resultat: { fet: false, avis: 'Cap entitat és de cap zona del projecte: per fer-ne zones, insereix_zones_cad' }, resum: 'Cap zona vinculada' };
+    }
+    return {
+        estat: r.canvis.length ? { ...estat, budget: r.budget } : estat,
+        resultat: { fet: true, zones: r.vinculades, canvis: r.canvis, incompletes: r.incompletes, entitats_noves: r.noves.length },
+        resum: r.canvis.length ? `Actualitzats ${r.canvis.length} paràmetres de ${r.vinculades.join(', ')}` : `${r.vinculades.join(', ')}: ja al dia`,
+    };
 };
 
 /**
@@ -662,6 +836,9 @@ export const executaEina = async (nom, input, estatOFuncio, ctx = {}) => {
     const llegeix = () => (typeof estatOFuncio === 'function' ? estatOFuncio() : estatOFuncio);
     if (nom === 'tradueix') return tradueixEina(input, llegeix, ctx);
     if (nom === 'posa_esquema') return posaEsquema(input, llegeix, ctx);
+    if (nom === 'galeria_sistemes') return galeriaSistemes(llegeix, ctx);
+    if (nom === 'insereix_zones_cad') return insereixZonesCad(input, llegeix, ctx);
+    if (nom === 'actualitza_zones_cad') return actualitzaZonesCad(input, llegeix, ctx);
     if (nom === 'cype_importa') {
         const importada = await ctx.xarxa.baixaPartidaCype(input.url_bc3);
         return posaPartidaCype(llegeix(), importada, { capitol: input.capitol, codi: input.codi });

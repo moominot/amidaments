@@ -3187,6 +3187,8 @@ export default function App() {
     // Sense useCallback a posta: depèn de la pestanya i de la partida seleccionada, i una
     // dependència oblidada faria que enganxar actués sobre l'estat de quan es va muntar.
     const handlePaste = (e) => {
+        // Dins del xat de l'assistent, el que s'enganxa és per al xat (també la sortida del LISP).
+        if (e.target?.closest?.('[data-assistent-adjunts]')) return;
         const text = e.clipboardData.getData('text/plain')?.trim();
         // Un capítol o una partida copiats amb el botó de la barra lateral, potser des d'una
         // altra finestra. Mai no es vol dins d'un camp de text.

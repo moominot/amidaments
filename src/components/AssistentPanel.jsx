@@ -1,10 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Sparkles, Send, Square, KeyRound, Wrench, RotateCcw, AlertCircle, Paperclip, FileText } from 'lucide-react';
+import { X, Sparkles, Send, Square, KeyRound, Wrench, RotateCcw, AlertCircle, Paperclip, FileText, PenTool } from 'lucide-react';
 import { executaEina } from '../utils/assistent/eines';
 import * as xarxa from '../utils/assistent/cype';
 import { ACCEPTA, tipusAdmes, preparaAdjunt, comprovaAdjunts, contingutMissatge } from '../utils/assistent/adjunts';
 import { llegeixClau, desaClau, llegeixPref, desaPref, PREF_MODEL } from '../utils/assistent/clau';
 import { esquemaDeDataUrl } from '../utils/esquema';
+import { parseCadClipboard } from '../utils/cadPaste';
+import { resumCad } from '../utils/cadSistemes';
+import { llistaSistemes, llegeixSistema } from '../utils/galeriaSistemes';
 import { MODELS, ESFORCOS, MODEL_PER_DEFECTE, ESFORC_PER_DEFECTE, model as infoModel, esforcValid, costUs } from '../utils/assistent/models';
 
 /**
@@ -61,6 +64,7 @@ const NOMS_EINES = {
     crea_capitol: 'Crea un capítol', crea_partida: 'Crea una partida', modifica_partida: 'Modifica una partida',
     posa_linies: 'Línies d\'amidament', posa_parametre: 'Paràmetre', posa_condicio: 'Condició', esborra: 'Esborra',
     tradueix: 'Tradueix', posa_esquema: 'Esquema del sistema',
+    galeria_sistemes: 'Galeria de sistemes', insereix_zones_cad: 'Zones des del CAD', actualitza_zones_cad: 'Actualitza les zones del CAD',
 };
 
 const FormulariClau = ({ onDesa }) => {
@@ -99,6 +103,7 @@ const Element = ({ e }) => {
         return (
             <div className="ml-6 bg-violet-600 text-white px-3 py-2 text-[12px] leading-snug whitespace-pre-wrap break-words space-y-1.5">
                 {e.adjunts?.length > 0 && <div className="flex flex-wrap gap-1.5">{e.adjunts.map(a => <Adjunt key={a.id} a={a} clar />)}</div>}
+                {e.cad && <div className="text-[10px] font-mono text-violet-100">CAD «{e.cad.id}» · {e.cad.n} entitats{e.cad.dibuix ? ` · ${e.cad.dibuix}` : ''}</div>}
                 {e.text && <div>{e.text}</div>}
             </div>
         );
@@ -139,6 +144,10 @@ const AssistentPanel = ({ getEstat, aplicaEstat, onTanca }) => {
     const selector = useRef(null);
     // Les imatges enviades en aquesta conversa, pel nom: l'assistent en pot fer l'esquema del sistema.
     const imatgesEnviades = useRef(new Map());
+    // La sortida del LISP enganxada al camp de text (pendent d'enviar) i les ja enviades, per id
+    // («cad1», «cad2»...): les eines del CAD hi treballen (`utils/cadSistemes.js`).
+    const [cadPendent, setCadPendent] = useState(null);
+    const cadsEnviats = useRef(new Map());
     const historial = useRef([]);
     const control = useRef(null);
     const caixa = useRef(null);
@@ -173,8 +182,8 @@ const AssistentPanel = ({ getEstat, aplicaEstat, onTanca }) => {
     };
 
     const envia = async (text) => {
-        const t = (text ?? entrada).trim();
-        if ((!t && !adjunts.length) || treballant || preparant) return;
+        let t = (text ?? entrada).trim();
+        if ((!t && !adjunts.length && !cadPendent) || treballant || preparant) return;
         const motiu = comprovaAdjunts(historial.current, adjunts);
         if (motiu) {
             afegeix({ tipus: 'error', text: motiu });
@@ -182,10 +191,25 @@ const AssistentPanel = ({ getEstat, aplicaEstat, onTanca }) => {
         }
         const enviats = adjunts;
         enviats.filter(a => a.tipus === 'imatge').forEach(a => imatgesEnviades.current.set(a.nom, a));
+        // L'enganxat del CAD va al missatge com a taula, i les dades es queden aquí per a les eines.
+        let cad = null;
+        if (cadPendent) {
+            const id = `cad${cadsEnviats.current.size + 1}`;
+            cadsEnviats.current.set(id, cadPendent);
+            cad = { id, n: cadPendent.entities.length, dibuix: cadPendent.drawing };
+            t = `${t || 'Fes-ne zones d\'un sistema.'}\n\n${resumCad(cadPendent, id)}`;
+            setCadPendent(null);
+        }
         setEntrada('');
         setAdjunts([]);
         // Al xat només hi queden la miniatura i el nom; les dades van a l'historial de l'API.
-        afegeix({ tipus: 'usuari', text: t, adjunts: enviats.map(({ id, tipus, nom, mida: m, miniatura }) => ({ id, tipus, nom, mida: m, miniatura })) });
+        afegeix({
+            tipus: 'usuari',
+            // Al xat, la taula de les entitats no: només el que s'ha escrit i una etiqueta.
+            text: cad ? t.slice(0, t.indexOf('\n\n[Entitats del CAD')) : t,
+            cad,
+            adjunts: enviats.map(({ id, tipus, nom, mida: m, miniatura }) => ({ id, tipus, nom, mida: m, miniatura })),
+        });
         historial.current.push({ role: 'user', content: contingutMissatge(t, enviats) });
         setTreballant(true);
         const ctrl = new AbortController();
@@ -205,6 +229,8 @@ const AssistentPanel = ({ getEstat, aplicaEstat, onTanca }) => {
                     const r = await executaEina(nom, input, getEstat, {
                         xarxa,
                         idioma,
+                        cad: (id) => (id ? cadsEnviats.current.get(id) : [...cadsEnviats.current.values()].pop()) || null,
+                        galeria: { llista: llistaSistemes, llegeix: llegeixSistema },
                         esquemaDAdjunt: async (nom) => {
                             const a = imatgesEnviades.current.get(nom)
                                 || [...imatgesEnviades.current.values()].find(x => x.nom.toLowerCase() === String(nom).toLowerCase());
@@ -275,6 +301,8 @@ const AssistentPanel = ({ getEstat, aplicaEstat, onTanca }) => {
         if (treballant) return;
         historial.current = [];
         imatgesEnviades.current = new Map();
+        cadsEnviats.current = new Map();
+        setCadPendent(null);
         setElements([]);
         setAdjunts([]);
         setCost({ dolars: 0, cerques: 0 });
@@ -346,8 +374,21 @@ const AssistentPanel = ({ getEstat, aplicaEstat, onTanca }) => {
                     </div>
 
                     <div className="border-t border-slate-200 p-2 flex-shrink-0">
-                        {(adjunts.length > 0 || preparant > 0) && (
+                        {(adjunts.length > 0 || preparant > 0 || cadPendent) && (
                             <div className="flex flex-wrap gap-2 pb-2 pt-1">
+                                {cadPendent && (
+                                    <div className="relative flex items-center gap-1 border border-slate-200 bg-slate-50 text-slate-600 text-[10px] px-1.5 py-1">
+                                        <PenTool size={12} className="flex-shrink-0" />
+                                        <span>CAD · {cadPendent.entities.length} entitats{cadPendent.drawing ? ` · ${cadPendent.drawing}` : ''}</span>
+                                        <button
+                                            onClick={() => setCadPendent(null)}
+                                            className="absolute -top-1.5 -right-1.5 bg-slate-700 text-white rounded-full p-0.5 touch-manipulation"
+                                            title="Treu les entitats del CAD" aria-label="Treu les entitats del CAD"
+                                        >
+                                            <X size={10} />
+                                        </button>
+                                    </div>
+                                )}
                                 {adjunts.map(a => <Adjunt key={a.id} a={a} onTreu={() => setAdjunts(prev => prev.filter(x => x.id !== a.id))} />)}
                                 {preparant > 0 && <span className="self-center text-[10px] text-violet-500 animate-pulse">Preparant…</span>}
                             </div>
@@ -373,6 +414,13 @@ const AssistentPanel = ({ getEstat, aplicaEstat, onTanca }) => {
                                 value={entrada}
                                 onChange={e => setEntrada(e.target.value)}
                                 onPaste={(e) => {
+                                    // La sortida del LISP (ordre AMIDA): no es copia al text, es guarda a part.
+                                    const cad = parseCadClipboard(e.clipboardData?.getData('text/plain'));
+                                    if (cad && cad.entities.length) {
+                                        e.preventDefault();
+                                        setCadPendent(cad);
+                                        return;
+                                    }
                                     const fitxers = Array.from(e.clipboardData?.files || []).filter(f => tipusAdmes(f.type));
                                     if (!fitxers.length) return;
                                     e.preventDefault();
@@ -389,7 +437,7 @@ const AssistentPanel = ({ getEstat, aplicaEstat, onTanca }) => {
                                     <Square size={14} />
                                 </button>
                             ) : (
-                                <button onClick={() => envia()} disabled={(!entrada.trim() && !adjunts.length) || preparant > 0} className="bg-violet-600 hover:bg-violet-500 disabled:bg-slate-300 text-white p-2.5 touch-manipulation" title="Envia (Enter)">
+                                <button onClick={() => envia()} disabled={(!entrada.trim() && !adjunts.length && !cadPendent) || preparant > 0} className="bg-violet-600 hover:bg-violet-500 disabled:bg-slate-300 text-white p-2.5 touch-manipulation" title="Envia (Enter)">
                                     <Send size={14} />
                                 </button>
                             )}

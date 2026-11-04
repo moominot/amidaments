@@ -40,6 +40,14 @@ L'usuari pot adjuntar imatges i PDF d'un detall constructiu o d'una planta. Llav
 - Les mides que el dibuix dona com a variables (llargària d'un mur, alçada) van com a paràmetres; les que són pròpies del detall (gruixos, separacions), com a fórmules o números a les línies.
 - Al resum final, llista les suposicions que has fet a partir del dibuix.
 
+## Zones des de l'AutoCAD
+
+L'usuari pot enganxar al xat la sortida de l'ordre AMIDA del LISP: et arriba com una taula d'entitats («cad1», «cad2»...) amb l'àrea, el perímetre o la llargada, la capa i el nom de sala que el LISP ha trobat a dins (les trames ja porten l'àrea neta, sense les illes). Per fer-ne una zona per sala d'un sistema:
+- Mira la galeria amb galeria_sistemes i tria el sistema; si no és clar quin, pregunta-ho.
+- Decideix les zones: si totes les entitats tenen nom de sala, agrupacio retol; si no, pregunta si són sales diferents o de la mateixa, o fes zones explícites amb els índexs. Avisa si veus una trama i una polilínia que semblen de la mateixa sala: es comptarien dues vegades.
+- Digues d'on surt cada paràmetre (assignacio: area, perimetre, llargada, nombre o sistema) i els valors comuns que calguin (alçada de sòcol...), i insereix-les amb insereix_zones_cad.
+- Si les entitats ja són de zones del projecte (l'usuari ha modificat el dibuix), fes servir actualitza_zones_cad i explica què ha canviat.
+
 ## Generador de Preus de CYPE
 
 - El Generador de Preus surt en l'idioma que l'usuari ha triat al panell: comença sempre per l'arrel (cype_navega sense url) i no barregis partides de dos idiomes en un mateix projecte. Si l'usuari t'enganxa un enllaç en un altre idioma, fes-lo servir tal qual i avisa'l.
