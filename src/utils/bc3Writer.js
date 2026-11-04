@@ -1,4 +1,4 @@
-import { normalizeCode, round2, calcItemCertifiedQty } from './calculations';
+import { normalizeCode, round2, calcItemCertifiedQty, getItemUnitPrice } from './calculations';
 
 /**
  * Escriptor FIEBDC-3 (BC3).
@@ -104,7 +104,9 @@ export const generateBC3 = ({ budget, chapters, priceDatabase = {}, certificatio
                 unit: node.unit || '',
                 description: node.description || '',
                 fullDescription: node.fullDescription || '',
-                price: node.price || 0,
+                // Una partida amb descomposat val el que en surt (amb els rendiments ja resolts,
+                // que poden ser fórmules dels paràmetres); el preu desat al node pot ser antic.
+                price: node.unit && hasBreakdown ? getItemUnitPrice(node, priceDatabase) : (node.price || 0),
                 isDecomposed: false,
             });
         }

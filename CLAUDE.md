@@ -11,7 +11,7 @@ npm install
 npm run dev
 npm run build     # ha de passar sempre abans de donar una feina per acabada
 npm run lint      # cobreix .js i .jsx; l'arbre ha de quedar amb 0 errors
-npm test          # Vitest; 113 tests sobre els càlculs, el parser i l'escriptor
+npm test          # Vitest; 301 tests sobre els càlculs, el parser i l'escriptor
 npm run test:watch
 ```
 
@@ -74,14 +74,72 @@ del sector: *amidament*, *partida*, *capítol*, *descomposat*, *rendiment*, *cer
 - **El fitxer natiu és `.amid`**, no `.json`: és JSON a dins, però amb extensió i MIME propis
   perquè l'associació de fitxers del sistema sigui neta. Tot el que sap què és un fitxer de
   projecte viu a `utils/projectFile.js`; els `.json` desats abans s'han de continuar obrint.
+- **Copiar entre finestres va pel porta-retalls, no per arrossegament**: l'arrossegament intern
+  només porta l'`id` del node, que a l'altra finestra no vol dir res. `utils/portaRetalls.js`
+  desa el subarbre en JSON amb els seus preus i les línies vinculades congelades; per enganxar
+  es reaprofita `startImportProcess`, amb `conservaPreus` perquè no trepitgi preus existents.
+  Destí: dins del capítol seleccionat; amb una partida seleccionada, al seu capítol i just darrere
+  (`despresDe`); sense selecció, a l'arrel. La selecció es treu amb Esc, el ✕ del detall o un clic
+  a l'espai buit de la taula.
+- **Cada finestra té el seu projecte.** El contingut només es desa a la biblioteca
+  (`utils/projectLibrary.js`), sota l'id del projecte; quin té obert cada pestanya va a
+  `sessionStorage`. No tornis a un espai únic de «projecte actual»: amb dues finestres, l'última
+  que desava guanyava. Una finestra amb `?consulta` és un banc de consulta i no desa res.
+- **Paràmetres i fórmules** (`utils/formules.js`, `utils/parametres.js`): una línia pot portar
+  `formules: { units, length, width, height }` i, **quan un camp té fórmula, mana la fórmula**:
+  el número desat al camp pot ser antic. Es resolen abans dels vincles, dins de
+  `resolvedChapters`; per això cal fer servir sempre `resolvedChapters` per mostrar o calcular.
+  Una dimensió que dona 0 deixa la línia a Ud 0 (si no, valdria 1). Cap fórmula no passa per
+  `eval`. Les condicions (`min`/`max`/`enter` de cada paràmetre i `budget.condicions`) són avisos
+  al projecte però **bloquegen la inserció d'un sistema**; qualsevol camp nou que porti fórmules
+  s'ha d'afegir a `reescriuFormules`, o reanomenar un paràmetre el deixarà orfe. El títol i la
+  descripció tècnica poden portar variables entre claus (`utils/plantilles.js`): el text amb les
+  claus és a `budget.chapters` i el resolt a `resolvedChapters`, amb l'original a `plantilles`; els
+  camps d'edició han de mostrar `node.plantilles?.camp ?? node.camp`. Els rendiments del
+  descomposat també poden ser fórmula (`breakdown[].formulaRendiment`, mana sobre `yield`): el
+  preu d'una partida amb descomposat només és bo calculat sobre `resolvedChapters`. Veure
+  `docs/sistemes.md`.
+- **Els sistemes constructius són documents** (`utils/sistemesDoc.js`): un projecte amb
+  paràmetres que s'insereix en un altre demanant-los. Cada línia inserida porta `sistema` (l'id
+  de la instància, a `budget.sistemes`), que és el que permet filtrar-la, extreure-la i treure-la.
+  Entren per `insereixNodes`, el camí d'enganxar, amb els paràmetres i la instància dins del
+  resultat de la importació perquè cancel·lar no deixi res a mitges. L'esquema (imatge o SVG) va
+  en data URL a `budget.esquema`, al document i a `budget.sistemes[]`: tot el que es desa comparteix
+  els ~5 MB del `localStorage`, i per això `utils/esquema.js` el limita a 400 kB. El nom de la zona va
+  a les línies: com a text si la instància hi posa una sola línia (`nomZona`, amb l'original a
+  `descripcioSistema`, que torna en extreure-la), o en una línia de títol a 0 (`zona: true`, que
+  no es copia en extreure-la) si n'hi posa diverses.
+- **L'assistent** (`utils/assistent/`, `components/AssistentPanel.jsx`) crida l'API d'Anthropic
+  des del navegador amb la clau de l'usuari (a `localStorage`). Les eines reben i tornen
+  `{ budget, priceDatabase }`; qualsevol eina nova ha de validar l'input (`validaInput`), perquè
+  amb `eager_input_streaming` el servidor no ho fa. Les indicacions són un text fix: no hi posis
+  res que canviï a cada crida o es perd la memòria cau. Les imatges i els PDF adjunts
+  (`utils/assistent/adjunts.js`) es reenvien a cada volta: els límits es compten sobre tota la
+  conversa, no sobre el missatge. Veure `docs/assistent.md`.
+- **La traducció** (`utils/traduccio.js`) substitueix **per valor**: tradueix els textos diferents
+  i després canvia els camps que hi coincideixen. Si afegeixes un camp de text nou al model, posa'l
+  a `recullTextos` i a `aplicaTraduccions`, o es quedarà sense traduir. Veure `docs/traduccio.md`.
 - **Qualsevol fitxer que entri passa per `obreFitxer`** (`App.jsx`): selector, arrossegament,
   `launchQueue` d'escriptori i fitxers compartits des d'Android. Si hi afegeixes un camí nou,
   fes-lo passar per aquí i no repeteixis la comprovació: tenir-ne tres de diferents va deixar
   la File Handling API mirant un camp inexistent, fallant en silenci.
+- **Enganxar la sortida del LISP sense partida seleccionada** obre «Del CAD a un sistema»
+  (`utils/cadSistemes.js`): una instància per zona amb les partides compartides fusionades abans
+  d'inserir (si no, `mergeTreeBranches` perdria les línies de la segona), i `instancia.cad.handles`
+  per actualitzar-les després amb el dibuix. El LISP és la versió 2 (columna de rètols); el parser
+  ha de continuar llegint la 1. Veure `docs/cad.md`.
 - **Cap camp numèric no pot ser `type="number"`**: el navegador es menja la coma decimal i
   «12,5» es converteix en 125 sense avisar. Fes servir `components/NumberInput.jsx`.
 - **Res d'`opacity-0 group-hover:`**: al tacte no hi ha hover i el control queda inabastable.
   El patró correcte és `opacity-60 md:opacity-0 md:group-hover:opacity-100`.
+- **Punts de tall de la interfície**: el panell de detall va al costat quan
+  `panellAlCostat` (a partir de 1024 px, o de 768 amb ratolí: dues finestres una al costat de
+  l'altra al PC en fan unes 960) i, si no, és un full inferior; fins a `xl` es limita al 40%.
+  El capçal posa els botons a partir d'`xl` i fins aleshores ho porta tot el menú. Per a
+  l'amplada al render, fes servir `ampladaFinestra`, no `window.innerWidth`.
+- **L'enganxat s'escolta al `document`**, no amb `onPaste` al contenidor: sense focus en cap
+  camp, el navegador l'adreça al `<body>` i Ctrl+V no arribava enlloc. Ctrl+C sobre una fila
+  seleccionada copia el capítol o la partida (listener `copy`).
 - `scrollIntoView` arrossega també els contenidors superiors. Per desplaçar una llista
   horitzontal, fes `contenidor.scrollTo({ left })` a mà.
 - **Els residus es desen amb les magnituds primitives** (`quantity`, `massPerUnit`,

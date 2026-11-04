@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
     round2, normalizeCode, calcItemTotalQty, getItemUnitPrice,
-    calcItemCertifiedQty, calcItemTotalAmount,
+    calcItemCertifiedQty, calcItemTotalAmount, columnesMesura, formatNumber,
 } from '../src/utils/calculations';
 
 /**
@@ -131,5 +131,26 @@ describe('calcItemTotalAmount', () => {
         };
         expect(calcItemTotalAmount(item, {})).toBe(30);
         expect(calcItemTotalAmount(item, { P1: { price: 20 } })).toBe(60);
+    });
+});
+
+describe('columnesMesura (línies d\'amidament impreses)', () => {
+    it('una dimensió a 0 o a 1 queda en blanc i el parcial no surt a 0', () => {
+        const c = columnesMesura({ units: 3, length: 0, width: 1, height: 0 });
+        expect(c.length).toBe('');
+        expect(c.width).toBe('');
+        expect(c.height).toBe('');
+        expect(c.partial).toBe(formatNumber(3, 2));
+    });
+
+    it('mostra les dimensions entre 0 i 1 i multiplica-les al parcial', () => {
+        const c = columnesMesura({ units: 2, length: 0.5, width: 4, height: 1 });
+        expect(c.length).toBe(formatNumber(0.5, 2));
+        expect(c.partial).toBe(formatNumber(4, 2));
+    });
+
+    it('un increment calcula el parcial sobre el subtotal', () => {
+        const c = columnesMesura({ units: 10, isIncrement: true }, 200);
+        expect(c.partial).toBe(formatNumber(20, 2));
     });
 });

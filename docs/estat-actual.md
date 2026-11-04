@@ -2,7 +2,7 @@
 
 Inventari fet llegint el codi (agost 2026).
 
-**Estat: els trenta-dos defectes estan corregits.** Es conserva la descripció de cadascun
+**Estat: els trenta-tres defectes estan corregits.** Es conserva la descripció de cadascun
 perquè expliquen decisions del codi actual i serveixen de referència si tornen a aparèixer.
 El deute tècnic de la segona meitat del document continua obert.
 
@@ -585,6 +585,26 @@ de capítol (`chapter-total`), que ja tenia estil definit però cap fila que el 
 
 ---
 
+### 33. La importació des d'URL tornava a fallar amb tots els proxys ✅
+
+Arrossegant un enllaç del Generador de Preus, la consola deia:
+
+```
+Access to fetch at 'https://corsproxy.io/?url=…' … has been blocked by CORS policy:
+Response to preflight request doesn't pass access control check: It does not have HTTP ok status.
+proxy.cors.sh/…  net::ERR_NAME_NOT_RESOLVED
+```
+
+Eren dues coses. La primera, la nostra: la correcció del §28 havia afegit una capçalera
+`x-requested-with` a **totes** les peticions perquè proxy.cors.sh la demanava. Una capçalera
+pròpia converteix la petició en no simple i el navegador fa abans un `OPTIONS` de
+verificació; corsproxy.io no el contesta amb un 200 i la descàrrega es talla abans de sortir.
+La segona, de fora: el domini de proxy.cors.sh ha deixat d'existir.
+
+Es treu la capçalera i el proxy mort. La solució que no depèn de tercers continua essent el
+worker de `worker/` amb `VITE_CORS_PROXY`: si la consola no mostra cap intent contra el
+worker, és que el secret no és al repositori o el worker no està desplegat.
+
 ## Deute tècnic
 
 ### `App.jsx` és un monòlit de 4.380 línies
@@ -609,7 +629,7 @@ suggerit, de menys a més arriscat:
 
 ### Tests ✅ (fet)
 
-Hi ha **113 tests amb Vitest** (`npm test`), contra fitxers BC3 de veritat i no maquetes, i el
+Hi ha **121 tests amb Vitest** (`npm test`), contra fitxers BC3 de veritat i no maquetes, i el
 desplegament els passa abans de construir. Detall a [`docs/tests.md`](tests.md).
 
 Es van escriure després de tot el que hi ha en aquest registre, i per això cada test fixa un
@@ -672,7 +692,7 @@ Per ordre de relació valor/esforç:
 
 1. ~~Arreglar els punts 1–23.~~ ✅ Fet.
 2. ~~Activar el lint sobre `.jsx`.~~ ✅ Fet (queda la migració a flat config).
-3. ~~**Vitest + tests de `calculations.js` i `bc3Parser.js`**~~ ✅ Fet: 113 tests contra
+3. ~~**Vitest + tests de `calculations.js` i `bc3Parser.js`**~~ ✅ Fet: 121 tests contra
    fitxers BC3 de veritat, i el cicle exportar → reimportar ja és una prova automàtica i no un
    ritual manual. Veure [`docs/tests.md`](tests.md).
 4. **Extreure els exportadors i el writer BC3** d'`App.jsx` (passes 2 i 3 del refactor).

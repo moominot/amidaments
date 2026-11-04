@@ -23,6 +23,30 @@ export const getComponentCategory = (code) => {
 
 export const calcMeasureTotal = (m) => round2((m.units || 0) * (m.length || 1) * (m.width || 1) * (m.height || 1));
 
+/**
+ * Valors d'una línia d'amidament tal com s'imprimeixen. Una dimensió a 0 o a 1 és «no
+ * utilitzada» i queda en blanc; el parcial es calcula amb `calcMeasureTotal` (que tracta el
+ * 0 com a 1), no multiplicant a cru: amb una dimensió a 0 el parcial sortia 0 mentre el
+ * total de la partida, que sí que fa servir `calcMeasureTotal`, quadrava.
+ * `subtotal` és la suma de les línies no increment, necessari per als increments (%).
+ */
+export const columnesMesura = (m, subtotal = 0) => {
+    const dim = (v) => (v && v !== 1 ? formatNumber(v, 2) : '');
+    // La línia de zona d'una instància de sistema és un títol: només el nom.
+    if (m.zona) return { units: '', length: '', width: '', height: '', partial: '' };
+    if (m.isIncrement) {
+        const pct = parseFloat(m.units) || 0;
+        return { units: `${formatNumber(pct, 2)} %`, length: '', width: '', height: '', partial: formatNumber(round2(subtotal * (pct / 100)), 2) };
+    }
+    return {
+        units: formatNumber(m.units || 0, 2),
+        length: dim(m.length),
+        width: dim(m.width),
+        height: dim(m.height),
+        partial: formatNumber(calcMeasureTotal(m), 2),
+    };
+};
+
 export const calcItemTotalQty = (item) => {
     if (!item.measurements || item.measurements.length === 0) return 0;
 

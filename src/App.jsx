@@ -2,6 +2,12 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
     Plus,
     FolderPlus,
+    Blocks,
+    Variable,
+    Sparkles,
+    Heading,
+    Languages,
+    ListPlus,
     FileText,
     Trash2,
     GripVertical,
@@ -17,6 +23,7 @@ import {
     Database,
     MousePointer2,
     AlertCircle,
+    AlertTriangle,
     FileCode,
     Box,
     Tag,
@@ -39,6 +46,8 @@ import {
     LogOut,
     Recycle,
     Leaf,
+    ClipboardPaste,
+    Copy,
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -52,6 +61,7 @@ import {
     formatNumber,
     getComponentCategory,
     calcMeasureTotal,
+    columnesMesura,
     calcItemTotalQty,
     getItemUnitPrice,
     calcItemCertifiedQty,
@@ -74,16 +84,28 @@ import CertificationSummary from './components/Certification/CertificationSummar
 import CertificationSummaryModal from './components/Certification/CertificationSummaryModal';
 import DriveSettingsModal from './components/DriveSettingsModal';
 import NumberInput from './components/NumberInput';
+import FormulaInput from './components/FormulaInput';
 import ProjectLibraryModal from './components/ProjectLibraryModal';
 import LinkItemModal from './components/LinkItemModal';
-import { listProjects, getProject, saveProject, deleteProject } from './utils/projectLibrary';
+import { listProjects, getProject, saveProject, deleteProject, markProjectOpen, initialProject, dropLegacySlot, projectStorageKey } from './utils/projectLibrary';
 import { migrateBudget } from './utils/migrateBudget';
 import { resolveMeasurementRefs, isRefLine, refLabel } from './utils/measurementRefs';
+import { resolveFormules, usosDeParametres, reescriuFormules, comprovaCondicions } from './utils/parametres';
+import ParametresPanel from './components/ParametresPanel';
+import AssistentPanel from './components/AssistentPanel';
+import TraduccioModal from './components/TraduccioModal';
+import VistaPlantilla from './components/VistaPlantilla';
+import CadSistemaModal from './components/CadSistemaModal';
+import { actualitzaDesDeCad } from './utils/cadSistemes';
+import { CAMPS_PLANTILLA, esPlantilla } from './utils/plantilles';
 import { processBC3Data } from './utils/bc3Parser';
 import { generateBC3, nomFitxerCertificacio } from './utils/bc3Writer';
 import { numberToTextCatalan } from './utils/numberToText';
 import { exportCertificationPDF } from './utils/certificationPdf';
 import { safeFileName } from './utils/fileName';
+import { parseCadClipboard, cadEntitiesToMeasurements } from './utils/cadPaste';
+import { creaFragment, llegeixFragment, embolcallaPerEnganxar } from './utils/portaRetalls';
+import { pdfDateText } from './utils/pdfDate';
 import { descarregaBC3 } from './utils/corsProxy';
 import { buildWasteSummary, formatMassa, nomTipus, catalegResidus, magnitudsDe, TIPUS_RESIDU } from './utils/waste';
 import { buildCarbonSummary, formatEnergia, formatCO2 } from './utils/carbon';
@@ -91,15 +113,28 @@ import { buildWasteStudy } from './utils/wasteStudy';
 import { exportWasteStudyPDF } from './utils/wasteStudyPdf';
 import WasteStudyModal from './components/WasteStudyModal';
 import PriceBankPicker from './components/PriceBankPicker';
+import SistemesModal from './components/SistemesModal';
+import { filtraPerInstancia, extreuInstancia, treuInstancia, reanomenaInstancia } from './utils/sistemesDoc';
 import {
     EXTENSIO_PROJECTE, MIME_PROJECTE, esFitxerProjecte, esFitxerBC3,
     serialitzaProjecte, llegeixProjecte,
 } from './utils/projectFile';
 import { toWindows1252Bytes } from './utils/googleDrive';
+import { baixaFitxer } from './utils/baixa';
 
 const formatPrice = (val) => formatNumber(val, 2);
 
-const flattenBudget = (nodes, level = 0, parentRef = '', counterObj = { val: 0 }, config, priceDatabase) => {
+// Amb «amagar import 0», ni les partides ni els capítols amb import 0 surten a la impressió.
+// Tots els camins (previsualització, PDF d'amidaments i de resum) han de passar per aquí.
+const ambImport = (nodes, config, priceDatabase) => (config.hideZeroItems
+    ? nodes.filter(n => (n.unit ? calcItemTotalAmount(n, priceDatabase) : calcChapterTotal(n, priceDatabase)) !== 0)
+    : nodes);
+
+const flattenBudget = (nodesAll, level = 0, parentRef = '', counterObj = { val: 0 }, config, priceDatabase) => {
+    const nodes = ambImport(nodesAll, config, priceDatabase);
+    // Sense preus, la taula perd les columnes Preu i Import: 8 columnes en comptes de 10
+    const prices = config.showPrices !== false;
+    const cols = prices ? 10 : 8;
     let rows = [];
     nodes.forEach((node) => {
         const isChapter = !node.unit;
@@ -121,11 +156,9 @@ const flattenBudget = (nodes, level = 0, parentRef = '', counterObj = { val: 0 }
             rows.push({
                 type: 'chapter',
                 level: level,
-                data: [
-                    displayCode,
-                    { content: node.description.toUpperCase(), colSpan: 8 },
-                    formatNumber(totalAmount, 2)
-                ]
+                data: prices
+                    ? [displayCode, { content: node.description.toUpperCase(), colSpan: 8 }, formatNumber(totalAmount, 2)]
+                    : [displayCode, { content: node.description.toUpperCase(), colSpan: 7 }]
             });
 
             // Chapter Long Description
@@ -134,7 +167,7 @@ const flattenBudget = (nodes, level = 0, parentRef = '', counterObj = { val: 0 }
                     type: 'item-long-desc',
                     data: [
                         '',
-                        { content: node.fullDescription, colSpan: 9 }
+                        { content: node.fullDescription, colSpan: cols - 1 }
                     ]
                 });
             }
@@ -151,8 +184,7 @@ const flattenBudget = (nodes, level = 0, parentRef = '', counterObj = { val: 0 }
                     node.unit,
                     '', '', '', '',
                     formatNumber(calcItemTotalQty(node), 2),
-                    formatPrice(getItemUnitPrice(node, priceDatabase)),
-                    formatNumber(totalAmount, 2)
+                    ...(prices ? [formatPrice(getItemUnitPrice(node, priceDatabase)), formatNumber(totalAmount, 2)] : [])
                 ]
             });
 
@@ -162,32 +194,25 @@ const flattenBudget = (nodes, level = 0, parentRef = '', counterObj = { val: 0 }
                     type: 'item-long-desc',
                     data: [
                         '',
-                        { content: node.fullDescription, colSpan: 9 }
+                        { content: node.fullDescription, colSpan: cols - 1 }
                     ]
                 });
             }
 
             // Measurement Lines
             if (config.showMeasurements && node.measurements && node.measurements.length > 0) {
+                const subtotal = node.measurements.filter(l => !l.isIncrement).reduce((acc, l) => acc + calcMeasureTotal(l), 0);
                 node.measurements.forEach((m) => {
+                    const c = columnesMesura(m, subtotal);
                     rows.push({
                         type: 'measurement',
-                        data: [
-                            '',
-                            m.description || '',
-                            formatNumber(m.units, 0),
-                            m.length > 1 || (m.width === 1 && m.height === 1 && m.length !== 0) ? formatNumber(m.length, 2) : '',
-                            m.width > 1 ? formatNumber(m.width, 2) : '',
-                            m.height > 1 ? formatNumber(m.height, 2) : '',
-                            formatNumber(m.units * m.length * m.width * m.height, 2),
-                            '', '', ''
-                        ]
+                        data: ['', m.description || '', c.units, c.length, c.width, c.height, c.partial, ...Array(cols - 7).fill('')]
                     });
                 });
             }
 
-            // Breakdown (descomposat)
-            if (config.showBreakdown && node.breakdown && node.breakdown.length > 0) {
+            // Breakdown (descomposat): és tot preus, sense preus no surt
+            if (prices && config.showBreakdown && node.breakdown && node.breakdown.length > 0) {
                 node.breakdown.forEach((b) => {
                     rows.push({
                         type: 'breakdown',
@@ -218,7 +243,7 @@ const flattenBudget = (nodes, level = 0, parentRef = '', counterObj = { val: 0 }
         }
 
         // Chapter Footer Total (com a renderPrintNode)
-        if (isChapter && shouldShowHeader) {
+        if (prices && isChapter && shouldShowHeader) {
             rows.push({
                 type: 'chapter-total',
                 data: [
@@ -232,9 +257,15 @@ const flattenBudget = (nodes, level = 0, parentRef = '', counterObj = { val: 0 }
 };
 
 // --- Component de Vista d'Impressió ---
-const PrintView = ({ budget, priceDatabase, budgetTotal, config, onOpenConfig, onClose, onExportPDF, onExportSummaryPDF, handleExportXLSX }) => {
-    const [date] = useState(new Date().toLocaleDateString('ca-ES'));
+const PrintView = ({ budget, priceDatabase, budgetTotal, config, setConfig, onOpenConfig, onClose, onExportPDF, onExportSummaryPDF, handleExportXLSX }) => {
+    const date = pdfDateText(config);
     const [viewMode, setViewMode] = useState('amidaments'); // 'amidaments' | 'resum'
+    // Per sota d'xl les accions van en un menú, com al capçal de l'editor
+    const [menuObert, setMenuObert] = useState(false);
+    const exportaPDF = () => (viewMode === 'amidaments' ? onExportPDF(config) : onExportSummaryPDF(config));
+    // Sense preus la taula d'amidaments perd Preu i Import: 8 columnes en comptes de 10
+    const prices = config.showPrices !== false;
+    const cols = prices ? 10 : 8;
 
 
     const renderPrintNode = (node, level = 0, parentRef = '', counterObj = { val: 0 }) => {
@@ -260,7 +291,7 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, onOpenConfig, o
                     <>
                         {isChapter ? (
                             <tr className={`border-b-2 border-black/20 break-inside-avoid align-bottom ${level === 0 && config.chaptersOnNewPage ? 'break-before-page' : ''}`}>
-                                <td className="p-1 px-2 font-bold text-[11px] uppercase" colSpan={9}>
+                                <td className="p-1 px-2 font-bold text-[11px] uppercase" colSpan={prices ? 9 : cols}>
                                     <div className="flex flex-col gap-1">
                                         <span>{level === 0 ? 'CAPÍTOL ' : 'SUBCAPÍTOL '} {displayCode} {node.description}</span>
                                         {config.showLongDesc && node.fullDescription && node.fullDescription !== node.description && (
@@ -270,16 +301,18 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, onOpenConfig, o
                                         )}
                                     </div>
                                 </td>
-                                <td className="p-1 text-right font-bold text-[11px] font-mono">
-                                    {formatNumber(totalAmount, 2)}
-                                </td>
+                                {prices && (
+                                    <td className="p-1 text-right font-bold text-[11px] font-mono">
+                                        {formatNumber(totalAmount, 2)}
+                                    </td>
+                                )}
                             </tr>
                         ) : (
                             <>
                                 {/* Item Main Row */}
                                 <tr className="text-[10px] break-inside-avoid-page align-top">
                                     <td className="p-1 px-2 font-mono whitespace-nowrap">{displayCode}</td>
-                                    <td className="p-1 px-2 leading-tight" colSpan={9}>
+                                    <td className="p-1 px-2 leading-tight" colSpan={cols - 1}>
                                         <div className="font-bold flex gap-2">
                                             <span className="min-w-[20px]">{node.unit}</span>
                                             <span>{node.description}</span>
@@ -295,18 +328,24 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, onOpenConfig, o
                                 {/* Measurement Lines */}
                                 {config.showMeasurements && node.measurements && node.measurements.length > 0 && (
                                     <>
-                                        {node.measurements.map((m, i) => (
-                                            <tr key={i} className="text-[9px] text-slate-600 align-top border-none leading-tight">
-                                                <td className="p-1"></td>
-                                                <td className="p-0.5 px-4 italic">{m.description}</td>
-                                                <td className="p-0.5 text-center font-mono">{formatNumber(m.units, 0)}</td>
-                                                <td className="p-0.5 text-right font-mono">{m.length > 1 || (m.width === 1 && m.height === 1 && m.length !== 0) ? formatNumber(m.length, 2) : ''}</td>
-                                                <td className="p-0.5 text-right font-mono">{m.width > 1 ? formatNumber(m.width, 2) : ''}</td>
-                                                <td className="p-0.5 text-right font-mono">{m.height > 1 ? formatNumber(m.height, 2) : ''}</td>
-                                                <td className="p-0.5 text-right font-mono">{formatNumber(m.units * m.length * m.width * m.height, 2)}</td>
-                                                <td className="p-0.5" colSpan={3}></td>
-                                            </tr>
-                                        ))}
+                                        {(() => {
+                                            const subtotal = node.measurements.filter(l => !l.isIncrement).reduce((acc, l) => acc + calcMeasureTotal(l), 0);
+                                            return node.measurements.map((m, i) => {
+                                                const c = columnesMesura(m, subtotal);
+                                                return (
+                                                    <tr key={i} className="text-[9px] text-slate-600 align-top border-none leading-tight">
+                                                        <td className="p-1"></td>
+                                                        <td className="p-0.5 px-4 italic">{m.description}</td>
+                                                        <td className="p-0.5 text-center font-mono">{c.units}</td>
+                                                        <td className="p-0.5 text-right font-mono">{c.length}</td>
+                                                        <td className="p-0.5 text-right font-mono">{c.width}</td>
+                                                        <td className="p-0.5 text-right font-mono">{c.height}</td>
+                                                        <td className="p-0.5 text-right font-mono">{c.partial}</td>
+                                                        <td className="p-0.5" colSpan={cols - 7}></td>
+                                                    </tr>
+                                                );
+                                            });
+                                        })()}
                                     </>
                                 )}
 
@@ -314,21 +353,21 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, onOpenConfig, o
                                 <tr className="text-[10px] align-bottom">
                                     <td colSpan={7}></td>
                                     <td className="border-t border-black/40"></td>
-                                    <td className="border-t border-black/40"></td>
-                                    <td className="border-t border-black/40"></td>
+                                    {prices && <td className="border-t border-black/40"></td>}
+                                    {prices && <td className="border-t border-black/40"></td>}
                                 </tr>
                                 <tr className="text-[10px] font-bold align-bottom">
                                     <td colSpan={7}></td>
                                     <td className="p-1 text-right font-mono font-bold">{formatNumber(totalQty, 2)}</td>
-                                    <td className="p-1 text-right font-mono">{formatNumber(unitPrice, 2)}</td>
-                                    <td className="p-1 text-right font-mono">{formatNumber(totalAmount, 2)}</td>
+                                    {prices && <td className="p-1 text-right font-mono">{formatNumber(unitPrice, 2)}</td>}
+                                    {prices && <td className="p-1 text-right font-mono">{formatNumber(totalAmount, 2)}</td>}
                                 </tr>
                                 <tr className="h-1">
-                                    <td colSpan={10}></td>
+                                    <td colSpan={cols}></td>
                                 </tr>
 
-                                {/* Breakdown (if expanded) */}
-                                {config.showBreakdown && node.breakdown && node.breakdown.length > 0 && (
+                                {/* Breakdown (if expanded): és tot preus, sense preus no surt */}
+                                {prices && config.showBreakdown && node.breakdown && node.breakdown.length > 0 && (
                                     <tr>
                                         <td></td>
                                         <td colSpan={9} className="p-2 pt-0">
@@ -363,7 +402,7 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, onOpenConfig, o
                 )}
 
                 {/* Recursive Children - Determine if they bubble up or start fresh counter */}
-                {[...(node.subChapters || []), ...(node.items || [])].map((child) => (
+                {ambImport([...(node.subChapters || []), ...(node.items || [])], config, priceDatabase).map((child) => (
                     renderPrintNode(
                         child,
                         isChapter ? (shouldShowHeader ? level + 1 : level) : level + 1,
@@ -373,7 +412,7 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, onOpenConfig, o
                 ))}
 
                 {/* Chapter Footer Total */}
-                {isChapter && shouldShowHeader && (
+                {prices && isChapter && shouldShowHeader && (
                     <tr className="text-[10px] font-bold break-inside-avoid">
                         <td colSpan={9} className="p-1 pt-4 text-right pr-4 uppercase italic">
                             <div className="flex items-end gap-2">
@@ -392,60 +431,122 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, onOpenConfig, o
 
     return (
         <div className="fixed inset-0 z-[100] bg-white overflow-auto flex flex-col print:relative print:z-0 print:overflow-visible print:h-auto print:bg-transparent print:block">
-            <div className="print:hidden bg-slate-900 p-4 flex justify-between items-center text-white border-b border-slate-700 shadow-2xl z-20 gap-6">
-                <div className="flex items-center gap-3">
-                    <div className="bg-blue-600 p-1.5 rounded-lg">
+            {/* Com al capçal de l'editor: els botons sencers a partir d'xl i, per sota, un menú.
+                Al mòbil fa dues files: títol i menú, vista i opcions. */}
+            <div className="print:hidden bg-slate-900 p-3 md:p-4 flex flex-wrap md:flex-nowrap justify-between items-center text-white border-b border-slate-700 shadow-2xl z-20 gap-2 md:gap-4 xl:gap-6">
+                <div className="flex items-center gap-3 flex-1 xl:flex-none min-w-0">
+                    <div className="bg-blue-600 p-1.5 rounded-lg shrink-0">
                         <Printer size={18} />
                     </div>
-                    <h2 className="font-bold uppercase tracking-widest text-xs">Ajustaments de Sortida</h2>
+                    <h2 className="font-bold uppercase tracking-widest text-xs truncate">Ajustaments de Sortida</h2>
                 </div>
 
-                <div className="flex items-center gap-6 flex-1 justify-center bg-slate-800/50 p-2 rounded-xl border border-slate-700/50 backdrop-blur-sm">
-                    <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-700 mr-4 shadow-inner">
+                <div className="order-last md:order-none flex items-center gap-2 md:gap-3 min-[1400px]:gap-6 w-full md:w-auto xl:flex-1 justify-between md:justify-center bg-slate-800/50 p-1.5 md:p-2 rounded-xl border border-slate-700/50 backdrop-blur-sm">
+                    <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-700 min-[1400px]:mr-4 shadow-inner">
                         <button
                             onClick={() => setViewMode('amidaments')}
-                            className={`px-4 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all duration-300 ${viewMode === 'amidaments' ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40' : 'text-slate-400 hover:text-white'}`}
+                            className={`px-3 md:px-4 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all duration-300 ${viewMode === 'amidaments' ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40' : 'text-slate-400 hover:text-white'}`}
                         >
                             Amidaments
                         </button>
                         <button
                             onClick={() => setViewMode('resum')}
-                            className={`px-4 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all duration-300 ${viewMode === 'resum' ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40' : 'text-slate-400 hover:text-white'}`}
+                            className={`px-3 md:px-4 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all duration-300 ${viewMode === 'resum' ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40' : 'text-slate-400 hover:text-white'}`}
                         >
                             Resum
                         </button>
                     </div>
 
-                    <div className="h-4 w-[1px] bg-slate-700 mx-2"></div>
+                    {viewMode === 'amidaments' && (
+                        <button
+                            onClick={() => setConfig({ ...config, showPrices: !prices })}
+                            aria-pressed={!prices}
+                            className={`px-3 md:px-4 py-1.5 rounded-md text-[10px] font-bold uppercase whitespace-nowrap transition-all ${!prices ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+                        >
+                            Sense preus
+                        </button>
+                    )}
+
+                    <div className="hidden min-[1400px]:block h-4 w-[1px] bg-slate-700 mx-2"></div>
 
                     <button
                         onClick={onOpenConfig}
-                        className="flex items-center gap-2 px-4 py-1.5 rounded-md text-[10px] font-bold uppercase bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all"
+                        title="Configuració"
+                        aria-label="Configuració"
+                        className="flex items-center gap-2 px-2.5 xl:px-4 py-1.5 rounded-md text-[10px] font-bold uppercase bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all"
                     >
                         <Settings size={14} className="text-blue-400" />
-                        Configuració
+                        <span className="hidden sm:inline md:hidden lg:inline">Configuració</span>
                     </button>
                 </div>
 
-                <div className="flex gap-3">
-                    <button onClick={handleExportXLSX} className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-widest flex items-center gap-2 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-emerald-500/25">
+                {/* Escriptori ample: tots els botons */}
+                <div className="hidden xl:flex gap-3">
+                    <button onClick={handleExportXLSX} className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 min-[1400px]:px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-emerald-500/25">
                         <FileSpreadsheet size={14} />
                         Excel
                     </button>
-                    <button onClick={() => viewMode === 'amidaments' ? onExportPDF(config) : onExportSummaryPDF(config)} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-widest flex items-center gap-2 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-blue-500/25">
+                    <button onClick={exportaPDF} className="bg-blue-600 hover:bg-blue-500 text-white px-4 min-[1400px]:px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-blue-500/25 whitespace-nowrap">
                         <FileDown size={14} />
                         Exporta PDF
                     </button>
-                    <button onClick={() => window.print()} className="bg-slate-700 hover:bg-slate-600 text-white px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-widest">Imprimir</button>
-                    <button onClick={onClose} className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-widest">Tancar</button>
+                    <button onClick={() => window.print()} className="bg-slate-700 hover:bg-slate-600 text-white px-4 min-[1400px]:px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-widest">Imprimir</button>
+                    <button onClick={onClose} className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 min-[1400px]:px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-widest">Tancar</button>
+                </div>
+
+                {/* Mòbil i tauleta: menú i tancar */}
+                <div className="xl:hidden flex items-center gap-2 shrink-0">
+                    <div className="relative">
+                        <button
+                            onClick={() => setMenuObert(!menuObert)}
+                            className="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-lg"
+                            title="Exportar i imprimir"
+                            aria-label="Exportar i imprimir"
+                            aria-expanded={menuObert}
+                        >
+                            <Menu size={18} />
+                        </button>
+                        {menuObert && (
+                            <>
+                                <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setMenuObert(false)} />
+                                <div className="absolute top-full right-0 mt-2 bg-slate-900 border border-slate-700 shadow-2xl z-50 min-w-[220px] max-w-[90vw]">
+                                    <button
+                                        onClick={() => { setMenuObert(false); handleExportXLSX(); }}
+                                        className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 transition-colors flex items-center gap-3 border-b border-slate-800"
+                                    >
+                                        <FileSpreadsheet size={18} className="text-emerald-400" />
+                                        <span className="font-medium">Excel</span>
+                                    </button>
+                                    <button
+                                        onClick={() => { setMenuObert(false); exportaPDF(); }}
+                                        className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 transition-colors flex items-center gap-3 border-b border-slate-800"
+                                    >
+                                        <FileDown size={18} className="text-blue-400" />
+                                        <span className="font-medium">Exporta PDF</span>
+                                    </button>
+                                    <button
+                                        onClick={() => { setMenuObert(false); window.print(); }}
+                                        className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 transition-colors flex items-center gap-3"
+                                    >
+                                        <Printer size={18} className="text-slate-400" />
+                                        <span className="font-medium">Imprimir</span>
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                    <button onClick={onClose} className="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-lg" title="Tancar" aria-label="Tancar">
+                        <X size={18} />
+                    </button>
                 </div>
             </div>
 
-            <div className="flex-1 bg-gray-100 p-8 print:p-0 print:bg-white print:overflow-visible overflow-auto print:block">
-                <div className="max-w-[21cm] mx-auto p-[2cm] print:p-0 print:max-w-none print:mx-0 shadow-2xl print:shadow-none bg-white min-h-[29.7cm]">
+            <div className="flex-1 bg-gray-100 p-2 md:p-8 print:p-0 print:bg-white print:overflow-visible overflow-auto print:block">
+                <div className="max-w-[21cm] mx-auto p-4 md:p-[2cm] print:p-0 print:max-w-none print:mx-0 shadow-2xl print:shadow-none bg-white min-h-[29.7cm]">
                     <div className="mb-10 text-left border-b-2 border-black pb-4">
-                        <h1 className="text-2xl font-bold uppercase tracking-tighter">Pressupost i Amidaments</h1>
+                        <h1 className="text-2xl font-bold uppercase tracking-tighter">{viewMode === 'amidaments' && !prices ? 'Amidaments' : 'Pressupost i Amidaments'}</h1>
                         <p className="text-sm font-bold mt-2 uppercase">{budget.name}</p>
+                        {budget.address && <p className="text-xs text-slate-600 mt-1">{budget.address}</p>}
                     </div>
 
                     {viewMode === 'amidaments' ? (
@@ -460,22 +561,24 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, onOpenConfig, o
                                     <th className="p-1 text-right w-14">Alçada</th>
                                     <th className="p-1 text-right w-16">Parcials</th>
                                     <th className="p-1 text-right w-16">Quantitat</th>
-                                    <th className="p-1 text-right w-16">Preu</th>
-                                    <th className="p-1 text-right w-28">Import</th>
+                                    {prices && <th className="p-1 text-right w-16">Preu</th>}
+                                    {prices && <th className="p-1 text-right w-28">Import</th>}
                                 </tr>
                             </thead>
                             <tbody>
                                 {(() => {
                                     const counter = { val: 0 };
-                                    return (budget.chapters || []).map(node => renderPrintNode(node, 0, '', counter));
+                                    return ambImport(budget.chapters || [], config, priceDatabase).map(node => renderPrintNode(node, 0, '', counter));
                                 })()}
                             </tbody>
-                            <tfoot className="border-t-2 border-black mt-8">
-                                <tr className="text-sm font-bold bg-gray-100">
-                                    <td colSpan={9} className="p-4 text-right uppercase tracking-widest leading-none">Total Pressupost d'Execució Material</td>
-                                    <td className="p-4 text-right font-mono text-lg underline underline-offset-4 decoration-double whitespace-nowrap">{formatCurrency(budgetTotal)}</td>
-                                </tr>
-                            </tfoot>
+                            {prices && (
+                                <tfoot className="border-t-2 border-black mt-8">
+                                    <tr className="text-sm font-bold bg-gray-100">
+                                        <td colSpan={9} className="p-4 text-right uppercase tracking-widest leading-none">Total Pressupost d'Execució Material</td>
+                                        <td className="p-4 text-right font-mono text-lg underline underline-offset-4 decoration-double whitespace-nowrap">{formatCurrency(budgetTotal)}</td>
+                                    </tr>
+                                </tfoot>
+                            )}
                         </table>
                     ) : (
                         <div className="space-y-8">
@@ -489,7 +592,7 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, onOpenConfig, o
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {budget.chapters.map((ch, index) => {
+                                    {ambImport(budget.chapters, config, priceDatabase).map((ch, index) => {
                                         const total = calcChapterTotal(ch, priceDatabase);
                                         const percentage = (total / budgetTotal) * 100;
                                         return (
@@ -568,33 +671,76 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, onOpenConfig, o
 };
 
 // --- Modal de Confirmació d'Importació ---
-const ImportConfirmModal = ({ code, description, onConfirm, onSkip }) => {
+const ImportConfirmModal = ({ code, description, nLinies = 0, variable = false, index, total, onConfirm, onAfegeixLinies, onSkip, onCancel }) => {
+    const [aTots, setATots] = useState(false);
+    const restants = total - index;
     return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md">
-            <div className="bg-white rounded-none shadow-2xl w-[450px] border border-slate-300 animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
+            <div className="bg-white rounded-none shadow-2xl w-full max-w-[450px] border border-slate-300 animate-in zoom-in-95 duration-200">
                 <div className="bg-amber-600 text-white p-4 flex items-center gap-3">
                     <AlertCircle size={20} />
-                    <h3 className="font-bold uppercase tracking-widest text-xs">Codi Duplicat Detectat</h3>
+                    <h3 className="font-bold uppercase tracking-widest text-xs flex-1">Codi Duplicat Detectat</h3>
+                    {total > 1 && <span className="text-[10px] font-mono font-bold bg-white/20 px-1.5 py-0.5">{index + 1} / {total}</span>}
+                    <button onClick={onCancel} title="Cancel·la" className="hover:text-amber-200 p-2 -m-2 touch-manipulation">
+                        <X size={18} />
+                    </button>
                 </div>
                 <div className="p-6">
                     <p className="text-sm text-slate-600 mb-4">
                         La partida amb codi <span className="font-mono font-bold text-slate-900 bg-slate-100 px-1">{code}</span> ja existeix al projecte.
                     </p>
-                    <div className="bg-slate-50 p-3 border border-slate-200 mb-6 font-medium text-xs text-slate-500 italic">
+                    <div className={`bg-slate-50 p-3 border border-slate-200 font-medium text-xs text-slate-500 italic ${variable ? 'mb-3' : 'mb-6'}`}>
                         "{description}"
                     </div>
+                    {/* Una partida amb el text o el preu variables (variables al títol, rendiments amb
+                        fórmula) depèn dels paràmetres de qui la va inserir primer. */}
+                    {variable && (
+                        <p className="mb-6 text-[11px] leading-snug text-amber-800 bg-amber-50 border border-amber-200 p-2">
+                            Aquesta partida té el text o el preu en funció dels paràmetres. Si hi afegeixes les línies, el títol i el preu
+                            continuaran sent els de la que ja hi ha; per tenir-los amb els paràmetres d&apos;aquesta, afegeix-la com a partida nova.
+                        </p>
+                    )}
+                    {restants > 1 && (
+                        <label className="flex items-center gap-2 mb-4 -mt-2 py-1 text-xs text-slate-600 cursor-pointer select-none touch-manipulation">
+                            <input
+                                type="checkbox"
+                                checked={aTots}
+                                onChange={(e) => setATots(e.target.checked)}
+                                className="w-4 h-4 accent-blue-600 flex-shrink-0"
+                            />
+                            <span>Aplica a tots (<span className="font-mono font-bold">{restants}</span> codis repetits, inclòs aquest)</span>
+                        </label>
+                    )}
                     <div className="flex flex-col gap-3">
                         <button
-                            onClick={onConfirm}
+                            onClick={() => onConfirm(aTots && restants > 1)}
                             className="w-full bg-blue-600 hover:bg-blue-500 text-white p-3 text-xs font-bold uppercase tracking-widest flex justify-center items-center gap-2 transition-colors"
                         >
-                            <Plus size={16} /> Afegir com a partida nova (amb sufix)
+                            <Plus size={16} /> {aTots && restants > 1 ? 'Afegir-les totes com a noves (amb sufix)' : 'Afegir com a partida nova (amb sufix)'}
                         </button>
+                        {/* El que es vol en inserir un sistema: la partida és la mateixa i només
+                            s'hi sumen les línies. */}
+                        {(nLinies > 0 || (aTots && restants > 1)) && (
+                            <button
+                                onClick={() => onAfegeixLinies(aTots && restants > 1)}
+                                className="w-full bg-blue-50 border border-blue-300 hover:bg-blue-100 text-blue-800 p-3 text-xs font-bold uppercase tracking-widest flex justify-center items-center gap-2 transition-colors"
+                            >
+                                <ListPlus size={16} /> {aTots && restants > 1
+                                    ? 'Afegir les línies a les existents'
+                                    : `Afegir-hi ${nLinies === 1 ? 'la línia' : `les ${nLinies} línies`}`}
+                            </button>
+                        )}
                         <button
-                            onClick={onSkip}
+                            onClick={() => onSkip(aTots && restants > 1)}
                             className="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 p-3 text-xs font-bold uppercase tracking-widest flex justify-center items-center gap-2 transition-colors"
                         >
-                            <ChevronRight size={16} /> Mantenir existent i mostrar capítol
+                            <ChevronRight size={16} /> {aTots && restants > 1 ? 'Mantenir totes les existents' : 'Mantenir existent i mostrar capítol'}
+                        </button>
+                        <button
+                            onClick={onCancel}
+                            className="w-full text-slate-400 hover:text-red-600 p-2 text-[10px] font-bold uppercase tracking-widest transition-colors"
+                        >
+                            Cancel·la{total > 1 ? ' (no s\'afegeix res)' : ''}
                         </button>
                     </div>
                 </div>
@@ -704,6 +850,21 @@ const PrintConfigModal = ({ config, setConfig, onClose }) => {
                 </div>
 
                 <div className="p-6 space-y-8 max-h-[80vh] overflow-auto">
+                    <div className="flex items-center justify-between gap-3">
+                        <label className="text-xs text-slate-600">Data als PDF <span className="text-slate-400">(buida = avui)</span></label>
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="date"
+                                value={config.date || ''}
+                                onChange={e => setConfig({ ...config, date: e.target.value })}
+                                className="border border-slate-300 rounded p-1 text-xs font-mono"
+                            />
+                            {config.date && (
+                                <button onClick={() => setConfig({ ...config, date: '' })} className="text-[10px] text-slate-400 hover:text-red-500 font-bold uppercase">Avui</button>
+                            )}
+                        </div>
+                    </div>
+
                     {/* Measurement View Settings */}
                     <div className="space-y-4">
                         <p className="text-[11px] text-blue-600 uppercase font-bold tracking-wider border-b border-blue-100 pb-2">Vista d'Amidaments (Detall)</p>
@@ -730,12 +891,20 @@ const PrintConfigModal = ({ config, setConfig, onClose }) => {
                                 <span className="text-xs text-slate-600">Mostrar Descomposts</span>
                             </label>
                             <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" checked={config.showPrices !== false} onChange={e => setConfig({ ...config, showPrices: e.target.checked })} />
+                                <span className="text-xs text-slate-600">Mostrar Preus i Imports</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
                                 <input type="checkbox" checked={config.useCorrelativeCodes} onChange={e => setConfig({ ...config, useCorrelativeCodes: e.target.checked })} />
                                 <span className="text-xs text-slate-600">Codis Correlatius (1.1, 1.1.2...)</span>
                             </label>
                             <label className="flex items-center gap-2 cursor-pointer">
                                 <input type="checkbox" checked={config.chaptersOnNewPage} onChange={e => setConfig({ ...config, chaptersOnNewPage: e.target.checked })} />
                                 <span className="text-xs text-slate-600">Cada capítol en pàgina nova</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" checked={!!config.hideZeroItems} onChange={e => setConfig({ ...config, hideZeroItems: e.target.checked })} />
+                                <span className="text-xs text-slate-600">Amagar partides amb import 0</span>
                             </label>
                         </div>
                     </div>
@@ -931,56 +1100,96 @@ const ItemCreator = ({ onClose, onSave, parentId, parentCode, onTriarDelBanc }) 
 };
 
 export default function App() {
-    const [budget, setBudget] = useState(() => {
-        const saved = localStorage.getItem('amidaments_budget');
+    // Una finestra de consulta té obert un BC3 de referència (un banc de preus, un projecte
+    // anterior) per copiar-ne capítols i partides cap a la finestra on es treballa. No desa
+    // res: si ho fes, ompliria la biblioteca i passaria a ser «l'últim projecte» del navegador.
+    const [consulta] = useState(() => new URLSearchParams(window.location.search).has('consulta'));
+    // Una finestra oberta per fer un sistema amb l'assistent (`?assistent`) comença amb un
+    // projecte buit i l'assistent obert. Si es recarrega, continua amb el que tenia: la marca
+    // de sessionStorage diu que la finestra ja ha arrencat.
+    const [finestraAssistent] = useState(() => {
+        if (!new URLSearchParams(window.location.search).has('assistent')) return false;
         try {
-            const data = saved ? JSON.parse(saved) : { id: '1', name: 'Projecte BC3', chapters: [] };
+            if (sessionStorage.getItem('amidaments:assistent-iniciat')) return 'recarregada';
+            sessionStorage.setItem('amidaments:assistent-iniciat', '1');
+        } catch { /* res */ }
+        return 'nova';
+    });
+    const [inicial] = useState(() => (consulta || finestraAssistent === 'nova' ? null : initialProject()));
+
+    const [budget, setBudget] = useState(() => {
+        const nou = { id: crypto.randomUUID(), name: consulta ? 'Banc de consulta' : finestraAssistent ? 'Sistema nou' : 'Projecte BC3', chapters: [], certifications: [] };
+        try {
+            const data = inicial?.budget ? { ...inicial.budget } : nou;
+            if (!data.id) data.id = crypto.randomUUID();
             if (!data.certifications) data.certifications = [];
             return migrateBudget(data).budget;
         } catch (e) {
             console.error("Error parsing saved budget", e);
-            return { id: '1', name: 'Projecte BC3', chapters: [], certifications: [] };
+            return nou;
         }
     });
 
-    const [priceDatabase, setPriceDatabase] = useState(() => {
-        const saved = localStorage.getItem('amidaments_prices');
-        try {
-            return saved ? JSON.parse(saved) : {};
-        } catch (e) {
-            console.error("Error parsing saved prices", e);
-            return {};
-        }
-    });
+    const [priceDatabase, setPriceDatabase] = useState(() => inicial?.priceDatabase || {});
 
     const [appMode, setAppMode] = useState('budget'); // 'budget' | 'certification'
     const [activeCertId, setActiveCertId] = useState(null);
 
-    // Auto-save effect
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            localStorage.setItem('amidaments_budget', JSON.stringify(budget));
-            localStorage.setItem('amidaments_prices', JSON.stringify(priceDatabase));
+    // Autodesat a la biblioteca, sota l'id del projecte. Veure `utils/projectLibrary.js`.
+    const desaALaBiblioteca = useCallback(({ budget: b, priceDatabase: preus }) => {
+        // Un projecte buit no ocupa lloc a la llista de recents, ni passa a ser el que obre una
+        // finestra nova: «Nou projecte» i tancar no ha de fer perdre de vista l'anterior.
+        if (consulta || !b?.id || !(b.chapters?.length > 0)) return;
+        markProjectOpen(b.id);
+        const total = resolveMeasurementRefs(resolveFormules(b.chapters, b.parametres || []).chapters).chapters
+            .reduce((acc, ch) => acc + calcChapterTotal(ch, preus), 0);
+        const res = saveProject({ id: b.id, budget: b, priceDatabase: preus, total });
+        if (res.ok) {
+            dropLegacySlot();
+            setLibrary(listProjects());
+        } else {
+            notify('No hi ha prou espai al navegador per desar el projecte', 'error');
+        }
+    }, [consulta]); // eslint-disable-line react-hooks/exhaustive-deps
 
-            // I una còpia a la biblioteca, perquè obrir-ne un altre no destrueixi aquest.
-            if (budget.chapters?.length > 0) {
-                const total = budgetTotal;
-                const res = saveProject({ id: budget.id, budget, priceDatabase, total });
-                if (res.ok) setLibrary(listProjects());
-                else notify('No hi ha prou espai al navegador per desar la còpia de seguretat', 'error');
-            }
+    const pendentRef = React.useRef(null);
+    useEffect(() => {
+        if (consulta) return undefined;
+        // Si es canvia de projecte (obrir-ne un altre, nou, importar) abans que l'autodesat
+        // s'hagi disparat, els últims canvis de l'anterior es desen ara: el temporitzador que
+        // els havia de desar es cancel·la amb aquest mateix canvi.
+        const anterior = pendentRef.current;
+        if (anterior && anterior.budget.id !== budget.id) desaALaBiblioteca(anterior);
+        pendentRef.current = { budget, priceDatabase };
+        const timer = setTimeout(() => {
+            desaALaBiblioteca(pendentRef.current);
+            pendentRef.current = null;
         }, 1000);
         return () => clearTimeout(timer);
-    }, [budget, priceDatabase]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [budget, priceDatabase, consulta, desaALaBiblioteca]);
 
     useEffect(() => {
+        if (consulta) return undefined;
         const handleBeforeUnload = () => {
-            localStorage.setItem('amidaments_budget', JSON.stringify(budget));
-            localStorage.setItem('amidaments_prices', JSON.stringify(priceDatabase));
+            if (pendentRef.current) desaALaBiblioteca(pendentRef.current);
         };
         window.addEventListener('beforeunload', handleBeforeUnload);
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-    }, [budget, priceDatabase]);
+    }, [consulta, desaALaBiblioteca]);
+
+    // El mateix projecte obert en dues finestres: l'última que desa guanya. No s'intenta
+    // fusionar res, però com a mínim s'avisa, un sol cop per projecte.
+    const avisatRef = React.useRef(null);
+    useEffect(() => {
+        if (consulta) return undefined;
+        const onStorage = (e) => {
+            if (e.key !== projectStorageKey(budget.id) || avisatRef.current === budget.id) return;
+            avisatRef.current = budget.id;
+            notify('Aquest projecte també està obert en una altra finestra: es desarà el de l\'última que l\'editi', 'error');
+        };
+        window.addEventListener('storage', onStorage);
+        return () => window.removeEventListener('storage', onStorage);
+    }, [budget.id, consulta]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         if (activeCertId || !(budget.certifications?.length > 0)) return;
@@ -997,15 +1206,26 @@ export default function App() {
     const [expandedChapters, setExpandedChapters] = useState({});
     const [isDragging, setIsDragging] = useState(false);
     const [showCreator, setShowCreator] = useState(false);
+    // Quadre de sistemes: `null` tancat, o `{ vista, docADesar }` (veure `components/SistemesModal`).
+    const [quadreSistemes, setQuadreSistemes] = useState(null);
+    // Quadre de traducció: `{}` per a tot el projecte, `{ id, codi, nom }` per a un node.
+    const [quadreTraduccio, setQuadreTraduccio] = useState(null);
+    // Entitats del CAD enganxades sense partida: es passen a zones d'un sistema.
+    const [quadreCad, setQuadreCad] = useState(null);
+    // Instància de sistema per la qual es filtra l'editor (`budget.sistemes[].id`), o `null`.
+    const [filtreSistema, setFiltreSistema] = useState(null);
     const [showPrintConfigModal, setShowPrintConfigModal] = useState(false);
     const [printConfig, setPrintConfig] = useState({
         maxLevels: 5,
         showLongDesc: true,
         showBreakdown: false,
         showMeasurements: true,
+        showPrices: true,
         useCorrelativeCodes: true,
         chaptersOnNewPage: true,
+        hideZeroItems: true,
         certItemDetail: true,
+        date: '',
         ge: { enabled: false, percentage: 13 },
         ip: { enabled: false, percentage: 6 },
         iva: { enabled: false, percentage: 21 }
@@ -1039,6 +1259,28 @@ export default function App() {
         justification: true,
         certification: true
     });
+
+    // Amplada de la finestra en estat: llegir `window.innerWidth` al render no es
+    // refrescava en girar una tauleta o canviar la mida de la finestra.
+    const [ampladaFinestra, setAmpladaFinestra] = useState(() => window.innerWidth);
+    useEffect(() => {
+        const onResize = () => setAmpladaFinestra(window.innerWidth);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    }, []);
+
+    // Amb ratolí, el panell de detall va al costat a partir de 768 px i no només de 1024: al
+    // PC, dues finestres una al costat de l'altra en fan uns 960 cadascuna, i tractar-les com
+    // una tauleta (full inferior que tapa la llista) feia impracticable copiar entre elles.
+    const [punterFi, setPunterFi] = useState(() => !!window.matchMedia?.('(pointer: fine)').matches);
+    useEffect(() => {
+        const mq = window.matchMedia?.('(pointer: fine)');
+        if (!mq?.addEventListener) return undefined;
+        const onChange = () => setPunterFi(mq.matches);
+        mq.addEventListener('change', onChange);
+        return () => mq.removeEventListener('change', onChange);
+    }, []);
+    const panellAlCostat = ampladaFinestra >= 1024 || (punterFi && ampladaFinestra >= 768);
 
     // Mobile state
     const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -1179,7 +1421,14 @@ export default function App() {
      * biblioteca). Hi aplica les migracions d'esquema pendents i avisa si ha convertit
      * dades, perquè el canvi no passi desapercebut.
      */
+    // Fitxer de projecte obert o desat amb la File System Access API (Chromium). Si n'hi ha,
+    // «Desar» escriu sobre l'original en lloc de baixar-ne una còpia nova cada vegada.
+    const fitxerHandleRef = React.useRef(null);
+
     const adoptaProjecte = useCallback((entrant) => {
+        // Qualsevol projecte que entra és un altre fitxer: no s'hi ha de poder desar a sobre
+        // del que s'havia obert abans. Qui té un handle nou el torna a posar després.
+        fitxerHandleRef.current = null;
         const { budget: migrat, migrat: haCanviat } = migrateBudget(entrant);
         setBudget(migrat);
         if (haCanviat) {
@@ -1207,6 +1456,21 @@ export default function App() {
         setLibrary(listProjects());
     }, [library]);
 
+    // El panell de detall només té sentit a l'editor: a les altres pestanyes ocupava un terç
+    // de la pantalla amb un «selecciona una partida».
+    const mostraDetall = activeTab === 'editor';
+
+    // Els darrers projectes, sense el que ja és obert, per obrir-los des del menú d'un clic.
+    const recents = useMemo(() => library.filter(p => p.id !== budget.id).slice(0, 5), [library, budget.id]);
+
+    const obreFinestraConsulta = () => {
+        window.open(`${window.location.pathname}?consulta`, '_blank');
+    };
+
+    useEffect(() => {
+        if (consulta) document.title = `Consulta · ${budget.name || 'BC3'}`;
+    }, [consulta, budget.name]);
+
     const handleDeleteCertification = useCallback((certId) => {
         const cert = (budget.certifications || []).find(c => c.id === certId);
         if (!cert) return;
@@ -1225,8 +1489,104 @@ export default function App() {
      * sol cop, evita haver d'ensenyar a resoldre vincles a la dotzena de funcions de
      * `calculations.js`.
      */
-    const resolt = useMemo(() => resolveMeasurementRefs(budget.chapters), [budget.chapters]);
+    // Primer les fórmules i després els vincles: un vincle pren la quantitat d'una partida
+    // que pot tenir línies amb fórmula. Veure `utils/parametres.js`.
+    const ambFormules = useMemo(
+        () => resolveFormules(budget.chapters, budget.parametres || []),
+        [budget.chapters, budget.parametres],
+    );
+    const resolt = useMemo(() => resolveMeasurementRefs(ambFormules.chapters), [ambFormules]);
     const resolvedChapters = resolt.chapters;
+    const teParametres = (budget.parametres || []).length > 0;
+    const usosParametres = useMemo(
+        () => usosDeParametres(budget.chapters, budget.parametres || [], budget.condicions || []),
+        [budget.chapters, budget.parametres, budget.condicions],
+    );
+    // Condicions dels paràmetres: al projecte són avisos, no aturen el càlcul.
+    const comprovacioParametres = useMemo(
+        () => comprovaCondicions(budget.parametres || [], budget.condicions || [], ambFormules.parametres),
+        [budget.parametres, budget.condicions, ambFormules],
+    );
+
+    // --- Columna de l'esquerra: paràmetres o assistent ---
+    // Quin hi ha obert és una preferència de qui mira, no del projecte. L'assistent, un cop
+    // obert, es queda muntat encara que s'amagui: si no, la conversa es perdria.
+    const [panellEsquerre, setPanellEsquerre] = useState(() => {
+        if (finestraAssistent) return 'assistent';
+        try { return localStorage.getItem('amidaments:parametres-visibles') === '1' ? 'parametres' : null; } catch { return null; }
+    });
+    const [assistentMuntat, setAssistentMuntat] = useState(() => !!finestraAssistent);
+    const obrePanell = (quin) => {
+        setPanellEsquerre(quin);
+        if (quin === 'assistent') setAssistentMuntat(true);
+        try { localStorage.setItem('amidaments:parametres-visibles', quin === 'parametres' ? '1' : '0'); } catch { /* res */ }
+    };
+    const mostraParametres = panellEsquerre === 'parametres';
+    const commutaParametres = (visible) => obrePanell(visible ? 'parametres' : null);
+
+    // L'assistent llegeix i escriu el projecte per aquí. La referència es posa al dia a cada
+    // render i també en aplicar un canvi, perquè les eines que s'executen seguides en una
+    // mateixa volta vegin el canvi de l'anterior sense esperar el render.
+    const estatAssistent = useRef({ budget, priceDatabase });
+    estatAssistent.current = { budget, priceDatabase };
+    const getEstatAssistent = useCallback(() => estatAssistent.current, []);
+    const aplicaEstatAssistent = useCallback((e) => {
+        estatAssistent.current = e;
+        setBudget(e.budget);
+        setPriceDatabase(e.priceDatabase);
+    }, []);
+
+    /** Torna l'id del paràmetre nou, perquè el panell en posi el focus al nom. */
+    const afegeixParametre = (grup = '') => {
+        const id = crypto.randomUUID();
+        setBudget(prev => {
+            const ocupats = new Set((prev.parametres || []).map(x => x.nom));
+            let n = 1;
+            while (ocupats.has(`P${n}`)) n++;
+            const nou = { id, nom: `P${n}`, valor: 0, formula: '', unitat: 'm', descripcio: '', grup };
+            return { ...prev, parametres: [...(prev.parametres || []), nou] };
+        });
+        return id;
+    };
+
+    const canviaParametre = (id, canvis) => {
+        setBudget(prev => ({
+            ...prev,
+            parametres: (prev.parametres || []).map(x => (x.id === id ? { ...x, ...canvis } : x)),
+        }));
+    };
+
+    /** Canviar el nom reescriu totes les fórmules que el fan servir, de línies i de paràmetres. */
+    const reanomenaParametre = (id, nou) => {
+        setBudget(prev => {
+            const vell = (prev.parametres || []).find(x => x.id === id);
+            if (!vell || vell.nom === nou) return prev;
+            const parametres = prev.parametres.map(x => (x.id === id ? { ...x, nom: nou } : x));
+            const r = reescriuFormules({ chapters: prev.chapters, parametres, condicions: prev.condicions || [] }, new Map([[vell.nom, nou]]));
+            return { ...prev, chapters: r.chapters, parametres: r.parametres, condicions: r.condicions };
+        });
+    };
+
+    const afegeixCondicio = () => {
+        setBudget(prev => ({
+            ...prev,
+            condicions: [...(prev.condicions || []), { id: crypto.randomUUID(), expressio: '', missatge: '' }],
+        }));
+    };
+    const canviaCondicio = (id, canvis) => {
+        setBudget(prev => ({ ...prev, condicions: (prev.condicions || []).map(c => (c.id === id ? { ...c, ...canvis } : c)) }));
+    };
+    const esborraCondicio = (id) => {
+        setBudget(prev => ({ ...prev, condicions: (prev.condicions || []).filter(c => c.id !== id) }));
+    };
+
+    const esborraParametre = (id) => {
+        const p = (budget.parametres || []).find(x => x.id === id);
+        if (!p) return;
+        const n = usosParametres.get(p.nom) || 0;
+        if (n > 0 && !confirm(`${p.nom} es fa servir ${n === 1 ? 'una vegada' : `${n} vegades`}. Si l'esborres, aquelles línies quedaran amb error.\n\nEs pot desfer amb Ctrl+Z.`)) return;
+        setBudget(prev => ({ ...prev, parametres: (prev.parametres || []).filter(x => x.id !== id) }));
+    };
 
     const budgetTotal = useMemo(() => {
         return resolvedChapters.reduce((acc, ch) => acc + calcChapterTotal(ch, priceDatabase), 0);
@@ -1300,7 +1660,7 @@ export default function App() {
             budget,
             summary: wasteSummary,
             study: buildWasteStudy(wasteSummary, tarifes),
-            dades,
+            dades: { ...dades, emplacament: dades.emplacament || budget.address || "" },
         });
         setShowWasteStudy(false);
         notify('Estudi de gestió de residus generat');
@@ -1309,7 +1669,8 @@ export default function App() {
     const handleExportPDF = useCallback((config) => {
         const doc = new jsPDF('p', 'mm', 'a4');
         const counter = { val: 0 };
-        const date = new Date().toLocaleDateString('ca-ES');
+        const date = pdfDateText(config);
+        const prices = config.showPrices !== false;
 
         const generateTableForNodes = (nodes, isFirst, currentCounter) => {
             const rows = flattenBudget(nodes, 0, '', currentCounter, config, priceDatabase);
@@ -1324,8 +1685,10 @@ export default function App() {
                     { content: 'Alç.', styles: { halign: 'right' } },
                     { content: 'Parc.', styles: { halign: 'right' } },
                     { content: 'Quant.', styles: { halign: 'right' } },
-                    { content: 'Preu', styles: { halign: 'right' } },
-                    { content: 'Import', styles: { halign: 'right' } }
+                    ...(prices ? [
+                        { content: 'Preu', styles: { halign: 'right' } },
+                        { content: 'Import', styles: { halign: 'right' } }
+                    ] : [])
                 ]],
                 body: rows.map(r => r.data),
                 startY: (isFirst ? 30 : 25),
@@ -1350,11 +1713,16 @@ export default function App() {
                     if (pageNum === 1) {
                         doc.setFontSize(16);
                         doc.setFont('helvetica', 'bold');
-                        doc.text('PRESSUPOST I AMIDAMENTS', 14, 15);
+                        doc.text(prices ? 'PRESSUPOST I AMIDAMENTS' : 'AMIDAMENTS', 14, 15);
                     }
                     doc.setFontSize(10);
                     doc.setFont('helvetica', 'bold');
                     doc.text(budget.name.toUpperCase(), 14, (pageNum === 1 ? 20 : 15));
+                    if (budget.address) {
+                        doc.setFontSize(8);
+                        doc.setFont('helvetica', 'normal');
+                        doc.text(budget.address, 196, (pageNum === 1 ? 20 : 15), { align: 'right' });
+                    }
                     doc.setLineWidth(0.5);
                     doc.line(14, (pageNum === 1 ? 22 : 17), 196, (pageNum === 1 ? 22 : 17));
                     const str = `Pàgina ${pageNum}`;
@@ -1416,13 +1784,14 @@ export default function App() {
             });
         };
 
+        const capitols = ambImport(resolvedChapters, config, priceDatabase);
         if (config.chaptersOnNewPage) {
-            resolvedChapters.forEach((ch, idx) => {
+            capitols.forEach((ch, idx) => {
                 if (idx > 0) doc.addPage();
                 generateTableForNodes([ch], idx === 0, counter);
             });
         } else {
-            generateTableForNodes(resolvedChapters, true, counter);
+            generateTableForNodes(capitols, true, counter);
         }
 
         let finalY = doc.lastAutoTable.finalY + 10;
@@ -1431,27 +1800,30 @@ export default function App() {
             finalY = 30;
         }
 
-        doc.setFontSize(11);
-        doc.setFont('helvetica', 'bold');
-        doc.setFillColor(245, 245, 245);
-        doc.rect(14, finalY - 7, 182, 14, 'F');
-        doc.text("TOTAL PRESSUPOST D'EXECUCIÓ MATERIAL", 150, finalY + 2, { align: 'right' });
-        doc.setFontSize(13);
-        doc.text(formatCurrency(budgetTotal), 196, finalY + 2, { align: 'right' });
+        if (prices) {
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'bold');
+            doc.setFillColor(245, 245, 245);
+            doc.rect(14, finalY - 7, 182, 14, 'F');
+            doc.text("TOTAL PRESSUPOST D'EXECUCIÓ MATERIAL", 150, finalY + 2, { align: 'right' });
+            doc.setFontSize(13);
+            doc.text(formatCurrency(budgetTotal), 196, finalY + 2, { align: 'right' });
+            finalY += 15;
+        }
 
-        finalY += 15;
         if (finalY > 270) { doc.addPage(); finalY = 50; }
+        doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
         doc.text('LA PROPIETAT', 55, finalY, { align: 'center' });
         doc.text('LA DIRECCIÓ FACULTATIVA', 155, finalY, { align: 'center' });
 
-        doc.save(`Amidaments_${safeFileName(budget.name, 'projecte')}.pdf`);
+        doc.save(`Amidaments_${prices ? '' : 'sense_preus_'}${safeFileName(budget.name, 'projecte')}.pdf`);
     }, [budget, resolvedChapters, priceDatabase, budgetTotal]);
 
     const handleExportSummaryPDF = useCallback((config) => {
         const doc = new jsPDF('p', 'mm', 'a4');
         const PEMValue = budgetTotal;
-        const date = new Date().toLocaleDateString('ca-ES');
+        const date = pdfDateText(config);
 
         const GE = config.ge.enabled ? PEMValue * (config.ge.percentage / 100) : 0;
         const IP = config.ip.enabled ? PEMValue * (config.ip.percentage / 100) : 0;
@@ -1459,7 +1831,7 @@ export default function App() {
         const VAT = config.iva.enabled ? PECValue * (config.iva.percentage / 100) : 0;
         const PVValue = PECValue + VAT;
 
-        const rows = resolvedChapters.map((ch, index) => {
+        const rows = ambImport(resolvedChapters, config, priceDatabase).map((ch, index) => {
             const total = calcChapterTotal(ch, priceDatabase);
             const percentage = (total / PEMValue) * 100;
             return [
@@ -1491,6 +1863,11 @@ export default function App() {
                     doc.text('RESUM DE PRESSUPOST', 14, 20);
                     doc.setFontSize(10);
                     doc.text(budget.name.toUpperCase(), 14, 28);
+                    if (budget.address) {
+                        doc.setFontSize(8);
+                        doc.setFont('helvetica', 'normal');
+                        doc.text(budget.address, 196, 28, { align: 'right' });
+                    }
                     doc.setLineWidth(0.5);
                     doc.line(14, 32, 196, 32);
                 }
@@ -1636,8 +2013,14 @@ export default function App() {
     }, [budget, resolvedChapters, priceDatabase, printConfig.chaptersOnNewPage, printConfig.showLongDesc]);
 
     // --- Search Filtering ---
+    // Primer el filtre per instància de sistema (veure `utils/sistemesDoc.js`) i després la cerca.
+    const perSistema = useMemo(() => {
+        const existeix = filtreSistema && (budget.sistemes || []).some(i => i.id === filtreSistema);
+        return existeix ? filtraPerInstancia(resolvedChapters, filtreSistema) : resolvedChapters;
+    }, [resolvedChapters, filtreSistema, budget.sistemes]);
+
     const filteredChapters = useMemo(() => {
-        if (!searchTerm.trim()) return resolvedChapters;
+        if (!searchTerm.trim()) return perSistema;
 
         const searchLower = searchTerm.toLowerCase().trim();
 
@@ -1664,18 +2047,36 @@ export default function App() {
             }).filter(Boolean);
         };
 
-        return filterNodes(resolvedChapters);
-    }, [resolvedChapters, searchTerm]);
+        return filterNodes(perSistema);
+    }, [perSistema, searchTerm]);
 
     // --- Filtered Prices ---
+    // El parser desa tots els conceptes del BC3 a `priceDatabase`, també els capítols, que hi
+    // surten amb el total com a «preu» i sense unitat. Al banc i al selector només hi fan
+    // soroll; es deixen a la base (no molesten cap càlcul) i es filtren en mostrar-la.
+    const bancDePreus = useMemo(() => {
+        const capitols = new Set();
+        const recull = (nodes) => nodes.forEach(n => {
+            if (!n.unit) capitols.add(normalizeCode(n.code));
+            recull([...(n.subChapters || []), ...(n.items || [])]);
+        });
+        recull(budget.chapters);
+        const out = {};
+        Object.entries(priceDatabase).forEach(([code, data]) => {
+            if (!data?.unit && capitols.has(normalizeCode(code))) return;
+            out[code] = data;
+        });
+        return out;
+    }, [priceDatabase, budget.chapters]);
+
     const filteredPrices = useMemo(() => {
-        if (!searchTerm.trim()) return Object.entries(priceDatabase);
+        if (!searchTerm.trim()) return Object.entries(bancDePreus);
         const searchLower = searchTerm.toLowerCase().trim();
-        return Object.entries(priceDatabase).filter(([code, data]) => {
+        return Object.entries(bancDePreus).filter(([code, data]) => {
             return (code || '').toLowerCase().includes(searchLower) ||
                 (data.summary || '').toLowerCase().includes(searchLower);
         });
-    }, [priceDatabase, searchTerm]);
+    }, [bancDePreus, searchTerm]);
 
     // --- Resources Aggregation Logic ---
     const aggregatedResources = useMemo(() => {
@@ -2080,8 +2481,12 @@ export default function App() {
     };
 
     // --- FUSIÓ DE BRANQUES (IMMUTABLE & SECURE) ---
-    const mergeTreeBranches = (existingNodes, newNodes) => {
+    // `despresDe`: id d'un node existent; els nodes nous que van a la mateixa llista s'hi
+    // posen just darrere (enganxar amb una partida seleccionada) en comptes d'anar al final.
+    const mergeTreeBranches = (existingNodes, newNodes, despresDe = null) => {
         const merged = [...existingNodes];
+        const ancora = despresDe ? merged.findIndex(n => n.id === despresDe) : -1;
+        let afegitsDarrere = 0;
 
         newNodes.forEach(newNode => {
             const normNew = normalizeCode(newNode.code);
@@ -2092,10 +2497,10 @@ export default function App() {
                 const updatedNode = { ...existingNode };
 
                 if (newNode.subChapters && newNode.subChapters.length > 0) {
-                    updatedNode.subChapters = mergeTreeBranches(existingNode.subChapters || [], newNode.subChapters);
+                    updatedNode.subChapters = mergeTreeBranches(existingNode.subChapters || [], newNode.subChapters, despresDe);
                 }
                 if (newNode.items && newNode.items.length > 0) {
-                    updatedNode.items = mergeTreeBranches(existingNode.items || [], newNode.items);
+                    updatedNode.items = mergeTreeBranches(existingNode.items || [], newNode.items, despresDe);
                 }
 
                 // Only merge measurements for CHAPTERS.
@@ -2111,6 +2516,8 @@ export default function App() {
                 }
 
                 merged[existingIdx] = updatedNode;
+            } else if (ancora > -1) {
+                merged.splice(ancora + 1 + afegitsDarrere++, 0, deepCloneNode(newNode));
             } else {
                 merged.push(deepCloneNode(newNode));
             }
@@ -2177,7 +2584,7 @@ export default function App() {
     // --- Project Management Handlers ---
     const fileInputRef = React.useRef(null);
 
-    const handleDownloadProject = () => {
+    const baixaProjecte = () => {
         const blob = new Blob([serialitzaProjecte(budget, priceDatabase)], { type: MIME_PROJECTE });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -2190,7 +2597,42 @@ export default function App() {
         notify("Projecte desat correctament");
     };
 
-    const handleOpenProject = () => {
+    const handleDownloadProject = async ({ com = false } = {}) => {
+        if (!('showSaveFilePicker' in window)) { baixaProjecte(); return; }
+        try {
+            let handle = com ? null : fitxerHandleRef.current;
+            if (!handle) {
+                handle = await window.showSaveFilePicker({
+                    suggestedName: `${safeFileName(budget.name, 'projecte')}${EXTENSIO_PROJECTE}`,
+                    types: [{ description: 'Projecte d\'amidaments', accept: { [MIME_PROJECTE]: [EXTENSIO_PROJECTE] } }],
+                });
+            }
+            const writable = await handle.createWritable();
+            await writable.write(serialitzaProjecte(budget, priceDatabase));
+            await writable.close();
+            fitxerHandleRef.current = handle;
+            notify(`Projecte desat a "${handle.name}"`);
+        } catch (err) {
+            if (err?.name === 'AbortError') return; // l'usuari ha tancat el selector
+            console.error('Error desant el projecte:', err);
+            // Sense permís d'escriptura (o fitxer mogut): no es perd la feina, es baixa.
+            fitxerHandleRef.current = null;
+            baixaProjecte();
+        }
+    };
+
+    const handleOpenProject = async () => {
+        if ('showOpenFilePicker' in window) {
+            try {
+                const [handle] = await window.showOpenFilePicker({
+                    types: [{ description: 'Projecte o BC3', accept: { '*/*': ['.amid', '.json', '.bc3'] } }],
+                });
+                await obreFitxer(await handle.getFile(), { handle });
+            } catch (err) {
+                if (err?.name !== 'AbortError') console.error('Error obrint el fitxer:', err);
+            }
+            return;
+        }
         fileInputRef.current?.click();
     };
 
@@ -2199,7 +2641,7 @@ export default function App() {
      * compartir del sistema. Els tres camins feien la seva pròpia comprovació —i la de la File
      * Handling API mirava un camp que no s'escrivia enlloc— així que ara passen tots per aquí.
      */
-    const obreFitxer = useCallback(async (file, { replace = true, nomesPreus = false } = {}) => {
+    const obreFitxer = useCallback(async (file, { replace = true, nomesPreus = false, handle = null } = {}) => {
         if (!file) return;
 
         // Deixar anar un fitxer sobre el banc de preus no ha de tocar el pressupost: el que
@@ -2224,6 +2666,7 @@ export default function App() {
             }
             adoptaProjecte(projecte.budget);
             setPriceDatabase(projecte.priceDatabase);
+            fitxerHandleRef.current = handle;
             notify('Projecte carregat correctament');
             return;
         }
@@ -2232,6 +2675,7 @@ export default function App() {
             // El BC3 és Windows-1252, no UTF-8: llegir-lo com a text el destrossaria.
             const text = new TextDecoder('windows-1252').decode(await file.arrayBuffer());
             const result = processBC3Data(text);
+            if (replace) fitxerHandleRef.current = null;
             if (result) startImportProcess(result, { replace });
             else notify('Format BC3 no reconegut', 'error');
             return;
@@ -2275,10 +2719,14 @@ export default function App() {
 
     const handleNewProject = () => {
         if (budget.chapters.length > 0 || Object.keys(priceDatabase).length > 0) {
-            if (!confirm('Estàs segur que vols crear un nou projecte? Es perdran les dades no desades.')) {
+            const avis = consulta
+                ? 'Crear un projecte nou? Aquesta finestra és de consulta i no desa res.'
+                : 'Crear un projecte nou? L\'actual queda desat al navegador i es pot tornar a obrir des d\'Obrir › Recents.';
+            if (!confirm(avis)) {
                 return;
             }
         }
+        fitxerHandleRef.current = null;
         setBudget({ id: crypto.randomUUID(), name: 'Nou Projecte', chapters: [], certifications: [] });
         setPriceDatabase({});
         setSelectedId(null);
@@ -2419,7 +2867,10 @@ export default function App() {
         const findDuplicates = (nodes) => {
             nodes.forEach(n => {
                 if (n.unit && existingCodes.has(normalizeCode(n.code))) {
-                    duplicates.push({ id: n.id, code: n.code, description: n.description });
+                    duplicates.push({
+                        id: n.id, code: n.code, description: n.description, nLinies: (n.measurements || []).length,
+                        variable: CAMPS_PLANTILLA.some(c => esPlantilla(n[c])) || (n.breakdown || []).some(b => b.formulaRendiment),
+                    });
                 }
                 if (n.subChapters) findDuplicates(n.subChapters);
                 if (n.items) findDuplicates(n.items);
@@ -2455,88 +2906,125 @@ export default function App() {
         return null;
     };
 
-    const handleConfirmDuplicate = (asNew) => {
+    /**
+     * Resol el duplicat actual: `true` l'afegeix amb sufix, `'linies'` en suma les línies a la
+     * partida que ja hi ha, i `false` manté l'existent i descarta el que arriba. Amb `aTots`,
+     * la mateixa resposta val per a tots els que queden.
+     */
+    const handleConfirmDuplicate = (mode, aTots = false) => {
+        const asNew = mode === true;
+        const afegeixLinies = mode === 'linies';
         setImportPending(prev => {
             if (!prev) return null;
-            const { chapters, duplicates, currentIdx } = prev;
-            const currentDup = duplicates[currentIdx];
-            let nextChapters = chapters;
+            const { duplicates, currentIdx } = prev;
+            const fins = aTots ? duplicates.length : currentIdx + 1;
 
-            if (asNew) {
-                // Add suffix to the imported item
-                const existingCodes = new Set();
-                const collectExisting = (nodes) => {
-                    nodes.forEach(n => {
-                        existingCodes.add(normalizeCode(n.code));
-                        if (n.subChapters) collectExisting(n.subChapters);
-                        if (n.items) collectExisting(n.items);
-                    });
-                };
-                collectExisting(budget.chapters);
+            // Codis ocupats: els del projecte i també els del que arriba. Si el fragment porta
+            // dues vegades el mateix codi, la segona no pot rebre el mateix sufix que la primera.
+            const ocupats = new Set();
+            const recull = (nodes) => nodes.forEach(n => {
+                ocupats.add(normalizeCode(n.code));
+                recull([...(n.subChapters || []), ...(n.items || [])]);
+            });
+            recull(budget.chapters);
+            recull(prev.chapters);
 
-                const newCode = generateUniqueCode(currentDup.code, existingCodes);
-
-                const updateCodeInTree = (nodes) => {
-                    return nodes.map(n => {
-                        if (n.id === currentDup.id) {
-                            return { ...n, code: newCode };
-                        }
-                        return {
-                            ...n,
-                            subChapters: updateCodeInTree(n.subChapters || []),
-                            items: updateCodeInTree(n.items || [])
-                        };
-                    });
-                };
-                nextChapters = updateCodeInTree(chapters);
-            } else {
-                // Remove from imported tree and mark for expansion
-                const findAndExpand = (nodes, targetCode) => {
-                    for (const node of nodes) {
-                        if (normalizeCode(node.code) === normalizeCode(targetCode)) {
-                            return node.id;
-                        }
-                        const found = findAndExpand([...(node.subChapters || []), ...(node.items || [])], targetCode);
-                        if (found) return found;
-                    }
-                    return null;
-                };
-
-                const existingItemId = findAndExpand(budget.chapters, currentDup.code);
-                if (existingItemId) {
-                    const path = findParentPath(budget.chapters, existingItemId);
-                    if (path) {
-                        setExpandedChapters(prevExpanded => {
-                            const next = { ...prevExpanded };
-                            path.forEach(id => next[id] = true);
-                            return next;
-                        });
-                    }
+            const mapeja = (nodes, fn) => nodes.map(n => fn({
+                ...n,
+                subChapters: mapeja(n.subChapters || [], fn),
+                items: mapeja(n.items || [], fn),
+            }));
+            const treu = (nodes, id) => nodes.filter(n => n.id !== id).map(n => ({
+                ...n,
+                subChapters: treu(n.subChapters || [], id),
+                items: treu(n.items || [], id),
+            }));
+            const idPerCodi = (nodes, codi) => {
+                for (const n of nodes) {
+                    if (normalizeCode(n.code) === codi) return n.id;
+                    const dins = idPerCodi([...(n.subChapters || []), ...(n.items || [])], codi);
+                    if (dins) return dins;
                 }
+                return null;
+            };
 
-                const removeFromTree = (nodes) => {
-                    return nodes.filter(n => n.id !== currentDup.id).map(n => ({
-                        ...n,
-                        subChapters: removeFromTree(n.subChapters || []),
-                        items: removeFromTree(n.items || [])
-                    }));
-                };
-                nextChapters = removeFromTree(chapters);
+            let chapters = prev.chapters;
+            let prices = prev.prices;
+            const aDesplegar = [];
+            const liniesAAfegir = [...(prev.liniesAAfegir || [])];
+            const nodePerId = (nodes, id) => {
+                for (const n of nodes) {
+                    if (n.id === id) return n;
+                    const dins = nodePerId([...(n.subChapters || []), ...(n.items || [])], id);
+                    if (dins) return dins;
+                }
+                return null;
+            };
+
+            for (let i = currentIdx; i < fins; i++) {
+                const dup = duplicates[i];
+                if (asNew) {
+                    const newCode = generateUniqueCode(dup.code, ocupats);
+                    ocupats.add(normalizeCode(newCode));
+                    chapters = mapeja(chapters, n => (n.id === dup.id ? { ...n, code: newCode } : n));
+                    // El codi nou ha de dur el preu de la partida importada: sense entrada a la
+                    // base, una partida sense descomposat quedaria a zero.
+                    const vell = prices?.[normalizeCode(dup.code)];
+                    if (vell) prices = { ...prices, [normalizeCode(newCode)]: { ...vell, code: newCode } };
+                } else {
+                    // Es manté l'existent (i, si cal, s'hi sumen les línies que arriben): es treu
+                    // de la importació i se'n desplega el capítol perquè es vegi quina és.
+                    if (afegeixLinies) {
+                        const entrant = nodePerId(chapters, dup.id);
+                        if (entrant?.measurements?.length) {
+                            liniesAAfegir.push({ codi: normalizeCode(dup.code), linies: entrant.measurements });
+                        }
+                    }
+                    const existent = idPerCodi(budget.chapters, normalizeCode(dup.code));
+                    const cami = existent && findParentPath(budget.chapters, existent);
+                    if (cami) aDesplegar.push(...cami);
+                    chapters = treu(chapters, dup.id);
+                }
             }
 
-            const updatedPending = { ...prev, chapters: nextChapters };
-
-            if (currentIdx + 1 < duplicates.length) {
-                return { ...updatedPending, currentIdx: currentIdx + 1 };
-            } else {
-                // Schedule finalization after state update completes
-                setTimeout(() => {
-                    finalizeImport(updatedPending);
-                    setImportPending(null);
-                }, 0);
-                return updatedPending;
+            if (aDesplegar.length) {
+                setExpandedChapters(prevExpanded => {
+                    const next = { ...prevExpanded };
+                    aDesplegar.forEach(id => { next[id] = true; });
+                    return next;
+                });
             }
+
+            const updatedPending = { ...prev, prices, chapters, liniesAAfegir };
+            if (fins < duplicates.length) return { ...updatedPending, currentIdx: fins };
+
+            // La fusió es fa fora de l'updater, un cop resolt l'últim.
+            setTimeout(() => {
+                finalizeImport(updatedPending);
+                setImportPending(null);
+            }, 0);
+            return updatedPending;
         });
+    };
+
+    /**
+     * Suma línies a partides que ja hi ha, per codi: la primera partida del projecte amb aquell
+     * codi. És la resposta «afegir-hi les línies» del quadre de duplicats.
+     */
+    const afegeixLiniesPerCodi = (chapters, llista = []) => {
+        if (!llista?.length) return chapters;
+        const perCodi = new Map();
+        llista.forEach(({ codi, linies }) => perCodi.set(codi, [...(perCodi.get(codi) || []), ...linies]));
+        const fets = new Set();
+        const recorre = (nodes) => nodes.map(n => {
+            const codi = normalizeCode(n.code);
+            if (n.unit && perCodi.has(codi) && !fets.has(codi)) {
+                fets.add(codi);
+                return { ...n, measurements: [...(n.measurements || []), ...perCodi.get(codi)] };
+            }
+            return { ...n, subChapters: recorre(n.subChapters || []), items: recorre(n.items || []) };
+        });
+        return recorre(chapters);
     };
 
     const finalizeImport = (result, options = {}) => {
@@ -2555,13 +3043,21 @@ export default function App() {
             }).budget);
             notify("Projecte obert correctament");
         } else {
-            setPriceDatabase(prev => ({ ...prev, ...result.prices }));
+            setPriceDatabase(prev => result.conservaPreus
+                ? { ...result.prices, ...prev }
+                : { ...prev, ...result.prices });
             setBudget(prev => ({
                 ...prev,
-                chapters: mergeTreeBranches(prev.chapters, result.chapters),
-                certifications: [...(prev.certifications || []), ...importedPhases]
+                chapters: afegeixLiniesPerCodi(mergeTreeBranches(prev.chapters, result.chapters, result.despresDe), result.liniesAAfegir),
+                certifications: [...(prev.certifications || []), ...importedPhases],
+                // Un sistema hi afegeix els seus paràmetres i la instància (veure `utils/sistemesDoc.js`).
+                ...(result.parametres?.length ? { parametres: [...(prev.parametres || []), ...result.parametres] } : {}),
+                ...(result.condicions?.length ? { condicions: [...(prev.condicions || []), ...result.condicions] } : {}),
+                ...(result.instancia ? { sistemes: [...(prev.sistemes || []), result.instancia] } : {}),
+                // Diverses zones d'un sistema inserides alhora des del CAD (`utils/cadSistemes.js`).
+                ...(result.instancies?.length ? { sistemes: [...(prev.sistemes || []), ...result.instancies] } : {}),
             }));
-            notify("Dades importades correctament");
+            notify(result.missatge || "Dades importades correctament");
         }
     };
 
@@ -2609,7 +3105,7 @@ export default function App() {
         if ('launchQueue' in window) {
             window.launchQueue.setConsumer(async (launchParams) => {
                 for (const handle of launchParams.files || []) {
-                    await obreFitxer(await handle.getFile());
+                    await obreFitxer(await handle.getFile(), { handle });
                 }
             });
         }
@@ -2638,6 +3134,7 @@ export default function App() {
         if (draggedNodeId) return; // Ignorar drop intern
         e.preventDefault();
         setIsDragging(false);
+        if (e.target.closest?.('[data-assistent-adjunts]')) return; // l'agafa el xat
 
         const html = e.dataTransfer.getData('text/html');
 
@@ -2707,16 +3204,41 @@ export default function App() {
         if (file) obreFitxer(file, { replace: false, nomesPreus: activeTab === 'prices' });
     };
 
-    const handlePaste = useCallback((e) => {
+    // Sense useCallback a posta: depèn de la pestanya i de la partida seleccionada, i una
+    // dependència oblidada faria que enganxar actués sobre l'estat de quan es va muntar.
+    const handlePaste = (e) => {
+        // Dins del xat de l'assistent, el que s'enganxa és per al xat (també la sortida del LISP).
+        if (e.target?.closest?.('[data-assistent-adjunts]')) return;
         const text = e.clipboardData.getData('text/plain')?.trim();
+        // Un capítol o una partida copiats amb el botó de la barra lateral, potser des d'una
+        // altra finestra. Mai no es vol dins d'un camp de text.
+        if (text && enganxaFragment(text)) {
+            e.preventDefault();
+            return;
+        }
+        // Les entitats copiades amb l'ordre AMIDA del LISP. Es comprova abans que res i se
+        // n'impedeix l'acció per defecte: si el focus és en un camp de la línia d'amidament,
+        // el text tabulat hi acabaria enganxat.
+        if (text && enganxaCad(text)) {
+            e.preventDefault();
+            return;
+        }
         if (text && (text.toLowerCase().includes('.bc3') || text.toLowerCase().includes('generadordepreus'))) {
             importFromUrl(text, { nomesPreus: activeTab === 'prices' });
         }
-        // `activeTab` ha d'anar a les dependències: sense ell el callback es quedaria amb la
-        // pestanya que hi havia en muntar-se i enganxar un enllaç al banc de preus l'importaria
-        // igualment al pressupost.
-    }, [importFromUrl, activeTab]);
+    };
 
+
+    // L'enganxat s'escolta al document i no amb `onPaste` al contenidor de l'aplicació: sense
+    // cap camp amb el focus, el navegador l'adreça al <body>, que queda fora del contenidor,
+    // i Ctrl+V no feia res (ni el fragment copiat, ni el CAD, ni l'enllaç d'un BC3).
+    const handlePasteRef = React.useRef(handlePaste);
+    useEffect(() => { handlePasteRef.current = handlePaste; });
+    useEffect(() => {
+        const onPaste = (e) => handlePasteRef.current(e);
+        document.addEventListener('paste', onPaste);
+        return () => document.removeEventListener('paste', onPaste);
+    }, []);
 
     const updateMeasurement = (itemId, mId, field, value) => {
         const numValue = field === 'description' ? value : parseFloat(value) || 0;
@@ -2735,6 +3257,32 @@ export default function App() {
                 };
             });
         };
+        setBudget(prev => ({ ...prev, chapters: updateInTree(prev.chapters) }));
+    };
+
+    /**
+     * Un camp d'una línia d'amidament que pot ser número o fórmula (`components/FormulaInput`).
+     * `entrada` és `{ valor }` o `{ formula }`. Un número treu la fórmula d'aquell camp.
+     */
+    const updateMeasurementCamp = (itemId, mId, camp, entrada) => {
+        const canvia = (m) => {
+            if (m.id !== mId) return m;
+            const formules = { ...(m.formules || {}) };
+            let seguent;
+            if ('valor' in entrada) {
+                delete formules[camp];
+                seguent = { ...m, [camp]: entrada.valor };
+            } else {
+                formules[camp] = entrada.formula;
+                seguent = { ...m };
+            }
+            if (Object.keys(formules).length) seguent.formules = formules;
+            else delete seguent.formules;
+            return seguent;
+        };
+        const updateInTree = (nodes) => nodes.map(node => (node.id === itemId
+            ? { ...node, measurements: (node.measurements || []).map(canvia) }
+            : { ...node, subChapters: updateInTree(node.subChapters || []), items: updateInTree(node.items || []) }));
         setBudget(prev => ({ ...prev, chapters: updateInTree(prev.chapters) }));
     };
 
@@ -2786,13 +3334,21 @@ export default function App() {
         setBudget(prev => ({ ...prev, chapters: updateInTree(prev.chapters) }));
     };
 
-    const addMeasurementLine = (itemId) => {
+    /**
+     * Afegeix una línia d'amidament. Amb `titol`, una línia de títol (`zona: true`, a 0): el nom
+     * d'una zona o d'un grup de línies, com les que posa un sistema, que es veu a tota l'amplada i
+     * a la impressió surt sense xifres.
+     */
+    const addMeasurementLine = (itemId, { titol = false } = {}) => {
+        const nova = titol
+            ? { id: crypto.randomUUID(), description: '', units: 0, length: 0, width: 0, height: 0, zona: true }
+            : { id: crypto.randomUUID(), description: 'Nova línia', units: 0, length: 0, width: 0, height: 0 };
         const updateInTree = (nodes) => {
             return nodes.map(node => {
                 if (node.id === itemId) {
                     return {
                         ...node,
-                        measurements: [...(node.measurements || []), { id: crypto.randomUUID(), description: 'Nova línia', units: 0, length: 0, width: 0, height: 0 }]
+                        measurements: [...(node.measurements || []), nova]
                     };
                 }
                 return {
@@ -2878,6 +3434,244 @@ export default function App() {
             });
         };
         setBudget(prev => ({ ...prev, chapters: updateInTree(prev.chapters) }));
+    };
+
+    /**
+     * Afegeix a la partida seleccionada una línia d'amidament per cada entitat copiada amb
+     * l'ordre AMIDA (`public/cad/amidaments.lsp`). Què s'agafa de cada entitat ho decideix la
+     * unitat de la partida: veure `utils/cadPaste.js`.
+     *
+     * Torna `false` si el text no ve del LISP, perquè l'enganxat segueixi el camí normal.
+     */
+    const enganxaCad = (text) => {
+        const dades = parseCadClipboard(text);
+        if (!dades) return false;
+
+        const node = selectedId ? findNodeById(budget.chapters, selectedId) : null;
+        if (dades.entities.length === 0) {
+            notify('El que s\'ha copiat del CAD no porta cap entitat', 'error');
+            return true;
+        }
+        // Sense partida de destí: un sistema per zona (o actualitzar les zones que ja en surten).
+        // Veure `utils/cadSistemes.js`.
+        if (!node || !node.unit) {
+            setQuadreCad(dades);
+            return true;
+        }
+
+        const r = cadEntitiesToMeasurements(dades.entities, node.unit);
+        if (!r.kind) {
+            notify(`La partida és en «${node.unit}»: des del CAD només es pot amidar en m, m2, m3 o ud`, 'error');
+            return true;
+        }
+        if (r.lines.length === 0) {
+            notify(`Cap de les ${dades.entities.length} entitats no té ${r.kind === 'm' ? 'llargada' : 'àrea ni llargada'}`, 'error');
+            return true;
+        }
+
+        const updateInTree = (nodes) => nodes.map(n => {
+            if (n.id === node.id) {
+                return { ...n, measurements: [...(n.measurements || []), ...r.lines] };
+            }
+            return {
+                ...n,
+                subChapters: updateInTree(n.subChapters || []),
+                items: updateInTree(n.items || [])
+            };
+        });
+        setBudget(prev => ({ ...prev, chapters: updateInTree(prev.chapters) }));
+
+        const avisos = [];
+        if (r.pendingHeight) avisos.push(`${r.pendingHeight} sense ${r.kind === 'm3' ? 'alçada o gruix' : 'alçada'} (en groc)`);
+        if (r.pendingWidth) avisos.push(`${r.pendingWidth} sense amplada`);
+        if (r.skipped.length) {
+            const descartades = r.skipped.length === 1 ? '1 entitat descartada' : `${r.skipped.length} entitats descartades`;
+            avisos.push(`${descartades} per no tenir ${r.kind === 'm' ? 'llargada' : 'àrea ni llargada'}`);
+        }
+        const linies = r.lines.length === 1 ? '1 línia afegida' : `${r.lines.length} línies afegides`;
+        notify(avisos.length ? `${linies} · ${avisos.join(' · ')}` : linies);
+        return true;
+    };
+
+    const enganxaCadDelPortaRetalls = async () => {
+        let text;
+        try {
+            text = await navigator.clipboard.readText();
+        } catch {
+            notify('El navegador no deixa llegir el porta-retalls: selecciona la partida i fes Ctrl+V', 'error');
+            return;
+        }
+        if (!enganxaCad(text)) notify('El porta-retalls no porta entitats copiades amb l\'ordre AMIDA', 'error');
+    };
+
+    // --- Copiar i enganxar entre finestres (veure `utils/portaRetalls.js`) ---
+    const copiaAlPortaRetalls = async (node) => {
+        try {
+            await navigator.clipboard.writeText(creaFragment(node, priceDatabase));
+        } catch {
+            notify('El navegador no deixa escriure al porta-retalls', 'error');
+            return;
+        }
+        notify(missatgeCopiat(node));
+    };
+
+    const missatgeCopiat = (node) =>
+        `${node.unit ? 'Partida copiada' : 'Capítol copiat'}: selecciona el capítol de destí, en aquesta o una altra finestra, i enganxa (Ctrl+V)`;
+
+    // Treure la selecció: sense, el que s'enganxa va a l'arrel i «Nova entrada» crea un
+    // capítol de primer nivell. Esc, el botó ✕ del detall o un clic a l'espai buit de la taula.
+    useEffect(() => {
+        const onKey = (e) => {
+            if (e.key !== 'Escape' || e.defaultPrevented || !selectedId || activeTab !== 'editor') return;
+            const actiu = document.activeElement;
+            if (actiu && (actiu.tagName === 'INPUT' || actiu.tagName === 'TEXTAREA' || actiu.tagName === 'SELECT' || actiu.isContentEditable)) return;
+            setSelectedId(null);
+        };
+        document.addEventListener('keydown', onKey);
+        return () => document.removeEventListener('keydown', onKey);
+    }, [selectedId, activeTab]);
+
+    // Ctrl+C sobre la fila seleccionada copia el capítol o la partida, com el botó del panell:
+    // així es pot copiar entre finestres encara que el panell no es vegi. Si hi ha text
+    // seleccionat o el focus és en un camp, Ctrl+C fa el de sempre.
+    useEffect(() => {
+        const onCopy = (e) => {
+            if (!selectedId || activeTab !== 'editor') return;
+            const actiu = document.activeElement;
+            if (actiu && (actiu.tagName === 'INPUT' || actiu.tagName === 'TEXTAREA' || actiu.isContentEditable)) return;
+            const seleccio = window.getSelection?.();
+            if (seleccio && !seleccio.isCollapsed && seleccio.toString().trim()) return;
+            const node = findNodeById(resolvedChapters, selectedId);
+            if (!node) return;
+            e.clipboardData.setData('text/plain', creaFragment(node, priceDatabase));
+            e.preventDefault();
+            notify(missatgeCopiat(node));
+        };
+        document.addEventListener('copy', onCopy);
+        return () => document.removeEventListener('copy', onCopy);
+    }, [selectedId, activeTab, resolvedChapters, priceDatabase]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    /**
+     * Posa `nodes` (amb els seus `prices`) dins del capítol `destiId`, pel flux de la
+     * importació. Ho fan servir l'enganxar entre finestres i els sistemes constructius.
+     */
+    const insereixNodes = (nodes, prices, destiId, missatge, extra = {}) => {
+        const desti = embolcallaPerEnganxar(budget.chapters, destiId, nodes);
+        if (!desti) {
+            notify('Per enganxar una partida, selecciona primer el capítol on ha d\'anar', 'error');
+            return;
+        }
+        if (desti.cami.length) {
+            setExpandedChapters(prev => {
+                const seguent = { ...prev };
+                desti.cami.forEach(id => { seguent[id] = true; });
+                return seguent;
+            });
+        }
+        startImportProcess({
+            chapters: desti.chapters,
+            prices,
+            phases: [],
+            // Un preu que el projecte ja té no es toca: enganxar una partida no hauria de
+            // moure l'import de totes les altres que comparteixen el material.
+            conservaPreus: true,
+            despresDe: desti.despresDe,
+            missatge,
+            ...extra,
+        });
+    };
+
+    /** Retorna `false` si el text no és un fragment, perquè es puguin provar altres formats. */
+    const enganxaFragment = (text, destiId = selectedId) => {
+        const fragment = llegeixFragment(text);
+        if (!fragment) return false;
+        const n = fragment.nodes[0];
+        insereixNodes(fragment.nodes, fragment.prices, destiId,
+            `${n.unit ? 'Partida enganxada' : 'Capítol enganxat'}: ${n.code} ${n.description || ''}`.trim());
+        return true;
+    };
+
+    // --- Sistemes constructius (veure `utils/sistemesDoc.js`) ---
+    /** El capítol on anirà el que s'insereixi: el seleccionat, o el que conté la partida seleccionada. */
+    const capitolDesti = (() => {
+        if (!quadreSistemes || !selectedId) return null;
+        const cami = [...(findParentPath(budget.chapters, selectedId) || []), selectedId];
+        for (let i = cami.length - 1; i >= 0; i--) {
+            const n = findNodeById(budget.chapters, cami[i]);
+            if (n && !n.unit) return n;
+        }
+        return null;
+    })();
+
+    /**
+     * Insereix una instància d'un sistema. Els paràmetres i l'entrada de `budget.sistemes`
+     * viatgen amb la importació i només s'afegeixen si s'acaba (cancel·lar el quadre de
+     * duplicats no deixa paràmetres orfes).
+     */
+    const insereixSistema = (inst, { aLArrel = true } = {}) => {
+        insereixNodes(inst.chapters, inst.prices, aLArrel ? null : (capitolDesti?.id || null),
+            `Sistema inserit: ${inst.instancia.nom}`,
+            { parametres: inst.parametres, condicions: inst.condicions, instancia: inst.instancia });
+        setQuadreSistemes(null);
+        if (inst.parametres.length) commutaParametres(true);
+    };
+
+    /** Obre un sistema de la galeria com a projecte per editar-lo i tornar-lo a desar. */
+    const obreSistemaPerEditar = (doc, idGaleria) => {
+        if (!doc) return;
+        if (budget.chapters.length > 0 && !consulta
+            && !confirm(`Obrir «${doc.nom}» per editar-lo? L'actual queda desat al navegador i es pot tornar a obrir des d'Obrir › Recents.`)) return;
+        adoptaProjecte({
+            id: crypto.randomUUID(),
+            name: doc.nom,
+            descripcioSistema: doc.descripcio || '',
+            chapters: doc.chapters,
+            parametres: doc.parametres,
+            condicions: doc.condicions || [],
+            certifications: [],
+            ...(doc.esquema ? { esquema: doc.esquema } : {}),
+            // En desar-lo com a sistema, es proposarà substituir l'original de la galeria.
+            sistemaGaleria: idGaleria ? { id: idGaleria, nom: doc.nom } : null,
+        });
+        setPriceDatabase(doc.prices || {});
+        setSelectedId(null);
+        setFiltreSistema(null);
+        historial.clear();
+        setQuadreSistemes(null);
+        commutaParametres(true);
+        notify(`Sistema obert per editar: ${doc.nom}`);
+    };
+
+    const instanciaFiltrada = filtreSistema ? (budget.sistemes || []).find(i => i.id === filtreSistema) : null;
+
+    const treuInstanciaFiltrada = () => {
+        if (!instanciaFiltrada) return;
+        if (!confirm(`Treure «${instanciaFiltrada.nom}» del projecte?\n\nEs treuen les seves línies i els seus paràmetres, i les partides que només tenien línies seves. Es pot desfer amb Ctrl+Z.`)) return;
+        setBudget(prev => treuInstancia(prev, instanciaFiltrada.id));
+        setFiltreSistema(null);
+        notify(`Instància treta: ${instanciaFiltrada.nom}`);
+    };
+
+    const exportaInstanciaBC3 = () => {
+        if (!instanciaFiltrada) return;
+        const chapters = filtraPerInstancia(resolvedChapters, instanciaFiltrada.id);
+        const contingut = generateBC3({ budget: { ...budget, name: `${budget.name} · ${instanciaFiltrada.nom}`, chapters }, chapters, priceDatabase });
+        baixaFitxer(new Blob([toWindows1252Bytes(contingut)], { type: 'text/plain;charset=windows-1252' }),
+            `${budget.name} ${instanciaFiltrada.nom}`, '.bc3');
+        notify(`«${instanciaFiltrada.nom}» exportada en BC3`);
+    };
+
+    const enganxaDelPortaRetalls = async (destiId) => {
+        let text;
+        try {
+            text = await navigator.clipboard.readText();
+        } catch {
+            notify('El navegador no deixa llegir el porta-retalls: fes Ctrl+V', 'error');
+            return;
+        }
+        if (!enganxaFragment(text, destiId)) {
+            notify('El porta-retalls no porta cap capítol ni partida copiats', 'error');
+        }
     };
 
     const deleteNode = (id) => {
@@ -3048,6 +3842,30 @@ export default function App() {
     };
 
     /**
+     * Rendiment d'un component: número o fórmula amb paràmetres (`components/FormulaInput`).
+     * Com a les línies d'amidament, un número treu la fórmula i una fórmula mana sobre el
+     * número desat (veure `utils/parametres.js`).
+     */
+    const updateRendiment = (itemId, idx, entrada) => {
+        const updateInTree = (nodes) => nodes.map(node => {
+            if (node.id === itemId) {
+                const breakdown = [...(node.breakdown || [])];
+                const actual = { ...breakdown[idx] };
+                if ('valor' in entrada) {
+                    delete actual.formulaRendiment;
+                    actual.yield = entrada.valor;
+                } else {
+                    actual.formulaRendiment = entrada.formula;
+                }
+                breakdown[idx] = actual;
+                return { ...node, breakdown };
+            }
+            return { ...node, subChapters: updateInTree(node.subChapters || []), items: updateInTree(node.items || []) };
+        });
+        setBudget(prev => ({ ...prev, chapters: updateInTree(prev.chapters) }));
+    };
+
+    /**
      * @param {string} itemId partida a la qual s'afegeix la línia
      * @param {object} [concepte] concepte del banc de preus; sense ell, línia en blanc
      */
@@ -3138,7 +3956,11 @@ export default function App() {
     const toggleChapter = (id) => setExpandedChapters(prev => ({ ...prev, [id]: !prev[id] }));
 
     // --- Render Helper ---
-    const renderJustificationTable = (node) => {
+    /**
+     * La justificació de preu d'una partida: les línies del descomposat per categoria i el cost
+     * directe total. La fan servir la taula i la capçalera plegada del panell de detall.
+     */
+    const calculaJustificacio = (node) => {
         const categories = {
             material: { label: 'Materials (MT/MQ)', items: [], total: 0, color: 'text-emerald-600', bg: 'bg-emerald-50' },
             labor: { label: 'Mà d\'Obra (MO)', items: [], total: 0, color: 'text-amber-600', bg: 'bg-amber-50' },
@@ -3184,14 +4006,15 @@ export default function App() {
         });
 
         const totalCost = round2(categories.material.total + categories.labor.total + categories.directCost.total + categories.percent.total);
+        return { categories, totalCost };
+    };
 
+    const renderJustificationTable = (node) => {
+        const { categories, totalCost } = calculaJustificacio(node);
         return (
             <div className="bg-white border border-slate-300 animate-in fade-in duration-300">
-                <div className="bg-slate-100 px-4 py-1.5 border-b border-slate-300 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <Tag size={12} className="text-blue-500" />
-                        <span className="text-[11px] font-black uppercase tracking-widest text-slate-500">Justificació de Preu Unitari: {node.code}</span>
-                    </div>
+                {/* El títol ja el porta la secció del panell: aquí només hi van les accions. */}
+                <div className="bg-slate-100 px-3 py-1.5 border-b border-slate-300 flex items-center justify-end gap-2">
                     <button
                         onClick={() => setPicker({
                             titol: 'Afegir al descomposat',
@@ -3203,7 +4026,7 @@ export default function App() {
                     >
                         <Database size={11} /> Del banc
                     </button>
-                    <button onClick={() => addBreakdownLine(node.id)} className="text-[10px] bg-white border border-slate-300 px-2 py-0.5 hover:bg-slate-50 flex items-center gap-1 uppercase font-bold">
+                    <button onClick={() => addBreakdownLine(node.id)} className="text-[10px] bg-white border border-slate-300 px-2.5 py-2 md:py-0.5 hover:bg-slate-50 flex items-center gap-1 uppercase font-bold">
                         <Plus size={10} /> Afegir Component
                     </button>
                 </div>
@@ -3243,10 +4066,13 @@ export default function App() {
                                             </td>
                                             <td className="p-2 text-right w-24">
                                                 <div className="relative">
-                                                    <NumberInput
+                                                    <FormulaInput
                                                         className="w-full text-right font-mono bg-transparent outline-none border-b border-transparent focus:border-blue-300"
                                                         value={line.yield}
-                                                        onChange={v => updateBreakdownLine(node.id, line.idx, 'yield', v)}
+                                                        formula={line.formulaRendiment}
+                                                        error={line.errorRendiment}
+                                                        teclatText={teParametres}
+                                                        onChange={(e) => updateRendiment(node.id, line.idx, e)}
                                                     />
                                                     {line.isPercentage && <span className="absolute top-0 right-[-10px] text-[9px]">%</span>}
                                                 </div>
@@ -3524,7 +4350,7 @@ export default function App() {
                                 toggleChapter(node.id);
                                 return;
                             }
-                            if (window.innerWidth < 768) {
+                            if (!panellAlCostat) {
                                 setShowMobileSidebar(true);
                             }
                         }}
@@ -3681,7 +4507,7 @@ export default function App() {
                         </td>
                     </tr>
 
-                    {!node.unit && (expandedChapters[node.id] || searchTerm) && renderTableRows([...(node.subChapters || []), ...(node.items || [])], level + 1)}
+                    {!node.unit && (expandedChapters[node.id] || searchTerm || filtreSistema) && renderTableRows([...(node.subChapters || []), ...(node.items || [])], level + 1)}
                 </React.Fragment>
             );
         });
@@ -4173,7 +4999,7 @@ export default function App() {
                                     return (
                                         <React.Fragment key={group.id}>
                                             <tr className={`${group.bg} border-y border-slate-200`}>
-                                                <td colSpan={window.innerWidth < 768 ? 3 : 6} className="p-2 pl-4 md:pl-4">
+                                                <td colSpan={ampladaFinestra < 768 ? 3 : 6} className="p-2 pl-4 md:pl-4">
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex items-center gap-2">
                                                             <Icon size={14} className={group.color} />
@@ -4235,7 +5061,7 @@ export default function App() {
                             </tbody>
                             <tfoot className="hidden md:table-footer-group bg-slate-900 text-white font-bold sticky bottom-0 z-10">
                                 <tr>
-                                    <td colSpan={window.innerWidth < 768 ? 2 : 5} className="p-3 text-right text-[10px] uppercase tracking-widest whitespace-nowrap">Total Recursos</td>
+                                    <td colSpan={ampladaFinestra < 768 ? 2 : 5} className="p-3 text-right text-[10px] uppercase tracking-widest whitespace-nowrap">Total Recursos</td>
                                     <td className="p-3 text-right font-mono text-lg text-green-400">
                                         {formatCurrency(totalAmount)}
                                     </td>
@@ -4294,7 +5120,8 @@ export default function App() {
                                         <div className="flex items-center justify-end gap-1 md:gap-2">
                                             <span className="text-[11px] md:text-xs text-slate-300">€</span>
                                             <NumberInput
-                                                className="bg-transparent text-right border-b border-transparent hover:border-blue-300 focus:border-blue-600 outline-none w-14 md:w-24 font-bold text-blue-700 text-[11px] md:text-sm"
+                                                className="bg-transparent text-right border-b border-transparent hover:border-blue-300 focus:border-blue-600 outline-none w-20 md:w-28 font-bold text-blue-700 text-[11px] md:text-sm"
+                                                decimals={2}
                                                 value={data.price}
                                                 onChange={(v) => updateDbPrice(code, v)}
                                             />
@@ -4314,16 +5141,17 @@ export default function App() {
             className="flex flex-col h-screen bg-slate-50 overflow-hidden font-sans selection:bg-blue-100 selection:text-blue-900 print:h-auto print:overflow-visible"
             onDragOver={(e) => {
                 e.preventDefault();
-                if (!draggedNodeId) setIsDragging(true);
+                // Damunt de l'assistent, el fitxer és un adjunt del xat i no s'obre.
+                if (e.target.closest?.('[data-assistent-adjunts]')) setIsDragging(false);
+                else if (!draggedNodeId) setIsDragging(true);
             }}
             onDragLeave={() => setIsDragging(false)}
             onDrop={handleDrop}
-            onPaste={handlePaste}
         >
             {/* 1. DRIVE SETTINGS MODAL */}
             {picker && (
                 <PriceBankPicker
-                    priceDatabase={priceDatabase}
+                    priceDatabase={bancDePreus}
                     titol={picker.titol}
                     subtitol={picker.subtitol}
                     filtre={picker.filtre}
@@ -4350,6 +5178,50 @@ export default function App() {
                         // Trigger sign in directly after saving if needed
                     }}
                     onClose={() => setShowDriveSettings(false)}
+                />
+            )}
+
+            {quadreCad && (
+                <CadSistemaModal
+                    dades={quadreCad}
+                    budget={budget}
+                    priceDatabase={priceDatabase}
+                    onInsereix={(r, missatge) => {
+                        insereixNodes(r.chapters, r.prices, null, missatge,
+                            { parametres: r.parametres, condicions: r.condicions, instancies: r.instancies });
+                        setQuadreCad(null);
+                        commutaParametres(true);
+                    }}
+                    onActualitza={(_, canvis) => {
+                        // Sobre l'estat del moment, no sobre el que tenia el quadre en obrir-se.
+                        setBudget(prev => actualitzaDesDeCad(prev, quadreCad.entities).budget);
+                        notify(`Actualitzats ${canvis.length} paràmetres amb el dibuix`);
+                    }}
+                    onTanca={() => setQuadreCad(null)}
+                />
+            )}
+
+            {quadreTraduccio && (
+                <TraduccioModal
+                    abast={quadreTraduccio}
+                    getEstat={getEstatAssistent}
+                    aplicaEstat={aplicaEstatAssistent}
+                    onTanca={() => setQuadreTraduccio(null)}
+                    notify={notify}
+                />
+            )}
+
+            {quadreSistemes && (
+                <SistemesModal
+                    budget={budget}
+                    priceDatabase={priceDatabase}
+                    vistaInicial={quadreSistemes.vista}
+                    docADesar={quadreSistemes.docADesar || null}
+                    destiLabel={capitolDesti ? `${capitolDesti.code} ${capitolDesti.description || ''}`.trim() : null}
+                    onInsereix={insereixSistema}
+                    onObreEditar={obreSistemaPerEditar}
+                    onClose={() => setQuadreSistemes(null)}
+                    notify={notify}
                 />
             )}
 
@@ -4388,14 +5260,14 @@ export default function App() {
             )}
 
             {/* Header Flat */}
-            <header className="bg-slate-950 text-white px-2 py-2.5 md:p-4 flex justify-between items-center gap-1 border-b border-slate-800 z-30">
+            <header className="bg-slate-950 text-white px-2 py-2.5 md:p-4 flex justify-between items-center gap-1 border-b border-slate-800 relative z-40">
                 {/* Left: Logo + Title + Drive Status */}
                 <div className="flex items-center gap-2 md:gap-4">
                     <div className="bg-blue-600 p-1.5 md:p-2">
                         <Calculator size={20} className="md:w-6 md:h-6 text-white" />
                     </div>
                     <div className="flex flex-col">
-                        <h1 className="hidden sm:block font-bold text-xl tracking-tighter leading-none uppercase">PreuArq <span className="text-blue-400 font-light">BIM</span></h1>
+                        <h1 className="hidden sm:block font-bold text-xl tracking-tighter leading-none uppercase whitespace-nowrap">PreuArq <span className="text-blue-400 font-light">BIM</span></h1>
                         {/* Drive Status Indicator */}
                         <div className="hidden sm:flex items-center gap-2 mt-1">
                             {drive.isSignedIn ? (
@@ -4483,19 +5355,20 @@ export default function App() {
                         </div>
                     </button>
 
-                    {/* Desktop: All buttons visible */}
-                    <div className="hidden md:flex items-center gap-2 flex-wrap">
+                    {/* Escriptori ample: tots els botons. Per sota d'xl no hi caben i fan dues o
+                        tres files (o surten de la pantalla a 768 px): hi va el menú. */}
+                    <div className="hidden xl:flex items-center gap-2">
                         {/* Nou */}
-                        <button onClick={handleNewProject} className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-4 py-2 border border-slate-700 transition-colors" title="Nou Projecte">
+                        <button onClick={handleNewProject} className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-3 min-[1400px]:px-4 py-2 border border-slate-700 transition-colors" title="Nou Projecte">
                             <FilePlus size={16} className="text-slate-400" />
-                            <span className="text-[10px] font-bold uppercase tracking-widest">Nou</span>
+                            <span className="hidden min-[1400px]:inline text-[10px] font-bold uppercase tracking-widest">Nou</span>
                         </button>
 
                         {/* Obrir (Dropdown) */}
                         <div className="relative">
                             <button
                                 onClick={() => setShowOpenDropdown(!showOpenDropdown)}
-                                className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-4 py-2 border border-slate-700 transition-colors"
+                                className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-3 min-[1400px]:px-4 py-2 border border-slate-700 transition-colors"
                                 title="Obrir"
                             >
                                 <FolderOpen size={16} className="text-slate-400" />
@@ -4503,7 +5376,7 @@ export default function App() {
                                 <ChevronDown size={12} className="text-slate-500" />
                             </button>
                             {showOpenDropdown && (
-                                <div className="absolute top-full left-0 mt-1 bg-slate-900 border border-slate-700 shadow-2xl z-50 min-w-[180px]">
+                                <div className="absolute top-full left-0 mt-1 bg-slate-900 border border-slate-700 shadow-2xl z-50 min-w-[260px]">
                                     <button
                                         onClick={() => { handleOpenProject(); setShowOpenDropdown(false); }}
                                         className="w-full text-left px-4 py-2 text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-colors flex items-center gap-2"
@@ -4519,11 +5392,32 @@ export default function App() {
                                         Des de Google Drive
                                     </button>
                                     <button
+                                        onClick={() => { obreFinestraConsulta(); setShowOpenDropdown(false); }}
+                                        title="Obre un BC3 de referència en una finestra nova que no desa res, per copiar-ne capítols i partides"
+                                        className="w-full text-left px-4 py-2 text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-colors flex items-center gap-2 border-t border-slate-800"
+                                    >
+                                        <Database size={12} className="text-amber-400" />
+                                        Banc de consulta (finestra nova)
+                                    </button>
+                                    {recents.length > 0 && (
+                                        <div className="px-3 pt-2 pb-1 text-[8px] font-bold text-slate-500 uppercase tracking-widest border-t border-slate-800">Recents</div>
+                                    )}
+                                    {recents.map(p => (
+                                        <button
+                                            key={p.id}
+                                            onClick={() => { handleOpenFromLibrary(p.id); setShowOpenDropdown(false); }}
+                                            className="w-full text-left px-4 py-1.5 hover:bg-slate-800 transition-colors flex items-center gap-3"
+                                        >
+                                            <span className="text-[11px] text-slate-200 truncate max-w-[220px]">{p.name}</span>
+                                            <span className="ml-auto text-[10px] text-slate-500 font-mono flex-shrink-0">{formatCurrency(p.total)}</span>
+                                        </button>
+                                    ))}
+                                    <button
                                         onClick={() => { setShowLibrary(true); setShowOpenDropdown(false); }}
                                         className="w-full text-left px-4 py-2 text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-colors flex items-center gap-2 border-t border-slate-800"
                                     >
                                         <FolderOpen size={12} className="text-emerald-400" />
-                                        Projectes recents
+                                        Tots els projectes desats
                                         <span className="ml-auto text-slate-500 font-mono">{library.length}</span>
                                     </button>
                                 </div>
@@ -4534,7 +5428,7 @@ export default function App() {
                         <div className="relative">
                             <button
                                 onClick={() => setShowSaveDropdown(!showSaveDropdown)}
-                                className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-4 py-2 border border-slate-700 transition-colors"
+                                className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-3 min-[1400px]:px-4 py-2 border border-slate-700 transition-colors"
                                 title="Desar Projecte"
                             >
                                 <Save size={16} className="text-emerald-400" />
@@ -4551,6 +5445,15 @@ export default function App() {
                                         <FileDown size={12} className="text-emerald-400" />
                                         Desar projecte (Disc)
                                     </button>
+                                    {'showSaveFilePicker' in window && (
+                                        <button
+                                            onClick={() => { handleDownloadProject({ com: true }); setShowSaveDropdown(false); }}
+                                            className="w-full text-left px-4 py-2 text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-colors flex items-center gap-2 italic"
+                                        >
+                                            <FileDown size={12} className="text-slate-400" />
+                                            Desar com a… (Disc)
+                                        </button>
+                                    )}
                                     <button
                                         onClick={() => { requireDrive(() => drive.saveToDrive(budget, priceDatabase)); setShowSaveDropdown(false); }}
                                         className="w-full text-left px-4 py-2 text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-colors flex items-center gap-2"
@@ -4593,29 +5496,29 @@ export default function App() {
                         {/* Importar BC3 */}
                         <button
                             onClick={() => document.getElementById('bc3-import-input')?.click()}
-                            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-4 py-2 border border-slate-700 transition-colors"
+                            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-3 min-[1400px]:px-4 py-2 border border-slate-700 transition-colors"
                             title="Importar BC3"
                         >
                             <Upload size={16} className="text-blue-400" />
-                            <span className="text-[10px] font-bold uppercase tracking-widest">Importar</span>
+                            <span className="hidden min-[1400px]:inline text-[10px] font-bold uppercase tracking-widest">Importar</span>
                         </button>
 
                         {/* Imprimir: segueix el mode actiu, com la resta de la interfície.
                             Abans sempre obria el pressupost, també quan s'estava certificant. */}
                         <button
                             onClick={obreImpressio}
-                            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-4 py-2 border border-slate-700 transition-colors"
+                            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-3 min-[1400px]:px-4 py-2 border border-slate-700 transition-colors"
                             title={appMode === 'certification'
                                 ? (activeCertId ? `Imprimir ${activeCert?.name || 'la certificació'}` : 'Cap certificació activa')
                                 : 'Imprimir el pressupost i els amidaments'}
                         >
                             <Printer size={16} className="text-slate-300" />
-                            <span className="text-[10px] font-bold uppercase tracking-widest">Imprimir</span>
+                            <span className="hidden min-[1400px]:inline text-[10px] font-bold uppercase tracking-widest">Imprimir</span>
                         </button>
                     </div>
 
-                    {/* Mobile: Hamburger Menu */}
-                    <div className="md:hidden relative">
+                    {/* Mòbil i tauleta: menú */}
+                    <div className="xl:hidden relative">
                         <button
                             onClick={() => setShowMobileMenu(!showMobileMenu)}
                             className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 p-2 border border-slate-700 transition-colors"
@@ -4633,7 +5536,7 @@ export default function App() {
                                 />
 
                                 {/* Menu Dropdown */}
-                                <div className="fixed top-14 right-2 bg-slate-900 border border-slate-700 shadow-2xl z-50 min-w-[200px] max-w-[90vw]">
+                                <div className="fixed top-14 md:top-20 right-2 md:right-4 bg-slate-900 border border-slate-700 shadow-2xl z-50 min-w-[200px] md:min-w-[320px] max-w-[90vw] max-h-[calc(100vh-4rem)] md:max-h-[calc(100vh-6rem)] overflow-y-auto">
                                     <button
                                         onClick={() => { handleNewProject(); setShowMobileMenu(false); }}
                                         className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 transition-colors flex items-center gap-3 border-b border-slate-800"
@@ -4658,11 +5561,32 @@ export default function App() {
                                         <span className="font-medium">Google Drive</span>
                                     </button>
                                     <button
-                                        onClick={() => { setShowLibrary(true); setShowMobileMenu(false); }}
+                                        onClick={() => { obreFinestraConsulta(); setShowMobileMenu(false); }}
                                         className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 transition-colors flex items-center gap-3 border-b border-slate-800"
                                     >
+                                        <Database size={18} className="text-amber-400" />
+                                        <span className="font-medium">Banc de consulta</span>
+                                        <span className="ml-auto text-[10px] text-slate-500">pestanya nova</span>
+                                    </button>
+                                    {recents.length > 0 && (
+                                        <div className="px-4 pt-2 pb-1 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Recents</div>
+                                    )}
+                                    {recents.map(p => (
+                                        <button
+                                            key={p.id}
+                                            onClick={() => { handleOpenFromLibrary(p.id); setShowMobileMenu(false); }}
+                                            className="w-full text-left pl-11 pr-4 py-2.5 hover:bg-slate-800 transition-colors flex items-center gap-3 touch-manipulation"
+                                        >
+                                            <span className="text-sm text-slate-200 truncate min-w-0">{p.name}</span>
+                                            <span className="ml-auto text-[10px] text-slate-500 font-mono flex-shrink-0">{formatCurrency(p.total)}</span>
+                                        </button>
+                                    ))}
+                                    <button
+                                        onClick={() => { setShowLibrary(true); setShowMobileMenu(false); }}
+                                        className="w-full text-left px-4 py-3 text-sm hover:bg-slate-800 transition-colors flex items-center gap-3 border-b border-slate-800 border-t"
+                                    >
                                         <FolderOpen size={18} className="text-emerald-400" />
-                                        <span className="font-medium">Projectes recents</span>
+                                        <span className="font-medium">Tots els projectes desats</span>
                                         <span className="ml-auto text-xs text-slate-500 font-mono">{library.length}</span>
                                     </button>
 
@@ -4723,6 +5647,21 @@ export default function App() {
                     </div>
                 </div>
             </header>
+
+            {consulta && (
+                <div className="bg-amber-400 text-amber-950 px-3 py-1.5 flex items-center gap-2 text-[11px] font-bold z-20 print:hidden">
+                    <Database size={12} className="flex-shrink-0" />
+                    <span className="flex-1 min-w-0 leading-tight">
+                        Banc de consulta: aquí no es desa res. Copia capítols o partides des de la barra lateral i enganxa&apos;ls a la finestra del projecte.
+                    </span>
+                    <button
+                        onClick={handleOpenProject}
+                        className="flex-shrink-0 bg-amber-950 text-amber-100 hover:bg-amber-900 px-2.5 py-1 text-[10px] uppercase tracking-widest touch-manipulation"
+                    >
+                        Obre BC3
+                    </button>
+                </div>
+            )}
 
             {/* Certification Management Bar */}
             {appMode === 'certification' && (
@@ -4787,44 +5726,91 @@ export default function App() {
                 style={{ display: 'none' }}
             />
 
-            <main className="flex-1 flex flex-col md:flex-row overflow-hidden">
+            <main className={`flex-1 flex ${panellAlCostat ? 'flex-row' : 'flex-col'} overflow-hidden`}>
+                {/* Paràmetres o assistent: columna a l'esquerra quan hi ha lloc; si no, calaix per sobre. */}
+                {panellEsquerre && !panellAlCostat && (
+                    <div className="fixed inset-0 bg-black/50 z-40" onClick={() => obrePanell(null)} />
+                )}
+                {assistentMuntat && (
+                    <div className={panellEsquerre !== 'assistent' ? 'hidden' : panellAlCostat
+                        ? 'w-96 flex-shrink-0 border-r border-slate-200 overflow-hidden'
+                        : 'fixed inset-y-0 left-0 z-50 w-[92vw] max-w-md shadow-2xl'}
+                    >
+                        <AssistentPanel
+                            getEstat={getEstatAssistent}
+                            aplicaEstat={aplicaEstatAssistent}
+                            onTanca={() => obrePanell(null)}
+                        />
+                    </div>
+                )}
+                {mostraParametres && (
+                    <div className={panellAlCostat
+                        ? 'w-72 flex-shrink-0 border-r border-slate-200 overflow-hidden'
+                        : 'fixed inset-y-0 left-0 z-50 w-[88vw] max-w-sm shadow-2xl'}
+                    >
+                        <ParametresPanel
+                            parametres={budget.parametres || []}
+                            condicions={budget.condicions || []}
+                            resolts={ambFormules.parametres}
+                            comprovacio={comprovacioParametres}
+                            onAfegeixCondicio={afegeixCondicio}
+                            onCanviaCondicio={canviaCondicio}
+                            onEsborraCondicio={esborraCondicio}
+                            usos={usosParametres}
+                            onAfegeix={afegeixParametre}
+                            onCanvia={canviaParametre}
+                            onReanomena={reanomenaParametre}
+                            onEsborra={esborraParametre}
+                            sistemes={budget.sistemes || []}
+                            onReanomenaInstancia={(id, nom) => setBudget(prev => reanomenaInstancia(prev, id, nom))}
+                            esquema={budget.esquema || null}
+                            onCanviaEsquema={(e) => setBudget(prev => {
+                                // eslint-disable-next-line no-unused-vars
+                                const { esquema, ...resta } = prev;
+                                return e ? { ...resta, esquema: e } : resta;
+                            })}
+                            notify={notify}
+                            onTanca={() => commutaParametres(false)}
+                        />
+                    </div>
+                )}
                 {/* Taula Principal Flat */}
                 <section className="flex-1 flex flex-col bg-white overflow-hidden relative">
                     <div className="border-b border-slate-200 p-2 bg-slate-50">
                         {/* Top row: Tabs + Search icon */}
                         <div className="flex justify-between items-center gap-2">
                             {/* Tabs - Wider on mobile */}
-                            <div className="flex bg-white border border-slate-200 p-0.5 md:p-1 flex-1 md:flex-initial">
+                            <div className="flex bg-white border border-slate-200 p-0.5 md:p-1 flex-1 md:flex-initial min-w-0 overflow-x-auto">
                                 <button
                                     onClick={() => setActiveTab('editor')}
-                                    className={`flex-1 md:flex-initial px-3 md:px-4 py-3.5 md:py-1.5 text-[10px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-widest transition-colors ${activeTab === 'editor' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
+                                    className={`flex-1 md:flex-initial px-2 md:px-4 py-3.5 md:py-1.5 text-[10px] font-bold uppercase tracking-wide md:tracking-widest whitespace-nowrap transition-colors ${activeTab === 'editor' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
                                 >
-                                    <span className="hidden md:inline">Editor de Partides</span>
-                                    <span className="md:hidden">Editor</span>
+                                    <span className="hidden xl:inline">Editor de Partides</span>
+                                    <span className="xl:hidden">Editor</span>
                                 </button>
                                 <button
                                     onClick={() => setActiveTab('prices')}
-                                    className={`flex-1 md:flex-initial px-3 md:px-4 py-3.5 md:py-1.5 text-[10px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-widest transition-colors ${activeTab === 'prices' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
+                                    className={`flex-1 md:flex-initial px-2 md:px-4 py-3.5 md:py-1.5 text-[10px] font-bold uppercase tracking-wide md:tracking-widest whitespace-nowrap transition-colors ${activeTab === 'prices' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
                                 >
-                                    <span className="hidden md:inline">Base de Preus</span>
-                                    <span className="md:hidden">Preus</span>
+                                    <span className="hidden xl:inline">Base de Preus</span>
+                                    <span className="xl:hidden">Preus</span>
                                 </button>
                                 <button
                                     onClick={() => setActiveTab('recursos')}
-                                    className={`flex-1 md:flex-initial px-3 md:px-4 py-3.5 md:py-1.5 text-[10px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-widest transition-colors ${activeTab === 'recursos' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
+                                    className={`flex-1 md:flex-initial px-2 md:px-4 py-3.5 md:py-1.5 text-[10px] font-bold uppercase tracking-wide md:tracking-widest whitespace-nowrap transition-colors ${activeTab === 'recursos' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
                                 >
-                                    <span className="hidden md:inline">Llistat de Recursos</span>
-                                    <span className="md:hidden">Recursos</span>
+                                    <span className="hidden xl:inline">Llistat de Recursos</span>
+                                    <span className="xl:hidden">Recursos</span>
                                 </button>
                                 <button
                                     onClick={() => setActiveTab('residus')}
-                                    className={`flex-1 md:flex-initial px-3 md:px-4 py-3.5 md:py-1.5 text-[10px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-widest transition-colors ${activeTab === 'residus' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
+                                    className={`flex-1 md:flex-initial px-2 md:px-4 py-3.5 md:py-1.5 text-[10px] font-bold uppercase tracking-wide md:tracking-widest whitespace-nowrap transition-colors ${activeTab === 'residus' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
                                 >
                                     Residus
                                 </button>
                                 <button
                                     onClick={() => setActiveTab('petjada')}
-                                    className={`flex-1 md:flex-initial px-3 md:px-4 py-3.5 md:py-1.5 text-[10px] md:text-[10px] font-bold uppercase tracking-wider md:tracking-widest transition-colors ${activeTab === 'petjada' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
+                                    className={`flex-1 md:flex-initial px-2 md:px-4 py-3.5 md:py-1.5 text-[10px] font-bold uppercase tracking-wide md:tracking-widest whitespace-nowrap transition-colors ${activeTab === 'petjada' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
                                 >
                                     Petjada
                                 </button>
@@ -4832,6 +5818,40 @@ export default function App() {
 
                             {/* Search */}
                             <div className="flex items-center gap-2">
+                                {(budget.sistemes || []).length > 0 && activeTab === 'editor' && (
+                                    <select
+                                        value={instanciaFiltrada ? filtreSistema : ''}
+                                        onChange={(e) => setFiltreSistema(e.target.value || null)}
+                                        className={`max-w-[9rem] md:max-w-[12rem] py-1.5 md:py-1 px-1.5 border text-[10px] font-bold outline-none touch-manipulation ${instanciaFiltrada ? 'bg-violet-50 border-violet-300 text-violet-800' : 'bg-white border-slate-200 text-slate-500'}`}
+                                        title="Mostra només el que ve d'un sistema"
+                                        aria-label="Filtra per sistema"
+                                    >
+                                        <option value="">Tots els sistemes</option>
+                                        {budget.sistemes.map(i => <option key={i.id} value={i.id}>{i.nom}</option>)}
+                                    </select>
+                                )}
+                                <button
+                                    onClick={() => obrePanell(panellEsquerre === 'assistent' ? null : 'assistent')}
+                                    className={`p-1.5 md:px-2 md:py-1 border flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest transition-colors touch-manipulation ${panellEsquerre === 'assistent' ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                                    title="Assistent: munta sistemes, amidaments i partides"
+                                    aria-pressed={panellEsquerre === 'assistent'}
+                                >
+                                    <Sparkles size={14} />
+                                    <span className="hidden 2xl:inline">Assistent</span>
+                                </button>
+                                <button
+                                    onClick={() => commutaParametres(!mostraParametres)}
+                                    className={`p-1.5 md:px-2 md:py-1 border flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest transition-colors touch-manipulation ${mostraParametres ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                                    title="Paràmetres del projecte"
+                                    aria-pressed={mostraParametres}
+                                >
+                                    <Variable size={14} />
+                                    <span className="hidden 2xl:inline">Paràmetres</span>
+                                    {teParametres && <span className="font-mono">{budget.parametres.length}</span>}
+                                    {comprovacioParametres.incomplertes > 0 && (
+                                        <AlertTriangle size={12} className={mostraParametres ? 'text-amber-200' : 'text-amber-500'} aria-label="Hi ha condicions que no es compleixen" />
+                                    )}
+                                </button>
                                 {/* Mobile: Search icon only, expands downward */}
                                 <div className="md:hidden relative">
                                     <button
@@ -4903,8 +5923,33 @@ export default function App() {
                                             onChange={(e) => setBudget(prev => ({ ...prev, name: e.target.value }))}
                                             placeholder="Nom del Projecte"
                                         />
+                                        <input
+                                            className="text-[11px] text-slate-500 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 focus:outline-none transition-colors px-1 -ml-1 w-full truncate"
+                                            value={budget.address || ''}
+                                            onChange={(e) => setBudget(prev => ({ ...prev, address: e.target.value }))}
+                                            placeholder="Adreça del projecte"
+                                        />
                                     </div>
                                 </div>
+
+                                <button
+                                    onClick={() => setQuadreSistemes({ vista: 'galeria' })}
+                                    className="flex items-center gap-2 bg-white border border-slate-200 hover:border-blue-400 hover:text-blue-700 text-slate-600 px-3 md:px-4 py-3 transition-colors flex-shrink-0 touch-manipulation"
+                                    title="Sistema constructiu: un capítol sencer amidat a partir de les dimensions"
+                                >
+                                    <Blocks size={16} />
+                                    <span className="hidden md:inline text-[11px] font-bold uppercase tracking-widest">Sistema</span>
+                                </button>
+
+                                <button
+                                    onClick={() => setQuadreTraduccio({})}
+                                    disabled={!budget.chapters?.length}
+                                    className="flex items-center gap-2 bg-white border border-slate-200 hover:border-violet-400 hover:text-violet-700 text-slate-600 px-3 md:px-4 py-3 transition-colors flex-shrink-0 touch-manipulation disabled:opacity-40"
+                                    title="Tradueix tot el projecte a un altre idioma (fa servir la clau de l'API de l'assistent)"
+                                >
+                                    <Languages size={16} />
+                                    <span className="hidden lg:inline text-[11px] font-bold uppercase tracking-widest">Tradueix</span>
+                                </button>
 
                                 {/* Nova Entrada Button */}
                                 <button
@@ -4919,7 +5964,43 @@ export default function App() {
                         </div>
                     )}
 
-                    <div className="flex-1 overflow-auto">
+                    {activeTab === 'editor' && instanciaFiltrada && (
+                        <div className="bg-violet-50 border-b border-violet-200 px-3 py-2 flex flex-wrap items-center gap-x-3 gap-y-2">
+                            <div className="basis-full sm:basis-auto sm:flex-1 min-w-0">
+                                <div className="text-[9px] font-black uppercase tracking-widest text-violet-500">Filtrant per sistema</div>
+                                <div className="text-xs font-bold text-violet-900 truncate">
+                                    {instanciaFiltrada.nom}
+                                    {instanciaFiltrada.sistema && instanciaFiltrada.sistema !== instanciaFiltrada.nom && (
+                                        <span className="font-normal text-violet-600"> · {instanciaFiltrada.sistema}</span>
+                                    )}
+                                    <span className="font-mono ml-2">{formatCurrency(perSistema.reduce((a, c) => a + calcChapterTotal(c, priceDatabase), 0))}</span>
+                                </div>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                                <button
+                                    onClick={() => setQuadreSistemes({ vista: 'desa', docADesar: extreuInstancia(budget, priceDatabase, instanciaFiltrada.id) })}
+                                    className="bg-white border border-violet-200 hover:bg-violet-100 text-violet-800 px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide sm:tracking-widest touch-manipulation"
+                                    title="Torna a fer un sistema amb aquesta instància"
+                                >
+                                    Desa com a sistema
+                                </button>
+                                <button onClick={exportaInstanciaBC3} className="bg-white border border-violet-200 hover:bg-violet-100 text-violet-800 px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide sm:tracking-widest touch-manipulation">
+                                    BC3
+                                </button>
+                                <button onClick={treuInstanciaFiltrada} className="bg-white border border-red-200 hover:bg-red-50 text-red-700 px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide sm:tracking-widest touch-manipulation">
+                                    Treu-la
+                                </button>
+                                <button onClick={() => setFiltreSistema(null)} className="p-1.5 text-violet-500 hover:text-violet-900 touch-manipulation" title="Treu el filtre">
+                                    <X size={14} />
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    <div
+                        className="flex-1 overflow-auto"
+                        onClick={(e) => { if (e.target === e.currentTarget && activeTab === 'editor') setSelectedId(null); }}
+                    >
                         {activeTab === 'editor' && (
                             <table className="w-full text-left border-collapse table-fixed md:table-auto">
                                 <thead className="sticky top-0 bg-white z-20 border-b border-slate-200 shadow-sm">
@@ -4971,46 +6052,59 @@ export default function App() {
 
                 {/* Resizer Handle - Hide on mobile */}
                 <div
-                    className="hidden md:block w-1 bg-slate-200 hover:bg-blue-400 cursor-col-resize transition-colors z-30"
+                    className={`${mostraDetall && panellAlCostat ? 'block' : 'hidden'} w-1 bg-slate-200 hover:bg-blue-400 cursor-col-resize transition-colors z-30`}
                     onMouseDown={startResizing}
                 />
 
                 {/* Mobile: Bottom Sheet Backdrop */}
-                {showMobileSidebar && selectedId && (
+                {!panellAlCostat && mostraDetall && showMobileSidebar && selectedId && (
                     <div
-                        className="md:hidden fixed inset-0 bg-black/50 z-40"
+                        className="fixed inset-0 bg-black/50 z-40"
                         onClick={() => setShowMobileSidebar(false)}
                     />
                 )}
 
                 {/* Mobile: Bottom Sheet Toggle Tab (only when item selected) */}
-                {selectedId && !showMobileSidebar && (
-                    <button
-                        className="md:hidden fixed bottom-0 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white px-6 py-2 rounded-t-lg shadow-lg z-50 flex items-center gap-2"
-                        onClick={() => setShowMobileSidebar(!showMobileSidebar)}
-                    >
-                        <ChevronDown className={showMobileSidebar ? 'rotate-180' : ''} size={16} />
-                        <span className="text-xs font-bold uppercase tracking-wider">Detall</span>
-                    </button>
+                {!panellAlCostat && mostraDetall && selectedId && !showMobileSidebar && (
+                    <div className="fixed bottom-0 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white rounded-t-lg shadow-lg z-50 flex items-stretch">
+                        <button
+                            className="pl-6 pr-4 py-2 flex items-center gap-2 touch-manipulation"
+                            onClick={() => setShowMobileSidebar(true)}
+                        >
+                            <ChevronDown size={16} />
+                            <span className="text-xs font-bold uppercase tracking-wider">Detall</span>
+                        </button>
+                        <button
+                            className="px-3 border-l border-slate-600 flex items-center touch-manipulation"
+                            onClick={() => setSelectedId(null)}
+                            title="Treu la selecció"
+                            aria-label="Treu la selecció"
+                        >
+                            <X size={16} />
+                        </button>
+                    </div>
                 )}
 
                 <aside
                     className={`
                         bg-slate-50 border-l border-slate-200 overflow-y-auto flex flex-col
-                        ${selectedId ? 'fixed md:relative' : 'hidden md:block'}
-                        ${showMobileSidebar ? 'max-md:bottom-0 max-md:left-0 max-md:right-0' : 'max-md:-bottom-full'}
+                        ${!mostraDetall ? 'hidden' : panellAlCostat ? 'relative block' : (selectedId ? 'fixed' : 'hidden')}
+                        ${panellAlCostat ? '' : (showMobileSidebar ? 'bottom-0 left-0 right-0' : '-bottom-full')}
                         transition-all duration-300 ease-in-out
-                        z-50 md:z-auto
-                        max-h-[80vh] md:max-h-none
-                        rounded-t-2xl md:rounded-none
-                        shadow-2xl md:shadow-none
+                        ${panellAlCostat ? 'z-auto' : 'z-50 max-h-[80vh] rounded-t-2xl shadow-2xl'}
                     `}
-                    style={{ width: window.innerWidth < 768 ? '100%' : `${sidebarWidth}px` }}
+                    // Fins a xl el panell es limita al 40% (i no menys de 340 px, que és el
+                    // que demana la taula d'amidament): amb 450 px fixos, a 1024 la taula
+                    // quedava a 570 i les descripcions ocupaven tres línies.
+                    style={{
+                        width: !panellAlCostat ? '100%'
+                            : `${ampladaFinestra < 1280 ? Math.min(sidebarWidth, Math.max(340, Math.round(ampladaFinestra * 0.4))) : sidebarWidth}px`
+                    }}
                 >
                     {/* Mobile: Close button */}
-                    {selectedId && (
+                    {selectedId && !panellAlCostat && (
                         <button
-                            className="md:hidden sticky top-0 bg-slate-200 p-3 flex items-center justify-center z-10"
+                            className="sticky top-0 bg-slate-200 p-3 flex items-center justify-center z-10"
                             onClick={() => setShowMobileSidebar(false)}
                         >
                             <div className="w-12 h-1 bg-slate-400 rounded-full"></div>
@@ -5036,9 +6130,38 @@ export default function App() {
                                             <span className="text-[10px] font-black bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">{node.code}</span>
                                             <h2 className="text-sm font-bold text-slate-800 truncate">{node.description}</h2>
                                         </div>
-                                        <div className="flex items-center justify-between">
-                                            <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest">{node.unit ? 'Detall de Partida' : 'Detall de Capítol'}</p>
-                                            <div className="flex items-center gap-1">
+                                        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
+                                            <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest whitespace-nowrap">{node.unit ? 'Detall de Partida' : 'Detall de Capítol'}</p>
+                                            <div className="flex flex-wrap items-center justify-end gap-1">
+                                                <button
+                                                    onClick={() => copiaAlPortaRetalls(node)}
+                                                    title={`Copia ${node.unit ? 'la partida' : 'el capítol i tot el que conté'} per enganxar-ho en una altra finestra (Ctrl+C)`}
+                                                    className="flex items-center gap-1 text-[10px] font-bold text-slate-500 hover:text-blue-600 hover:bg-blue-50 border border-slate-200 px-1.5 py-0.5 rounded touch-manipulation"
+                                                >
+                                                    <Copy size={10} /> Copia
+                                                </button>
+                                                <button
+                                                    onClick={() => enganxaDelPortaRetalls(node.id)}
+                                                    title={node.unit ? 'Enganxa darrere aquesta partida, al seu capítol (Ctrl+V)' : 'Enganxa dins d\'aquest capítol (Ctrl+V)'}
+                                                    className="flex items-center gap-1 text-[10px] font-bold text-slate-500 hover:text-blue-600 hover:bg-blue-50 border border-slate-200 px-1.5 py-0.5 rounded touch-manipulation"
+                                                >
+                                                    <ClipboardPaste size={10} /> Enganxa
+                                                </button>
+                                                <button
+                                                    onClick={() => setQuadreTraduccio({ id: node.id, codi: node.code, nom: node.description })}
+                                                    title={`Tradueix ${node.unit ? 'aquesta partida' : 'aquest capítol i tot el que conté'} a un altre idioma`}
+                                                    className="flex items-center gap-1 text-[10px] font-bold text-slate-500 hover:text-violet-600 hover:bg-violet-50 border border-slate-200 px-1.5 py-0.5 rounded touch-manipulation"
+                                                >
+                                                    <Languages size={10} /> Tradueix
+                                                </button>
+                                                <button
+                                                    onClick={() => { setSelectedId(null); setShowMobileSidebar(false); }}
+                                                    title="Treu la selecció (Esc): el que enganxis anirà a l'arrel"
+                                                    aria-label="Treu la selecció"
+                                                    className="flex items-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 border border-slate-200 p-0.5 rounded touch-manipulation"
+                                                >
+                                                    <X size={12} />
+                                                </button>
                                                 <span className="text-[10px] font-black bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
                                                     {node.unit ? formatCurrency(calcItemTotalAmount(node, priceDatabase)) : formatCurrency(calcChapterTotal(node, priceDatabase))}
                                                 </span>
@@ -5048,6 +6171,26 @@ export default function App() {
                                     </header>
 
                                     <div className="flex-1 p-4 space-y-4">
+                                        {/* Mode certificació sense cap fase: el panell mostrava els camps del
+                                            pressupost com si s'hi pogués certificar. */}
+                                        {appMode === 'certification' && !activeCertId && node.unit && (
+                                            <div className="bg-emerald-50 border border-emerald-200 rounded p-3 flex items-start gap-3">
+                                                <Layers size={16} className="text-emerald-600 flex-shrink-0 mt-0.5" />
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-[11px] font-bold text-emerald-800">Encara no hi ha cap certificació</p>
+                                                    <p className="text-[11px] text-emerald-700 mt-0.5 leading-snug">
+                                                        Crea&apos;n una per introduir-hi l&apos;amidament executat d&apos;aquesta partida. Els camps de sota són els del pressupost.
+                                                    </p>
+                                                    <button
+                                                        onClick={() => { setShowNewCertInput(true); setShowMobileSidebar(false); }}
+                                                        className="mt-2 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 md:py-1 text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 touch-manipulation"
+                                                    >
+                                                        <Plus size={12} /> Nova certificació
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+
                                         {/* Certification Section - Only in Certification Mode */}
                                         {appMode === 'certification' && activeCertId && node.unit && (
                                             <CertificationSidebar
@@ -5077,64 +6220,38 @@ export default function App() {
                                                 <div className="p-3 space-y-3">
                                                     <div>
                                                         <label className="text-[10px] md:text-[9px] font-bold text-slate-400 uppercase mb-1 block">Concepte / Títol</label>
+                                                        {/* Amb variables ({B*100}), s'edita el text amb les claus i a sota es
+                                                            veu com queda amb els valors d'ara (`utils/plantilles.js`). */}
                                                         <textarea
                                                             className="w-full p-2 text-xs border border-slate-200 rounded focus:border-blue-500 outline-none transition-all resize-none font-medium text-slate-700"
                                                             rows={2}
-                                                            value={node.description}
+                                                            value={node.plantilles?.description ?? node.description}
                                                             onChange={(e) => updateDescription(node.id, e.target.value)}
                                                         />
+                                                        <VistaPlantilla plantilla={node.plantilles?.description} resolt={node.description} />
+                                                        {teParametres && !node.plantilles && (
+                                                            <p className="mt-1 text-[10px] text-slate-400 leading-snug">
+                                                                Hi pots posar paràmetres entre claus: <span className="font-mono text-violet-600">{'{B*100}'}</span> o <span className="font-mono text-violet-600">{'{si(A=1; "amb"; "sense")}'}</span>.
+                                                            </p>
+                                                        )}
+                                                        {node.errorsPlantilla?.length > 0 && (
+                                                            <p className="mt-1 text-[10px] text-red-600 leading-snug">
+                                                                Variables que no es poden resoldre (al títol o a la descripció): {node.errorsPlantilla.map(e => `{${e.expressio}}: ${e.error}`).join(' · ')}
+                                                            </p>
+                                                        )}
                                                     </div>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Unitats Section - Only for items */}
-                                        {node.unit && (
-                                            <div className="bg-white border border-slate-200 rounded shadow-sm overflow-hidden">
-                                                <button
-                                                    onClick={() => toggleSidebarSection('unit')}
-                                                    className="w-full px-3 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between hover:bg-slate-100 transition-colors"
-                                                >
-                                                    <div className="flex items-center gap-2">
-                                                        <FileText size={12} className="text-slate-400" />
-                                                        <span className="text-[10px] font-bold uppercase text-slate-600 tracking-wider">Unitats de Mesura</span>
-                                                    </div>
-                                                    {expandedSidebarSections.unit ? <ChevronDown size={12} className="text-slate-400" /> : <ChevronRight size={12} className="text-slate-400" />}
-                                                </button>
-                                                {expandedSidebarSections.unit && (
-                                                    <div className="p-3">
-                                                        <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Unitat</label>
-                                                        <input
-                                                            className="w-full p-2 text-xs border border-slate-200 rounded focus:border-blue-500 outline-none transition-all font-medium text-slate-700"
-                                                            value={node.unit}
-                                                            onChange={(e) => updateUnit(node.id, e.target.value)}
-                                                            placeholder="m², m³, ut, kg..."
-                                                        />
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-
-                                        {/* Descripció Section */}
-                                        <div className="bg-white border border-slate-200 rounded shadow-sm overflow-hidden">
-                                            <button
-                                                onClick={() => toggleSidebarSection('description')}
-                                                className="w-full px-3 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between hover:bg-slate-100 transition-colors"
-                                            >
-                                                <div className="flex items-center gap-2">
-                                                    <AlignLeft size={12} className="text-slate-400" />
-                                                    <span className="text-[10px] font-bold uppercase text-slate-600 tracking-wider">Descripció Tècnica</span>
-                                                </div>
-                                                {expandedSidebarSections.description ? <ChevronDown size={12} className="text-slate-400" /> : <ChevronRight size={12} className="text-slate-400" />}
-                                            </button>
-                                            {expandedSidebarSections.description && (
-                                                <div className="p-3">
-                                                    <textarea
-                                                        className="w-full p-3 text-xs border border-slate-200 rounded focus:border-blue-500 outline-none transition-all min-h-[150px] font-sans text-slate-600 leading-relaxed"
-                                                        value={node.fullDescription || ''}
-                                                        onChange={(e) => updateFullDescription(node.id, e.target.value)}
-                                                        placeholder="Escriu la descripció detallada..."
-                                                    />
+                                                    {/* La unitat tenia una secció pròpia, plegada per defecte, per a un sol camp */}
+                                                    {node.unit && (
+                                                        <div className="flex items-center gap-2">
+                                                            <label className="text-[10px] md:text-[9px] font-bold text-slate-400 uppercase flex-shrink-0">Unitat</label>
+                                                            <input
+                                                                className="w-24 p-1.5 text-xs border border-slate-200 rounded focus:border-blue-500 outline-none transition-all font-medium text-slate-700"
+                                                                value={node.unit}
+                                                                onChange={(e) => updateUnit(node.id, e.target.value)}
+                                                                placeholder="m², m³, ut..."
+                                                            />
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
@@ -5146,11 +6263,17 @@ export default function App() {
                                                     onClick={() => toggleSidebarSection('measurements')}
                                                     className="w-full px-3 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between hover:bg-slate-100 transition-colors"
                                                 >
-                                                    <div className="flex items-center gap-2">
-                                                        <Calculator size={12} className="text-slate-400" />
-                                                        <span className="text-[11px] md:text-[10px] font-bold uppercase text-slate-600 tracking-wider">Detall d'Amidament</span>
+                                                    <div className="flex items-center gap-2 min-w-0">
+                                                        <Calculator size={12} className="text-slate-400 flex-shrink-0" />
+                                                        <span className="text-[11px] md:text-[10px] font-bold uppercase text-slate-600 tracking-wider truncate">Detall d'Amidament</span>
                                                     </div>
-                                                    {expandedSidebarSections.measurements ? <ChevronDown size={12} className="text-slate-400" /> : <ChevronRight size={12} className="text-slate-400" />}
+                                                    {/* El total també a la capçalera: es veu amb les línies plegades. */}
+                                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                                        <span className="text-[11px] md:text-[10px] font-mono font-bold text-blue-700" title="Amidament total">
+                                                            {formatNumber(calcItemTotalQty(node), 2)} {node.unit}
+                                                        </span>
+                                                        {expandedSidebarSections.measurements ? <ChevronDown size={12} className="text-slate-400" /> : <ChevronRight size={12} className="text-slate-400" />}
+                                                    </div>
                                                 </button>
                                                 {expandedSidebarSections.measurements && (
                                                     <div className="p-0">
@@ -5199,13 +6322,31 @@ export default function App() {
                                                                 ))}
 
                                                                 {/* Normal Lines */}
-                                                                {(node.measurements || []).filter(m => !m.isIncrement && !isRefLine(m)).map(m => (
+                                                                {(node.measurements || []).filter(m => !m.isIncrement && !isRefLine(m)).map(m => (m.zona ? (
+                                                                    // Línia de zona d'una instància de sistema: el nom, a tota l'amplada.
+                                                                    <tr key={m.id} className="group bg-violet-50/70">
+                                                                        <td colSpan={5} className="p-1.5">
+                                                                            <input type="text" value={m.description} onChange={(e) => updateMeasurement(node.id, m.id, 'description', e.target.value)} placeholder="Nom de la zona o títol" autoFocus={!m.description} className="w-full bg-transparent border-none font-bold text-violet-800 outline-none p-0 placeholder:text-violet-300 placeholder:font-normal" aria-label="Nom de la zona" />
+                                                                        </td>
+                                                                        <td className="p-1.5 text-right">
+                                                                            <button
+                                                                                onClick={() => deleteMeasurementLine(node.id, m.id)}
+                                                                                className="opacity-60 md:opacity-0 md:group-hover:opacity-100 text-slate-400 hover:text-red-500 p-2 -m-1 touch-manipulation"
+                                                                                title="Treu la línia de títol"
+                                                                            >
+                                                                                <X size={10} />
+                                                                            </button>
+                                                                        </td>
+                                                                    </tr>
+                                                                ) : (
                                                                     <tr key={m.id} className="group">
                                                                         <td className="p-1.5"><input type="text" value={m.description} onChange={(e) => updateMeasurement(node.id, m.id, 'description', e.target.value)} className="w-full bg-transparent border-none text-slate-600 outline-none p-0" /></td>
-                                                                        <td className="p-1.5"><NumberInput value={m.units} onChange={(v) => updateMeasurement(node.id, m.id, 'units', v)} className="w-full text-right bg-transparent border-none font-mono outline-none p-0" /></td>
-                                                                        <td className="p-1.5"><NumberInput value={m.length} onChange={(v) => updateMeasurement(node.id, m.id, 'length', v)} className="w-full text-right bg-transparent border-none font-mono text-slate-400 outline-none p-0" /></td>
-                                                                        <td className="p-1.5"><NumberInput value={m.width} onChange={(v) => updateMeasurement(node.id, m.id, 'width', v)} className="w-full text-right bg-transparent border-none font-mono text-slate-400 outline-none p-0" /></td>
-                                                                        <td className="p-1.5"><NumberInput value={m.height} onChange={(v) => updateMeasurement(node.id, m.id, 'height', v)} className="w-full text-right bg-transparent border-none font-mono text-slate-400 outline-none p-0" /></td>
+                                                                        <td className="p-1.5"><FormulaInput value={m.units} formula={m.formules?.units} error={m.errorsFormula?.units} teclatText={teParametres} onChange={(e) => updateMeasurementCamp(node.id, m.id, 'units', e)} className="w-full text-right bg-transparent border-none font-mono outline-none p-0" /></td>
+                                                                        <td className="p-1.5"><FormulaInput value={m.length} formula={m.formules?.length} error={m.errorsFormula?.length} teclatText={teParametres} onChange={(e) => updateMeasurementCamp(node.id, m.id, 'length', e)} className="w-full text-right bg-transparent border-none font-mono text-slate-400 outline-none p-0" /></td>
+                                                                        {/* Les línies que venen del CAD sense alçada (o sense amplada, en m3) es marquen
+                                                                            fins que s'hi posa un valor: mentre és a zero, el parcial la compta com a 1. */}
+                                                                        <td className={`p-1.5 ${m.needsWidth && !m.width ? 'bg-amber-100' : ''}`} title={m.needsWidth && !m.width ? 'Falta l\'amplada' : undefined}><FormulaInput value={m.width} formula={m.formules?.width} error={m.errorsFormula?.width} teclatText={teParametres} onChange={(e) => updateMeasurementCamp(node.id, m.id, 'width', e)} className="w-full text-right bg-transparent border-none font-mono text-slate-400 outline-none p-0" /></td>
+                                                                        <td className={`p-1.5 ${m.needsHeight && !m.height ? 'bg-amber-100' : ''}`} title={m.needsHeight && !m.height ? 'Falta l\'alçada' : undefined}><FormulaInput value={m.height} formula={m.formules?.height} error={m.errorsFormula?.height} teclatText={teParametres} onChange={(e) => updateMeasurementCamp(node.id, m.id, 'height', e)} className="w-full text-right bg-transparent border-none font-mono text-slate-400 outline-none p-0" /></td>
                                                                         <td className="p-1.5 text-right font-bold text-blue-900">
                                                                             <div className="flex items-center justify-end gap-1">
                                                                                 {formatNumber(calcMeasureTotal(m), 2)}
@@ -5218,7 +6359,7 @@ export default function App() {
                                                                             </div>
                                                                         </td>
                                                                     </tr>
-                                                                ))}
+                                                                )))}
 
                                                                 {/* Increment Lines */}
                                                                 {(node.measurements || []).filter(m => m.isIncrement).map(m => {
@@ -5229,7 +6370,7 @@ export default function App() {
                                                                         <tr key={m.id} className="group bg-slate-50">
                                                                             <td className="p-1.5 bg-slate-50"><input type="text" value={m.description} onChange={(e) => updateMeasurement(node.id, m.id, 'description', e.target.value)} className="w-full bg-transparent border-none text-slate-600 outline-none p-0 italic" /></td>
                                                                             <td className="p-1.5 text-right text-slate-500 text-[11px] md:text-[10px]">%</td>
-                                                                            <td className="p-1.5"><NumberInput value={m.units} onChange={(v) => updateMeasurement(node.id, m.id, 'units', v)} className="w-full text-right bg-transparent border-none font-mono font-bold outline-none p-0" /></td>
+                                                                            <td className="p-1.5"><FormulaInput value={m.units} formula={m.formules?.units} error={m.errorsFormula?.units} teclatText={teParametres} onChange={(e) => updateMeasurementCamp(node.id, m.id, 'units', e)} className="w-full text-right bg-transparent border-none font-mono font-bold outline-none p-0" /></td>
                                                                             <td colSpan={2} className="p-1.5 text-center text-slate-300">-</td>
                                                                             <td className="p-1.5 text-right font-bold text-blue-900 bg-slate-50">
                                                                                 <div className="flex items-center justify-end gap-1">
@@ -5248,9 +6389,16 @@ export default function App() {
                                                             </tbody>
                                                         </table>
                                                         <div className="p-2 bg-slate-50 border-t border-slate-100 flex justify-between items-center gap-2">
-                                                            <div className="flex gap-2">
+                                                            <div className="flex flex-wrap gap-2">
                                                                 <button onClick={() => addMeasurementLine(node.id)} className="text-[10px] md:text-[9px] bg-white border border-slate-200 px-2 py-1 flex items-center gap-1 hover:bg-slate-100 transition-colors uppercase font-bold text-slate-600">
                                                                     <Plus size={10} /> Afegir línia
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => addMeasurementLine(node.id, { titol: true })}
+                                                                    className="text-[10px] md:text-[9px] bg-white border border-violet-200 text-violet-700 px-2 py-1 flex items-center gap-1 hover:bg-violet-50 transition-colors uppercase font-bold"
+                                                                    title="Línia de títol: el nom d'una zona o d'un grup de línies, sense xifres"
+                                                                >
+                                                                    <Heading size={10} /> Títol
                                                                 </button>
                                                                 <button onClick={() => setLinkTarget(node.id)} className="text-[10px] md:text-[9px] bg-white border border-blue-200 text-blue-700 px-2 py-1 flex items-center gap-1 hover:bg-blue-50 transition-colors uppercase font-bold" title="Prendre l'amidament d'una altra partida">
                                                                     <LinkIcon size={10} /> Vincular
@@ -5258,6 +6406,12 @@ export default function App() {
                                                                 <button onClick={() => addIncrementLine(node.id)} className="text-[10px] md:text-[9px] bg-white border border-slate-200 px-2 py-1 flex items-center gap-1 hover:bg-slate-100 transition-colors uppercase font-bold text-slate-600">
                                                                     <Percent size={10} /> Afegir %
                                                                 </button>
+                                                                <button onClick={enganxaCadDelPortaRetalls} className="text-[10px] md:text-[9px] bg-white border border-slate-200 px-2 py-1 flex items-center gap-1 hover:bg-slate-100 transition-colors uppercase font-bold text-slate-600" title="Una línia per entitat copiada a AutoCAD amb l'ordre AMIDA (també amb Ctrl+V)">
+                                                                    <ClipboardPaste size={10} /> Enganxa CAD
+                                                                </button>
+                                                                <a href={`${import.meta.env.BASE_URL}cad/amidaments.lsp`} download={safeFileName('amidaments.lsp')} className="text-[10px] md:text-[9px] text-slate-400 hover:text-blue-600 px-1 py-1 flex items-center gap-1 underline" title="LISP per a AutoCAD: carrega'l amb APPLOAD i escriu AMIDA">
+                                                                    LISP
+                                                                </a>
                                                             </div>
                                                             <span className="text-[11px] md:text-[10px] font-mono font-bold text-blue-700">{formatNumber(calcItemTotalQty(node), 2)} {node.unit}</span>
                                                         </div>
@@ -5273,11 +6427,18 @@ export default function App() {
                                                     onClick={() => toggleSidebarSection('justification')}
                                                     className="w-full px-3 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between hover:bg-slate-100 transition-colors"
                                                 >
-                                                    <div className="flex items-center gap-2">
-                                                        <List size={12} className="text-slate-400" />
-                                                        <span className="text-[10px] font-bold uppercase text-slate-600 tracking-wider">Justificació de Preu</span>
+                                                    <div className="flex items-center gap-2 min-w-0">
+                                                        <List size={12} className="text-slate-400 flex-shrink-0" />
+                                                        <span className="text-[10px] font-bold uppercase text-slate-600 tracking-wider truncate">Justificació de Preu</span>
                                                     </div>
-                                                    {expandedSidebarSections.justification ? <ChevronDown size={12} className="text-slate-400" /> : <ChevronRight size={12} className="text-slate-400" />}
+                                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                                        {(node.breakdown || []).length > 0 && (
+                                                            <span className="text-[11px] md:text-[10px] font-mono font-bold text-blue-700" title="Cost directe total">
+                                                                {formatCurrency(calculaJustificacio(node).totalCost)}
+                                                            </span>
+                                                        )}
+                                                        {expandedSidebarSections.justification ? <ChevronDown size={12} className="text-slate-400" /> : <ChevronRight size={12} className="text-slate-400" />}
+                                                    </div>
                                                 </button>
                                                 {expandedSidebarSections.justification && (
                                                     <div className="p-0">
@@ -5286,6 +6447,31 @@ export default function App() {
                                                 )}
                                             </div>
                                         )}
+
+                                        {/* Descripció Section */}
+                                        <div className="bg-white border border-slate-200 rounded shadow-sm overflow-hidden">
+                                            <button
+                                                onClick={() => toggleSidebarSection('description')}
+                                                className="w-full px-3 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between hover:bg-slate-100 transition-colors"
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <AlignLeft size={12} className="text-slate-400" />
+                                                    <span className="text-[10px] font-bold uppercase text-slate-600 tracking-wider">Descripció Tècnica</span>
+                                                </div>
+                                                {expandedSidebarSections.description ? <ChevronDown size={12} className="text-slate-400" /> : <ChevronRight size={12} className="text-slate-400" />}
+                                            </button>
+                                            {expandedSidebarSections.description && (
+                                                <div className="p-3">
+                                                    <textarea
+                                                        className="w-full p-3 text-xs border border-slate-200 rounded focus:border-blue-500 outline-none transition-all min-h-[150px] font-sans text-slate-600 leading-relaxed"
+                                                        value={node.plantilles?.fullDescription ?? (node.fullDescription || '')}
+                                                        onChange={(e) => updateFullDescription(node.id, e.target.value)}
+                                                        placeholder={teParametres ? 'Escriu la descripció detallada... Pots fer servir paràmetres entre claus: {L}' : 'Escriu la descripció detallada...'}
+                                                    />
+                                                    <VistaPlantilla plantilla={node.plantilles?.fullDescription} resolt={node.fullDescription} />
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             );
@@ -5315,8 +6501,16 @@ export default function App() {
                 <ImportConfirmModal
                     code={importPending.duplicates[importPending.currentIdx].code}
                     description={importPending.duplicates[importPending.currentIdx].description}
-                    onConfirm={() => handleConfirmDuplicate(true)}
-                    onSkip={() => handleConfirmDuplicate(false)}
+                    nLinies={importPending.duplicates[importPending.currentIdx].nLinies}
+                    variable={!!importPending.duplicates[importPending.currentIdx].variable}
+                    onConfirm={(aTots) => handleConfirmDuplicate(true, aTots)}
+                    onAfegeixLinies={(aTots) => handleConfirmDuplicate('linies', aTots)}
+                    onSkip={(aTots) => handleConfirmDuplicate(false, aTots)}
+                    index={importPending.currentIdx}
+                    total={importPending.duplicates.length}
+                    // No s'ha aplicat res encara: la fusió només es fa en resoldre l'últim
+                    // duplicat, així que cancel·lar és simplement oblidar la importació.
+                    onCancel={() => { setImportPending(null); notify('Importació cancel·lada'); }}
                 />
             )}
 
@@ -5380,6 +6574,33 @@ export default function App() {
                     onExportSummaryPDF={handleExportSummaryPDF}
                     handleExportXLSX={handleExportXLSX}
                 />
+            )}
+
+            {/* Fitxer obert amb «Obre amb» des de Google Drive: cal un toc per iniciar sessió */}
+            {drive.pendingDriveOpen && !drive.isLoading && (
+                <div className="fixed inset-x-4 bottom-4 md:inset-x-auto md:right-6 md:bottom-6 md:w-96 z-[105] bg-slate-950 text-white border border-slate-700 rounded-lg shadow-2xl p-4 flex flex-col gap-3">
+                    <div className="flex items-start gap-3">
+                        <Cloud size={18} className="text-blue-400 shrink-0 mt-0.5" />
+                        <div className="text-[11px] leading-snug">
+                            <p className="font-bold uppercase tracking-widest text-[10px]">Fitxer de Google Drive</p>
+                            <p className="text-slate-300 mt-1">Per obrir-lo, cal iniciar sessió a Google.</p>
+                        </div>
+                    </div>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={drive.dismissPendingDriveFile}
+                            className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded text-[10px] font-bold uppercase tracking-widest"
+                        >
+                            Ara no
+                        </button>
+                        <button
+                            onClick={drive.openPendingDriveFile}
+                            className="flex-1 bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded text-[10px] font-bold uppercase tracking-widest"
+                        >
+                            Obrir
+                        </button>
+                    </div>
+                </div>
             )}
 
             {drive.isLoading && (

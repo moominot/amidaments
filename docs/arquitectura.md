@@ -29,11 +29,12 @@ Navegador
 | `src/utils/bc3Writer.js` | 215 | Escriptor FIEBDC-3. Un fitxer per document: pressupost o certificació. |
 | `src/utils/projectFile.js` | 68 | Identitat del fitxer natiu `.amid`: extensions, MIME, serialització i lectura. |
 | `src/utils/carbon.js` | 175 | Petjada de carboni i cost energètic, agregats per material, capítol i partida. |
+| `src/utils/cadPaste.js` | — | Línies d'amidament a partir de les entitats copiades amb el LISP `public/cad/amidaments.lsp`. Veure [`docs/cad.md`](cad.md). |
 | `src/utils/waste.js` | 152 | Agregació dels residus per codi LER, per tipus i per partida. |
 | `src/components/PriceBankPicker.jsx` | 160 | Selector d'un concepte del banc de preus, compartit pel descomposat, la creació de partides i els residus. |
 | `src/utils/wasteStudy.js` | 108 | Fraccions i llindars de l'article 5.5 del RD 105/2008, i valoració del cost. |
 | `src/utils/wasteStudyPdf.js` | 300 | L'estudi de gestió de residus en PDF, amb els set apartats. |
-| `src/utils/corsProxy.js` | 95 | Descàrrega d'un BC3 des d'una URL, amb la cadena de proxys CORS. |
+| `src/utils/corsProxy.js` | — | Descàrrega d'un BC3 o d'una pàgina des d'una URL, amb la cadena de proxys CORS. |
 | `src/utils/googleDrive.js` | 260 | Wrapper de Drive API + Picker + codificació Windows-1252. |
 | `src/hooks/useCertification.js` | 163 | Mutacions d'estat de certificacions. |
 | `src/hooks/useGoogleDrive.js` | 347 | Cicle de vida OAuth, obrir/desar a Drive, "Open with…". |
@@ -41,9 +42,26 @@ Navegador
 | `src/components/Certification/CertificationBar.jsx` | 105 | Selector de fases i aprovació. |
 | `src/components/Certification/CertificationSidebar.jsx` | 222 | Panell de certificació d'una partida. |
 | `src/components/DriveSettingsModal.jsx` | 145 | Formulari de credencials Google. |
+| `public/eines/generador-preus.user.js` | — | Script de Tampermonkey: botó per copiar l'enllaç del BC3 al Generador de Preus. Veure [`docs/generador-preus.md`](generador-preus.md). |
 | `public/sw.js` | 166 | Service worker: precache del shell i dels bundles, i recepció dels fitxers compartits des d'Android. |
 | `public/manifest.json` | — | PWA + `file_handlers` (`.amid`, `.json`, `.bc3`) i `share_target`. |
-| `test/` | 113 tests | Vitest sobre els càlculs, el parser i l'escriptor. Veure [`docs/tests.md`](tests.md). |
+| `src/utils/formules.js` | — | Analitzador i avaluador de fórmules (sense `eval`). Veure [`docs/sistemes.md`](sistemes.md). |
+| `src/utils/parametres.js` | — | Paràmetres del projecte i resolució de les línies amb fórmula. |
+| `src/utils/cadSistemes.js` | — | Entitats del CAD → zones → una instància de sistema per zona, i el vincle per actualitzar-les. Veure [`docs/cad.md`](cad.md). |
+| `src/components/CadSistemaModal.jsx` | — | Quadre «Del CAD a un sistema». |
+| `src/utils/esquema.js` | — | Esquema d'un sistema (imatge o SVG): reducció i validació. |
+| `src/components/Esquema.jsx` | — | L'esquema, que s'amplia en tocar-lo. |
+| `src/utils/plantilles.js` | — | Títols i descripcions amb variables entre claus. |
+| `src/utils/sistemesDoc.js` | — | Sistemes constructius com a documents: crear, inserir, filtrar, extreure, treure. |
+| `src/utils/galeriaSistemes.js` | — | Galeria de sistemes, desats al navegador. |
+| `src/components/ParametresPanel.jsx` | — | Barra de paràmetres a l'esquerra (calaix al mòbil). |
+| `src/components/FormulaInput.jsx` | — | Camp d'amidament que accepta número o fórmula. |
+| `src/components/SistemesModal.jsx` | — | Galeria de sistemes, inserció amb paràmetres i desar com a sistema. |
+| `src/utils/assistent/` | — | Assistent amb Claude: bucle amb l'API (`agent.js`), eines (`eines.js`), lectura del Generador de Preus (`cype.js`) i indicacions. Veure [`docs/assistent.md`](assistent.md). |
+| `src/utils/traduccio.js` | — | Traducció del projecte o d'una part: recollir i aplicar els textos. Veure [`docs/traduccio.md`](traduccio.md). |
+| `src/components/TraduccioModal.jsx` | — | Quadre de traducció. |
+| `src/components/AssistentPanel.jsx` | — | Xat de l'assistent (columna de l'esquerra o calaix). |
+| `test/` | 301 tests | Vitest sobre els càlculs, el parser i l'escriptor. Veure [`docs/tests.md`](tests.md). |
 
 ## Estructura interna d'`App.jsx`
 

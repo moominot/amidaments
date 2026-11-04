@@ -91,7 +91,9 @@ Generador de Preus de CYPE en porten). Detall a [`docs/residus.md`](residus.md).
   length: 4,       // Ll
   width: 1,        // Am
   height: 3.14,    // Al
-  isIncrement: false   // si true, `units` és un % sobre el subtotal de les línies normals
+  isIncrement: false,  // si true, `units` és un % sobre el subtotal de les línies normals
+  zona: false,         // línia de títol d'una instància de sistema (nom de la zona), a 0
+  nomZona: false,      // el text és el nom de la zona; l'original del sistema, a descripcioSistema
 }
 ```
 
@@ -102,6 +104,24 @@ línia `{units: 5}` val 5.
 Les línies amb `isIncrement: true` (creades per `addIncrementLine`) representen un percentatge
 d'increment: `subtotal_línies_normals × units / 100`. S'apliquen sempre després de sumar
 totes les línies normals.
+
+### Línies amb fórmula
+
+Qualsevol camp numèric pot ser una fórmula amb paràmetres del projecte:
+
+```js
+{ id: "uuid", description: "Llosa", units: 1, length: 8.5, width: 2.28, height: 1,
+  formules: { length: "L+2*e", width: "A+2*e" },
+  sistema: "id-instància" }   // opcional: ve d'un sistema inserit
+```
+
+**Quan un camp té fórmula, mana la fórmula**; el número del camp pot ser antic. La resol
+`resolveFormules` (`utils/parametres.js`) abans dels vincles, i el resultat és dins de
+`resolvedChapters`. Veure [`docs/sistemes.md`](sistemes.md).
+
+Al pressupost: `budget.parametres` (`[{ id, nom, valor, formula, unitat, descripcio, grup }]`)
+i `budget.sistemes` (`[{ id, nom, sistema }]`, les instàncies de sistemes inserides). Tots dos
+són opcionals: un projecte sense val `[]`, i no ha calgut pujar `schemaVersion`.
 
 ### Línies vinculades
 
@@ -143,6 +163,7 @@ es reflecteix tot sol; si s'esborra, la línia queda a 0 i es marca com a «lín
   description: "Oficial 1a",
   unit: "h",
   yield: 0.35,                // rendiment
+  formulaRendiment: "B*H",    // opcional: si hi és, mana sobre `yield` (es resol a resolvedChapters)
   price: 21.4,                // preu de la línia; priceDatabase té preferència
   total: 7.49                 // informatiu, no és font de veritat
 }
@@ -171,6 +192,7 @@ mateix descomposat. Es divideix per 100 només si la unitat és realment `%`
     summary: "Demolició de fàbrica…",
     unit: "m2",
     breakdown: [ BreakdownLine, ... ]   // opcional; el parser BC3 NO l'omple
+    font: "https://… (2026-11-01)"     // opcional: d'on surt el preu (assistent)
   }
 }
 ```

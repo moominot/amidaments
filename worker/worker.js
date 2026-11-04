@@ -25,7 +25,7 @@
 /** Dominis als quals aquest proxy pot anar a buscar fitxers. */
 const ORIGENS_PERMESOS = [
     'generadordepreus.info',
-    'generadorprecios.info',
+    'generadordeprecios.info',
     'cype.es',
     'cype.net',
 ];
