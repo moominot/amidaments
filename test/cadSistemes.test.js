@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { parseCadClipboard, netejaMtext, nomDeRetols } from '../src/utils/cadPaste';
 import {
-    magnituds, agrupaEntitats, modePerDefecte, fontPerDefecte, muntaInstancies, fusionaArbres,
+    magnituds, agrupaEntitats, modePerDefecte, fontPerDefecte, assignacioPerDefecte, muntaInstancies, fusionaArbres,
     instanciesVinculades, actualitzaDesDeCad, entitatsLliures,
 } from '../src/utils/cadSistemes';
 import { llegeixDocument, FORMAT_SISTEMA } from '../src/utils/sistemesDoc';
@@ -224,5 +224,28 @@ describe('la mateixa polilínia per a sistemes diferents', () => {
         const r = actualitzaDesDeCad(tot, modificades);
         expect(r.canvis.map(c => `${c.instancia}·${c.parametre}`)).toEqual(['Cuina·A', 'Cuina·P', 'Cuina 2·A_4', 'Cuina 2·P_4']);
         expect(r.vinculadesAmbSistema.map(v => v.sistema)).toEqual(['Paviment de gres', 'Paviment de gres', 'Paviment de gres', 'Fals sostre de placa', 'Fals sostre de placa', 'Fals sostre de placa']);
+    });
+});
+
+describe('d\'on surt cada paràmetre per defecte', () => {
+    const p = (nom, unitat, descripcio = '') => ({ nom, unitat, descripcio, valor: 1 });
+
+    it('l\'únic paràmetre en m² és l\'àrea, es digui com es digui', () => {
+        const r = assignacioPerDefecte([p('Sup_paviment', 'm2'), p('Hsocol', 'm', 'Alçada del sòcol'), p('esp', 'm')]);
+        expect(r.assignacio).toEqual({ Sup_paviment: 'area', Hsocol: 'sistema', esp: 'sistema' });
+        expect(r.ambiguA).toEqual([]);
+    });
+
+    it('amb diversos en m², el que diu superfície o àrea; si cap ho diu, no en tria cap i ho avisa', () => {
+        const r = assignacioPerDefecte([p('Aobert', 'm²', 'Obertures a descomptar'), p('S1', 'm2', 'Superfície de la sala')]);
+        expect(r.assignacio).toEqual({ Aobert: 'sistema', S1: 'area' });
+        const dubte = assignacioPerDefecte([p('X1', 'm2'), p('X2', 'm2')]);
+        expect(dubte.assignacio).toEqual({ X1: 'sistema', X2: 'sistema' });
+        expect(dubte.ambiguA).toEqual(['X1', 'X2']);
+    });
+
+    it('el perímetre i la llargada pel nom o la descripció, no per la unitat sola', () => {
+        const r = assignacioPerDefecte([p('A', 'm2'), p('Lsoc', 'm', 'Sòcol de la sala'), p('H', 'm', 'Alçada'), p('Lmur', 'm', 'Longitud del mur')]);
+        expect(r.assignacio).toEqual({ A: 'area', Lsoc: 'perimetre', H: 'sistema', Lmur: 'llargada' });
     });
 });

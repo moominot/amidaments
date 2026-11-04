@@ -55,8 +55,12 @@ sistema» (`components/CadSistemaModal.jsx`, `utils/cadSistemes.js`):
 2. Amb les entitats que no són de cap zona: **el sistema** de la galeria, **com s'agrupen** (pel
    rètol de dins, sense distingir majúscules; una zona per entitat; totes en una; per capa) i
    **d'on surt cada paràmetre**: àrea, perímetre, llargada de les obertes, nombre d'entitats o el
-   valor del sistema (comú a totes les zones). Per defecte s'intueix pel nom (`A` → àrea, `P` →
-   perímetre) i després es recorda per sistema.
+   valor del sistema (comú a totes les zones). Per defecte (`assignacioPerDefecte`): l'àrea és
+   l'únic paràmetre en m² o, si n'hi ha diversos, el que diu superfície o àrea al nom o a la
+   descripció (si no se'n pot triar cap, el quadre demana quin); el perímetre i la llargada, pel
+   nom o la descripció (sòcol, contorn, longitud), mai una alçada, un gruix o una amplada. Si cap
+   paràmetre surt del CAD, el quadre ho avisa. Només es recorda per sistema el que s'ha triat a
+   mà.
 3. **Taula de zones**: nom i valors editables, amb el total i les condicions de cada una. Una
    zona es pot descartar (la paperera) i no s'insereix; «recupera-les» les torna totes.
 4. **Insereix**: una instància per zona, amb paràmetres propis (`A`, `A_2`...) i el nom de la

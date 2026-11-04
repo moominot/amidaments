@@ -9,7 +9,7 @@ import { recullTextos, aplicaTraduccions, IDIOMES_TRADUCCIO } from '../traduccio
 import { svgAEsquema, midaDataUrl } from '../esquema';
 import { previsualitza } from '../sistemesDoc';
 import {
-    FONTS, MODES, fontPerDefecte, respostesDeZona, muntaInstancies, fusionaArbres, actualitzaDesDeCad, zonesDeIndicacio,
+    FONTS, MODES, assignacioPerDefecte, respostesDeZona, muntaInstancies, fusionaArbres, actualitzaDesDeCad, zonesDeIndicacio,
     entitatsLliures,
 } from '../cadSistemes';
 
@@ -708,7 +708,8 @@ const insereixZonesCad = async (input, llegeix, ctx) => {
     const demanats = doc.parametres.filter(p => !p.formula);
     const desconeguts = Object.keys(input.assignacio || {}).filter(n => !demanats.some(p => p.nom === n));
     if (desconeguts.length) throw new ErrorEina(`El sistema no té els paràmetres ${desconeguts.join(', ')}. Té: ${demanats.map(p => p.nom).join(', ')}`);
-    const assignacio = Object.fromEntries(demanats.map(p => [p.nom, input.assignacio?.[p.nom] || fontPerDefecte(p)]));
+    const perDefecte = assignacioPerDefecte(demanats).assignacio;
+    const assignacio = Object.fromEntries(demanats.map(p => [p.nom, input.assignacio?.[p.nom] || perDefecte[p.nom]]));
     const comuns = Object.fromEntries(demanats.filter(p => assignacio[p.nom] === 'sistema').map(p => [p.nom, input.comuns?.[p.nom] ?? p.valor ?? 0]));
 
     // Les condicions del sistema s'han de complir a cada zona, com en inserir-lo a mà.

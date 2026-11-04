@@ -7,7 +7,7 @@ import { llistaSistemes, llegeixSistema } from '../utils/galeriaSistemes';
 import { previsualitza } from '../utils/sistemesDoc';
 import { CAMPS_PLANTILLA, esPlantilla } from '../utils/plantilles';
 import {
-    FONTS, MODES, magnituds, agrupaEntitats, modePerDefecte, fontPerDefecte, valorsDeZona, respostesDeZona,
+    FONTS, MODES, magnituds, agrupaEntitats, modePerDefecte, assignacioPerDefecte, valorsDeZona, respostesDeZona,
     muntaInstancies, actualitzaDesDeCad, entitatsLliures,
 } from '../utils/cadSistemes';
 
@@ -53,12 +53,19 @@ const CadSistemaModal = ({ dades, budget, priceDatabase, onInsereix, onActualitz
     // Amb totes les enganxades: les lliures depenen del sistema triat i poden ser cap.
     const [mode, setMode] = useState(() => modePerDefecte(totes));
     const [assignacio, setAssignacio] = useState({});
+    // Els paràmetres en m² entre els quals no s'ha sabut triar l'àrea, i els que s'han triat a mà
+    // (només aquests es recorden per al sistema: la resta s'intueix cada vegada).
+    const [ambiguA, setAmbiguA] = useState([]);
+    const [tocats, setTocats] = useState({});
     const [comuns, setComuns] = useState({});
     useEffect(() => {
         if (!doc) return;
         let desada = {};
         try { desada = JSON.parse(llegeix(clauAssignacio(idSistema)) || '{}'); } catch { desada = {}; }
-        setAssignacio(Object.fromEntries(demanats.map(p => [p.nom, desada[p.nom] || fontPerDefecte(p)])));
+        const perDefecte = assignacioPerDefecte(demanats);
+        setAssignacio(Object.fromEntries(demanats.map(p => [p.nom, desada[p.nom] || perDefecte.assignacio[p.nom]])));
+        setAmbiguA(Object.values(desada).includes('area') ? [] : perDefecte.ambiguA);
+        setTocats(Object.fromEntries(demanats.filter(p => desada[p.nom]).map(p => [p.nom, desada[p.nom]])));
         setComuns(Object.fromEntries(demanats.map(p => [p.nom, p.valor ?? 0])));
     }, [doc, demanats, idSistema]);
 
@@ -110,7 +117,7 @@ const CadSistemaModal = ({ dades, budget, priceDatabase, onInsereix, onActualitz
     const insereix = () => {
         if (!doc || !zones.length) return;
         desa(CLAU_SISTEMA, idSistema);
-        desa(clauAssignacio(idSistema), JSON.stringify(assignacio));
+        desa(clauAssignacio(idSistema), JSON.stringify(tocats));
         const r = muntaInstancies(doc, zones, {
             assignacio, comuns: comunsActius,
             parametresProjecte: budget.parametres || [],
@@ -210,6 +217,18 @@ const CadSistemaModal = ({ dades, budget, priceDatabase, onInsereix, onActualitz
                             {doc && (
                                 <div className="p-4 border-b border-slate-100">
                                     <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">D&apos;on surt cada paràmetre</div>
+                                    {/* Sense cap paràmetre del CAD, totes les zones serien iguals: es diu ben clar. */}
+                                    {ambiguA.length > 1 && !Object.values(assignacio).includes('area') ? (
+                                        <p className="mb-2 flex items-start gap-1.5 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 px-2 py-1.5">
+                                            <AlertTriangle size={12} className="mt-0.5 flex-shrink-0" />
+                                            <span>Hi ha {ambiguA.length} paràmetres en m² (<span className="font-mono">{ambiguA.join(', ')}</span>): tria quin és l&apos;àrea de la zona.</span>
+                                        </p>
+                                    ) : delCad.length === 0 && demanats.length > 0 && (
+                                        <p className="mb-2 flex items-start gap-1.5 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 px-2 py-1.5">
+                                            <AlertTriangle size={12} className="mt-0.5 flex-shrink-0" />
+                                            <span>Cap paràmetre surt del CAD: totes les zones tindran els valors del sistema. Tria a quin paràmetre va l&apos;àrea (o el perímetre).</span>
+                                        </p>
+                                    )}
                                     <div className="space-y-1.5">
                                         {demanats.map(p => {
                                             const font = assignacio[p.nom] || 'sistema';
@@ -220,7 +239,12 @@ const CadSistemaModal = ({ dades, budget, priceDatabase, onInsereix, onActualitz
                                                     </span>
                                                     <select
                                                         value={font}
-                                                        onChange={e => setAssignacio(prev => ({ ...prev, [p.nom]: e.target.value }))}
+                                                        onChange={e => {
+                                                            const v = e.target.value;
+                                                            setAssignacio(prev => ({ ...prev, [p.nom]: v }));
+                                                            setTocats(prev => ({ ...prev, [p.nom]: v }));
+                                                            if (v === 'area') setAmbiguA([]);
+                                                        }}
                                                         className="border border-slate-200 px-1.5 py-1 text-[11px] outline-none focus:border-blue-500 bg-white"
                                                         aria-label={`D'on surt ${p.nom}`}
                                                     >

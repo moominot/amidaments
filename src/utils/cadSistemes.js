@@ -85,7 +85,23 @@ export const modePerDefecte = (entitats = []) => {
     return entitats.length > 1 ? 'cada' : 'una';
 };
 
-/** Per a un paràmetre del sistema, la font que s'hi intueix pel nom. */
+const unitatDe = (p) => {
+    const u = String(p.unitat || '').trim().toLowerCase().replace('²', '2').replace('^2', '2').replace(/\.$/, '');
+    if (u === 'm2') return 'm2';
+    if (u === 'm' || u === 'ml') return 'm';
+    if (['u', 'ud', 'uds', 'ut', 'uts', 'un'].includes(u)) return 'ud';
+    return u;
+};
+const textDe = (p) => `${p.nom || ''} ${p.descripcio || ''}`.toLowerCase();
+const diuArea = (p) => /^(a|s|sup|area|àrea)$/i.test(String(p.nom || '')) || /superf|àrea|\barea\b|paviment|planta/.test(textDe(p));
+// Una alçada, un gruix o una amplada no són mai el perímetre ni la llargada, encara que la
+// descripció parli del sòcol («Alçada del sòcol»).
+const esMidaSeccio = (p) => /al[cç]ada|altura|gruix|espessor|amplada|ample|cantell|fondària|profunditat/.test(textDe(p));
+const diuPerimetre = (p) => !esMidaSeccio(p) && (/^(p|per|perim)$/i.test(String(p.nom || '')) || /per[ií]metre|perim|s[oò]col|contorn/.test(textDe(p)));
+const diuLlargada = (p) => !esMidaSeccio(p) && (/^(l|ll|long)$/i.test(String(p.nom || '')) || /llarg|longitud/.test(textDe(p)));
+const diuNombre = (p) => /^(n|num|nombre)$/i.test(String(p.nom || '')) || /\bnombre\b|quantitat d'/.test(textDe(p));
+
+/** Per a un paràmetre sol, la font que s'hi intueix pel nom (veure `assignacioPerDefecte`). */
 export const fontPerDefecte = (p) => {
     const n = String(p.nom || '').toLowerCase();
     if (/^(a|s|area|àrea|sup|superficie|superfície)$/.test(n)) return 'area';
@@ -93,6 +109,34 @@ export const fontPerDefecte = (p) => {
     if (/^(l|ll|llarg|llargada|long)$/.test(n)) return 'llargada';
     if (/^(n|num|nombre)$/.test(n)) return 'nombre';
     return 'sistema';
+};
+
+/**
+ * D'on surt cada paràmetre per defecte, mirant-los tots junts: el nom, la descripció i la
+ * unitat.
+ * - **Àrea**: si només n'hi ha un en m², aquest; si n'hi ha diversos, el que diu superfície o
+ *   àrea al nom o a la descripció. Si no se'n pot triar cap, cap: es torna a `ambiguA` perquè
+ *   el quadre ho digui.
+ * - **Perímetre**, **llargada** i **nombre**: pel nom o la descripció (un paràmetre en m pot ser
+ *   una alçada, així que la unitat sola no basta).
+ * Torna `{ assignacio, ambiguA }`.
+ */
+export const assignacioPerDefecte = (parametres = []) => {
+    const assignacio = Object.fromEntries(parametres.map(p => [p.nom, 'sistema']));
+    const m2 = parametres.filter(p => unitatDe(p) === 'm2');
+    let ambiguA = [];
+    const perArea = m2.length === 1 ? m2 : m2.filter(diuArea);
+    if (perArea.length === 1) assignacio[perArea[0].nom] = 'area';
+    else if (m2.length > 1) ambiguA = m2.map(p => p.nom);
+    else parametres.filter(p => !unitatDe(p) && fontPerDefecte(p) === 'area').slice(0, 1).forEach(p => { assignacio[p.nom] = 'area'; });
+    parametres.forEach(p => {
+        if (assignacio[p.nom] !== 'sistema') return;
+        const u = unitatDe(p);
+        if ((u === 'm' || !u) && diuPerimetre(p)) assignacio[p.nom] = 'perimetre';
+        else if ((u === 'm' || !u) && diuLlargada(p)) assignacio[p.nom] = 'llargada';
+        else if ((u === 'ud' || !u) && diuNombre(p)) assignacio[p.nom] = 'nombre';
+    });
+    return { assignacio, ambiguA };
 };
 
 /** Els valors dels paràmetres que surten del CAD per a una zona: `{ nom: valor }`. */
