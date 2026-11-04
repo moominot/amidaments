@@ -439,7 +439,8 @@ describe('eines del CAD als sistemes', () => {
         const segon = await executaEina('insereix_zones_cad', { sistema: 'g1', zones: [{ nom: 'Menjador', entitats: [1, 2] }] }, primer.estat, ctx());
         const pav = segon.estat.budget.chapters;
         expect(pav).toHaveLength(1);
-        expect(pav[0].items[0].measurements.filter(m => m.zona).map(m => m.description)).toEqual(['Planta baixa', 'Menjador']);
+        // Una línia per zona: el nom de la zona n'és el text, sense títol.
+        expect(pav[0].items[0].measurements.map(m => m.description)).toEqual(['Planta baixa', 'Menjador']);
         expect(segon.resultat.pem).toBe(round2(64.75 * 30 + 63 * 8));
     });
 

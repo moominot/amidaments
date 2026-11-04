@@ -123,7 +123,9 @@ describe('inserir una zona per sala', () => {
         expect(r.chapters).toHaveLength(1);
         expect(r.chapters[0].items.map(i => i.code)).toEqual(['GRES', 'SOCOL']);
         const gres = r.chapters[0].items[0];
-        expect(gres.measurements.filter(m => m.zona).map(m => m.description)).toEqual(['Cuina', 'Menjador', 'Estar']);
+        // Una línia per sala, amb el nom de la sala com a text i sense línia de títol.
+        expect(gres.measurements.map(m => m.description)).toEqual(['Cuina', 'Menjador', 'Estar']);
+        expect(gres.measurements.some(m => m.zona)).toBe(false);
         expect(r.instancies[1].cad).toEqual({ handles: ['2F2', '2F3'], assignacio, dibuix: 'planta.dwg' });
     });
 

@@ -92,7 +92,8 @@ Generador de Preus de CYPE en porten). Detall a [`docs/residus.md`](residus.md).
   width: 1,        // Am
   height: 3.14,    // Al
   isIncrement: false,  // si true, `units` és un % sobre el subtotal de les línies normals
-  zona: false          // línia de títol d'una instància de sistema (nom de la zona), a 0
+  zona: false,         // línia de títol d'una instància de sistema (nom de la zona), a 0
+  nomZona: false,      // el text és el nom de la zona; l'original del sistema, a descripcioSistema
 }
 ```
 

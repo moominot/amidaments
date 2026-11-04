@@ -409,39 +409,50 @@ describe('ometre les partides que surten a zero', () => {
     });
 });
 
-describe('línia de zona de cada instància', () => {
-    it('cada partida amb línies en porta una al davant, a 0, amb el nom de la instància', () => {
+describe('nom de la zona a les línies de cada instància', () => {
+    const totes = (chapters) => Object.values(partides(chapters));
+
+    it('amb una sola línia, el nom de la zona n\'és el text; amb diverses, va en un títol al davant', () => {
         const r = instancia(MUR, { nomInstancia: 'Façana nord', liniaZona: true, id: 'Z1' });
-        const ps = Object.values(partides(r.chapters));
-        expect(ps.length).toBeGreaterThan(0);
-        ps.filter(p => (p.measurements || []).length).forEach(p => {
+        const ps = totes(r.chapters).filter(p => (p.measurements || []).length);
+        const unes = ps.filter(p => p.measurements.length === 1);
+        const diverses = ps.filter(p => p.measurements.length > 1);
+        expect(unes.length).toBeGreaterThan(0);
+        expect(diverses.length).toBeGreaterThan(0);
+        unes.forEach(p => expect(p.measurements[0]).toMatchObject({ description: 'Façana nord', nomZona: true, sistema: 'Z1' }));
+        diverses.forEach(p => {
             expect(p.measurements[0]).toMatchObject({ description: 'Façana nord', units: 0, zona: true, sistema: 'Z1' });
             expect(p.measurements.filter(m => m.zona)).toHaveLength(1);
         });
+        // El text que tenia la línia al sistema es guarda.
+        const original = totes(MUR.chapters).find(p => p.code === unes[0].code).measurements[0].description;
+        expect(unes[0].measurements[0].descripcioSistema).toBe(original);
     });
 
     it('no canvia cap quantitat ni el total', () => {
         const amb = instancia(MUR, { liniaZona: true });
         const sense = instancia(MUR, { liniaZona: false });
         expect(quantitats(resol(amb.chapters, amb.parametres))).toEqual(quantitats(resol(sense.chapters, sense.parametres)));
-        expect(Object.values(partides(sense.chapters)).some(p => (p.measurements || []).some(m => m.zona))).toBe(false);
+        expect(totes(sense.chapters).some(p => (p.measurements || []).some(m => m.zona || m.nomZona))).toBe(false);
     });
 
-    it('extreure la instància no s\'emporta la línia de zona, i tornar-la a inserir en posa una de nova', () => {
+    it('extreure la instància torna els textos del sistema, i tornar-la a inserir hi posa el nom nou', () => {
         const inst = instancia(MUR, { nomInstancia: 'Pati', liniaZona: true, id: 'Z2' });
         const budget = { chapters: inst.chapters, parametres: inst.parametres, condicions: inst.condicions, sistemes: [inst.instancia] };
         const doc = extreuInstancia(budget, inst.prices, 'Z2');
-        expect(Object.values(partides(doc.chapters)).some(p => (p.measurements || []).some(m => m.zona))).toBe(false);
+        const descripcions = (chapters) => totes(chapters).flatMap(p => (p.measurements || []).map(m => m.description));
+        expect(descripcions(doc.chapters)).toEqual(descripcions(MUR.chapters));
+        expect(totes(doc.chapters).some(p => (p.measurements || []).some(m => m.zona || m.nomZona || m.descripcioSistema !== undefined))).toBe(false);
         const dues = instancia(doc, { nomInstancia: 'Jardí', liniaZona: true });
-        const p = Object.values(partides(dues.chapters))[0];
-        expect(p.measurements.filter(m => m.zona).map(m => m.description)).toEqual(['Jardí']);
+        expect(descripcions(dues.chapters)).toContain('Jardí');
+        expect(descripcions(dues.chapters)).not.toContain('Pati');
     });
 
-    it('treure la instància treu també la línia de zona', () => {
+    it('treure la instància ho treu tot', () => {
         const inst = instancia(MUR, { nomInstancia: 'Pati', liniaZona: true, id: 'Z3' });
         const budget = { chapters: inst.chapters, parametres: inst.parametres, condicions: inst.condicions, sistemes: [inst.instancia] };
         const r = treuInstancia(budget, 'Z3');
-        expect(Object.values(partides(r.chapters))).toHaveLength(0);
+        expect(totes(r.chapters)).toHaveLength(0);
     });
 });
 

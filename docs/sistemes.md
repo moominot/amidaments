@@ -239,11 +239,16 @@ no es pot llegir: s'ha d'exportar a SVG o PNG des del CAD.
 ## Zona de cada instància
 
 En inserir un sistema es demana el **nom de la zona o del detall** (el nom de la instància) i,
-per defecte, cada partida amb línies en porta una al davant amb aquest nom, a 0 i marcada amb
-`zona: true`. A les partides on s'ajunten línies de diverses instàncies es veu de quina zona és
-cada grup. La línia té `sistema`, així que es filtra i es treu amb la instància; en extreure la
-instància no es copia (en tornar-la a inserir se'n posa una de nova). A la impressió surt només
-el nom.
+per defecte, es posa a les línies d'amidament de cada partida:
+
+- si la instància hi posa **una sola línia**, que és el cas habitual en un sistema, el nom de la
+  zona passa a ser el text de la línia (`nomZona: true`); el text que tenia al sistema es guarda
+  a `descripcioSistema` i torna en extreure la instància;
+- si n'hi posa **diverses**, va en una línia de títol al davant, a 0 i marcada amb `zona: true`
+  (que a la impressió surt només amb el nom i en extreure no es copia).
+
+Així, a les partides on s'ajunten línies de diverses instàncies (o de l'obra), es veu de quina
+zona és cada una. Les línies porten `sistema`, així que es filtren i es treuen amb la instància.
 
 Si una partida variable (text amb variables o rendiments amb fórmula) ja és al projecte i s'hi
 afegeixen les línies d'una altra instància, el títol i el preu continuen sent els de la primera:

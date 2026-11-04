@@ -59,9 +59,10 @@ sistema» (`components/CadSistemaModal.jsx`, `utils/cadSistemes.js`):
    perímetre) i després es recorda per sistema.
 3. **Taula de zones**: nom i valors editables, amb el total i les condicions de cada una. Una
    zona es pot descartar (la paperera) i no s'insereix; «recupera-les» les torna totes.
-4. **Insereix**: una instància per zona, amb paràmetres propis (`A`, `A_2`...) i línia de zona.
-   Les partides que comparteixen s'ajunten abans d'inserir (`fusionaArbres`), de manera que una
-   partida té les línies de totes les zones, cadascuna amb el seu títol.
+4. **Insereix**: una instància per zona, amb paràmetres propis (`A`, `A_2`...) i el nom de la
+   zona a les línies (com a text de la línia si n'és una, o com a títol si en són diverses). Les
+   partides que comparteixen s'ajunten abans d'inserir (`fusionaArbres`), de manera que una
+   partida té una línia per zona amb el nom de la sala.
 
 **La mateixa polilínia per a diversos sistemes.** Una sala pot tenir paviment, fals sostre i
 pintura: s'enganxen les mateixes entitats una vegada per sistema. Una entitat només és «ja feta»

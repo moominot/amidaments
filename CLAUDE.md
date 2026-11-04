@@ -105,8 +105,10 @@ del sector: *amidament*, *partida*, *capítol*, *descomposat*, *rendiment*, *cer
   Entren per `insereixNodes`, el camí d'enganxar, amb els paràmetres i la instància dins del
   resultat de la importació perquè cancel·lar no deixi res a mitges. L'esquema (imatge o SVG) va
   en data URL a `budget.esquema`, al document i a `budget.sistemes[]`: tot el que es desa comparteix
-  els ~5 MB del `localStorage`, i per això `utils/esquema.js` el limita a 400 kB. Les línies amb
-  `zona: true` són el títol d'una instància a cada partida (a 0) i no es copien en extreure-la.
+  els ~5 MB del `localStorage`, i per això `utils/esquema.js` el limita a 400 kB. El nom de la zona va
+  a les línies: com a text si la instància hi posa una sola línia (`nomZona`, amb l'original a
+  `descripcioSistema`, que torna en extreure-la), o en una línia de títol a 0 (`zona: true`, que
+  no es copia en extreure-la) si n'hi posa diverses.
 - **L'assistent** (`utils/assistent/`, `components/AssistentPanel.jsx`) crida l'API d'Anthropic
   des del navegador amb la clau de l'usuari (a `localStorage`). Les eines reben i tornen
   `{ budget, priceDatabase }`; qualsevol eina nova ha de validar l'input (`validaInput`), perquè

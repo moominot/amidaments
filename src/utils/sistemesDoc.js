@@ -55,11 +55,14 @@ const preusDe = (chapters, priceDatabase = {}) => {
     return out;
 };
 
-/** Línia sense res del projecte d'on surt: ni els valors calculats ni la marca d'instància. */
+/**
+ * Línia sense res del projecte d'on surt: ni els valors calculats ni la marca d'instància. Si
+ * duia el nom de la zona com a text (`nomZona`), torna el text que tenia al sistema.
+ */
 const netejaLinia = (lin) => {
     // eslint-disable-next-line no-unused-vars
-    const { calc, errorsFormula, sistema, ...m } = lin;
-    return m;
+    const { calc, errorsFormula, sistema, nomZona, descripcioSistema, ...m } = lin;
+    return nomZona ? { ...m, description: descripcioSistema ?? '' } : m;
 };
 
 /** Arbre sense certificacions ni marques. `podaLinia` decideix quines línies es queden. */
@@ -205,9 +208,11 @@ const grupDe = (nomInstancia, grup) => (grup ? `${nomInstancia} · ${grup}` : no
  * i marcat, els paràmetres i les condicions que s'han d'afegir al projecte, els preus, l'entrada
  * per a `budget.sistemes` i les partides que s'han deixat fora.
  *
- * Amb `liniaZona`, cada partida amb línies en porta una al davant amb el nom de la instància, a
- * 0 i marcada amb `zona`: així, a les partides on s'ajunten línies de diverses instàncies (o de
- * l'obra), es veu de quina zona o detall és cada grup.
+ * Amb `liniaZona`, el nom de la instància (la zona) es veu a les línies de cada partida: si la
+ * instància hi posa una sola línia, que és el cas habitual, el nom passa a ser el text de la línia
+ * (`nomZona`, amb l'original a `descripcioSistema` per tornar-lo en extreure-la); si n'hi posa
+ * diverses, va en una línia de títol al davant, a 0 i marcada amb `zona`. Així, a les partides
+ * on s'ajunten línies de diverses instàncies (o de l'obra), es veu de quina zona és cada una.
  *
  * Amb `ometZero` no s'insereixen les partides que, amb aquests valors, surten a zero (ni els
  * capítols que es queden buits per això). És el que es vol en un sistema amb variants, on un
@@ -256,13 +261,16 @@ export const instancia = (doc, {
             ...(m.refLineId && idsLinies.has(m.refLineId) ? { refLineId: idsLinies.get(m.refLineId) } : {}),
             sistema: id,
         }));
-        const zona = liniaZona && n.unit && linies.length
-            ? [{ id: crypto.randomUUID(), description: nomInstancia, units: 0, length: 0, width: 0, height: 0, sistema: id, zona: true }]
-            : [];
+        let mesures = linies;
+        if (liniaZona && n.unit && linies.length === 1) {
+            mesures = [{ ...linies[0], description: nomInstancia, nomZona: true, descripcioSistema: linies[0].description ?? '' }];
+        } else if (liniaZona && n.unit && linies.length > 1) {
+            mesures = [{ id: crypto.randomUUID(), description: nomInstancia, units: 0, length: 0, width: 0, height: 0, sistema: id, zona: true }, ...linies];
+        }
         return {
             ...resta,
             id: crypto.randomUUID(),
-            ...(n.measurements ? { measurements: [...zona, ...linies] } : {}),
+            ...(n.measurements ? { measurements: mesures } : {}),
             subChapters: copia(n.subChapters || []),
             items: copia(n.items || []),
         };

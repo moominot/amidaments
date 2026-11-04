@@ -332,7 +332,7 @@ const CadSistemaModal = ({ dades, budget, priceDatabase, onInsereix, onActualitz
                         {ambIncompliments > 0
                             ? <span className="text-red-600">{ambIncompliments} {ambIncompliments === 1 ? 'zona no compleix' : 'zones no compleixen'} les condicions del sistema.</span>
                             : doc && zones.length > 0
-                                ? <>Cada zona tindrà els seus paràmetres i una línia amb el seu nom a cada partida; recordarà de quines entitats surt per poder-la actualitzar.</>
+                                ? <>Cada zona tindrà els seus paràmetres i el seu nom a les línies de cada partida; recordarà de quines entitats surt per poder-la actualitzar.</>
                                 : null}
                     </div>
                     <div className="flex gap-2 flex-shrink-0">

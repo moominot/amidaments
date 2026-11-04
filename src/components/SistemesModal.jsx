@@ -259,7 +259,7 @@ const VistaParametres = ({ doc, budget, priceDatabase, destiLabel, onInsereix, o
                         </label>
                         <label className="flex items-start gap-2 mt-2 text-[11px] text-slate-600 cursor-pointer select-none touch-manipulation">
                             <input type="checkbox" checked={liniaZona} onChange={e => setLiniaZona(e.target.checked)} className="w-4 h-4 mt-0.5 accent-blue-600 flex-shrink-0" />
-                            <span>Posa una línia amb aquest nom al davant de les seves línies d&apos;amidament</span>
+                            <span>Posa aquest nom a les seves línies d&apos;amidament: com a text de la línia si a la partida n&apos;hi ha una, o com a títol al davant si n&apos;hi ha diverses</span>
                         </label>
                     </div>
                     <div>
