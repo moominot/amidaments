@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { X, Blocks, RefreshCw, AlertCircle, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { X, Blocks, RefreshCw, AlertCircle, AlertTriangle, CheckCircle2, Trash2, RotateCcw } from 'lucide-react';
 import NumberInput from './NumberInput';
 import Esquema from './Esquema';
 import { formatCurrency, formatNumber } from '../utils/calculations';
@@ -58,12 +58,17 @@ const CadSistemaModal = ({ dades, budget, priceDatabase, onInsereix, onActualitz
     // Zones i el que s'hi ha editat a mà (nom i valors), per posició.
     const zonesBase = useMemo(() => agrupaEntitats(entitats, mode), [entitats, mode]);
     const [edicions, setEdicions] = useState({});
-    useEffect(() => { setEdicions({}); }, [zonesBase]);
+    // Zones descartades (per la posició a `zonesBase`): no s'insereixen. Un canvi d'agrupació
+    // torna a començar.
+    const [descartades, setDescartades] = useState(() => new Set());
+    useEffect(() => { setEdicions({}); setDescartades(new Set()); }, [zonesBase]);
     const zones = useMemo(() => zonesBase.map((z, i) => ({
         ...z,
+        pos: i,
         nom: edicions[i]?.nom ?? z.nom,
         valors: { ...valorsDeZona(z, assignacio), ...(edicions[i]?.valors || {}) },
-    })), [zonesBase, edicions, assignacio]);
+    })).filter(z => !descartades.has(z.pos)), [zonesBase, edicions, assignacio, descartades]);
+    const descarta = (pos) => setDescartades(prev => new Set([...prev, pos]));
     const edita = (i, canvi) => setEdicions(prev => ({
         ...prev,
         [i]: { ...prev[i], ...canvi, valors: { ...(prev[i]?.valors || {}), ...(canvi.valors || {}) } },
@@ -242,21 +247,40 @@ const CadSistemaModal = ({ dades, budget, priceDatabase, onInsereix, onActualitz
 
                             {doc && (
                                 <div className="p-4">
-                                    <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Zones · {zones.length}</div>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Zones · {zones.length}</span>
+                                        {descartades.size > 0 && (
+                                            <button
+                                                onClick={() => setDescartades(new Set())}
+                                                className="ml-auto flex items-center gap-1 text-[10px] text-blue-600 hover:underline touch-manipulation py-1"
+                                            >
+                                                <RotateCcw size={11} /> {descartades.size} {descartades.size === 1 ? 'descartada' : 'descartades'}: recupera-les
+                                            </button>
+                                        )}
+                                    </div>
+                                    {zones.length === 0 && <p className="text-[11px] text-slate-500">Les has descartades totes: no s&apos;inserirà res.</p>}
                                     <div className="space-y-2">
                                         {zones.map((z, i) => {
                                             const pv = previs[i];
                                             const m = magnituds(z.entitats);
                                             return (
-                                                <div key={i} className={`border px-2 py-2 ${pv?.incomplertes ? 'border-red-300 bg-red-50/40' : 'border-slate-200'}`}>
+                                                <div key={z.pos} className={`border px-2 py-2 ${pv?.incomplertes ? 'border-red-300 bg-red-50/40' : 'border-slate-200'}`}>
                                                     <div className="flex items-center gap-2">
                                                         <input
                                                             value={z.nom}
-                                                            onChange={e => edita(i, { nom: e.target.value })}
+                                                            onChange={e => edita(z.pos, { nom: e.target.value })}
                                                             className="flex-1 min-w-0 border border-slate-200 px-2 py-1 text-xs font-bold outline-none focus:border-blue-500"
                                                             aria-label="Nom de la zona"
                                                         />
                                                         <span className="text-[11px] font-mono font-bold text-slate-700 whitespace-nowrap">{pv ? formatCurrency(pv.total) : '—'}</span>
+                                                        <button
+                                                            onClick={() => descarta(z.pos)}
+                                                            className="text-slate-400 hover:text-red-600 p-1.5 -m-1 touch-manipulation flex-shrink-0"
+                                                            title={`Descarta «${z.nom}»: no s'inserirà`}
+                                                            aria-label={`Descarta ${z.nom}`}
+                                                        >
+                                                            <Trash2 size={13} />
+                                                        </button>
                                                     </div>
                                                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
                                                         {delCad.map(p => (
@@ -264,7 +288,7 @@ const CadSistemaModal = ({ dades, budget, priceDatabase, onInsereix, onActualitz
                                                                 <span className="font-mono font-bold text-violet-700">{p.nom}</span>
                                                                 <NumberInput
                                                                     value={z.valors[p.nom] ?? 0}
-                                                                    onChange={v => edita(i, { valors: { [p.nom]: v } })}
+                                                                    onChange={v => edita(z.pos, { valors: { [p.nom]: v } })}
                                                                     className="w-20 border border-slate-200 px-1.5 py-0.5 text-[11px] font-mono text-right outline-none focus:border-blue-500"
                                                                     aria-label={`${p.nom} de ${z.nom}`}
                                                                 />

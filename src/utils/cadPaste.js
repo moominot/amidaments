@@ -71,7 +71,9 @@ export const parseCadClipboard = (text) => {
             handle: (c[6] || '').trim(),
             labels: (c[7] || '').split(' | ').map(netejaMtext).filter(Boolean),
         };
-    }).filter(e => e.type);
+    // Els textos no s'amiden (fan de rètol): el LISP v2 ja no els envia, i els d'un enganxat
+    // del LISP antic es descarten aquí.
+    }).filter(e => e.type && e.type !== 'TEXT' && e.type !== 'MTEXT');
 
     return { version: (capcal[1] || '').trim(), drawing: (capcal[2] || '').trim(), entities: entitats };
 };

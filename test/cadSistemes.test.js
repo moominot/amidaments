@@ -64,6 +64,16 @@ describe('el porta-retalls del LISP, versió 2', () => {
         expect(r.entities[0]).toMatchObject({ type: 'LINE', length: 5, handle: 'A1', labels: [] });
     });
 
+    it('els textos seleccionats no són entitats a amidar: només fan de rètol', () => {
+        const r = parseCadClipboard([
+            fila('AMIDAMENTS-CAD', '2', 'x.dwg'),
+            fila('TEXT', '0', '0', '0', 'RETOLS', '', 'T1', ''),
+            fila('MTEXT', '0', '0', '0', 'RETOLS', '', 'T2', ''),
+            fila('LWPOLYLINE', '1', '14', '12', 'A', '', 'P1', 'Cuina'),
+        ].join('\r\n'));
+        expect(r.entities.map(e => e.type)).toEqual(['LWPOLYLINE']);
+    });
+
     it('treu el format dels MTEXT', () => {
         expect(netejaMtext('{\\fArial|b0|i0;\\H1.5x;Sala d\'actes}\\PPlanta 1')).toBe('Sala d\'actes Planta 1');
         expect(netejaMtext('%%c 20')).toBe('Ø 20');

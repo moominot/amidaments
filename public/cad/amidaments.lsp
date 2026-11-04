@@ -29,7 +29,9 @@
 ;;; Rètols: de cada entitat tancada (i de cada trama) s'envien els textos (TEXT i
 ;;; MTEXT) que tenen el punt d'inserció a dins, separats per " | ". L'aplicació en
 ;;; treu el nom de la sala. Es busquen a tot l'espai actual, no només a la vista.
-;;; La resta (blocs, textos, punts...) només compten per a les partides en ud.
+;;; Si la cerca de rètols falla, AMIDA continua i els deixa buits.
+;;; Els TEXT i els MTEXT seleccionats no surten a la llista: només fan de rètol.
+;;; La resta d'entitats (blocs, punts...) només compten per a les partides en ud.
 ;;;
 ;;; Una polilínia oberta amb el darrer vèrtex damunt del primer es compta tancada.
 ;;;
@@ -74,6 +76,12 @@
 
 ;; --- Rètols de dins de cada contorn ---------------------------------------------
 
+;; Qualsevol valor com a text per a strcat: nil fa fallar strcat i atura l'ordre.
+(defun amid:text (x)
+  (cond ((null x) "")
+        ((= (type x) 'STR) (amid:net x))
+        (T (vl-princ-to-string x))))
+
 ;; Text net per a una cel·la: sense tabuladors ni salts de línia.
 (defun amid:net (s)
   (vl-string-translate (strcat (chr 9) (chr 13) (chr 10)) "   " s))
@@ -108,11 +116,23 @@
   (while (< i n)
     (setq xi (car (nth i pol)) yi (cadr (nth i pol))
           xj (car (nth j pol)) yj (cadr (nth j pol)))
-    (if (and (/= (> yi y) (> yj y))
+    ;; `/=` només admet números i textos: per comparar T i nil, `eq`.
+    (if (and (not (eq (> yi y) (> yj y)))
              (< x (+ xi (/ (* (- xj xi) (- y yi)) (- yj yi)))))
       (setq dins (not dins)))
     (setq j i i (1+ i)))
   dins)
+
+;; Com amid:prova, però amb un valor per defecte quan falla.
+(defun amid:segur (fn args defecte / r)
+  (setq r (vl-catch-all-apply fn args))
+  (if (or (vl-catch-all-error-p r) (null r)) defecte r))
+
+;; Els rètols d'un polígon sense que cap error pugui aturar AMIDA: si falla, buit.
+(defun amid:retols-segur (pol textos)
+  (if (and pol textos)
+    (amid:segur 'amid:retols (list pol textos) "")
+    ""))
 
 ;; Els textos que cauen dins del polígon, units amb " | ". Abans de la prova del
 ;; raig, es descarten els que són fora de la caixa del polígon: en un plànol amb
@@ -251,7 +271,7 @@
          (setq area (amid:prova 'vlax-curve-getArea (list ent)))
          (if (null area) (setq area 0.0))
          (if textos
-           (setq retols (amid:retols (amid:poligon-corba ent typ) textos))))))
+           (setq retols (amid:retols-segur (amid:segur 'amid:poligon-corba (list ent typ) nil) textos))))))
     ((= typ "HATCH")
      ;; L'àrea de la trama ja és la neta, sense les illes.
      (setq closed T
@@ -262,7 +282,7 @@
        (progn
          (setq len (car ct))
          (if (and textos (cadr ct))
-           (setq retols (amid:retols (cadr ct) textos))))))
+           (setq retols (amid:retols-segur (cadr ct) textos))))))
     ((= typ "REGION")
      (setq closed T
            area (amid:prova 'vla-get-Area (list obj))
@@ -302,7 +322,7 @@
         nil))
     T))
 
-(defun c:AMIDA ( / kw fac f2 ss i d txt n nt nl na nr res textos)
+(defun c:AMIDA ( / kw fac f2 ss i d txt n nt nl na nr ne res textos e)
   (initget "MIlimetres Centimetres Decimetres Metres")
   (setq kw (getkword (strcat "\nUnitats del dibuix [MIlimetres/Centimetres/Decimetres/Metres] <"
                              (amid:unitats-defecte) ">: ")))
@@ -321,25 +341,32 @@
             nl     0
             na     0
             nr     0
-            textos (amid:textos))
+            ;; Els textos per als rètols; si no es poden llegir, AMIDA continua sense.
+            textos (amid:segur 'amid:textos nil nil))
+      (setq ne 0)
       (while (< i n)
-        (setq d (amid:dades (ssname ss i) textos))
-        (if (/= (nth 7 d) "") (setq nr (1+ nr)))
-        (if (nth 1 d) (setq nt (1+ nt)))
-        (if (> (nth 2 d) 0) (setq nl (1+ nl)))
-        (if (> (nth 3 d) 0) (setq na (1+ na)))
-        (setq txt (strcat txt "\r\n"
-                          (nth 0 d) *amid:tab*
-                          (if (nth 1 d) "1" "0") *amid:tab*
-                          (amid:num (* (nth 2 d) fac)) *amid:tab*
-                          (amid:num (* (nth 3 d) f2)) *amid:tab*
-                          (nth 4 d) *amid:tab*
-                          (nth 5 d) *amid:tab*
-                          (nth 6 d) *amid:tab*
-                          (nth 7 d)))
+        (setq e (ssname ss i))
+        ;; Els textos no s'amiden: només fan de rètol de la sala on cauen.
+        (if (not (member (cdr (assoc 0 (entget e))) '("TEXT" "MTEXT")))
+          (progn
+            (setq d  (amid:dades e textos)
+                  ne (1+ ne))
+            (if (/= (amid:text (nth 7 d)) "") (setq nr (1+ nr)))
+            (if (nth 1 d) (setq nt (1+ nt)))
+            (if (> (nth 2 d) 0) (setq nl (1+ nl)))
+            (if (> (nth 3 d) 0) (setq na (1+ na)))
+            (setq txt (strcat txt "\r\n"
+                              (nth 0 d) *amid:tab*
+                              (if (nth 1 d) "1" "0") *amid:tab*
+                              (amid:num (* (nth 2 d) fac)) *amid:tab*
+                              (amid:num (* (nth 3 d) f2)) *amid:tab*
+                              (amid:text (nth 4 d)) *amid:tab*
+                              (amid:text (nth 5 d)) *amid:tab*
+                              (amid:text (nth 6 d)) *amid:tab*
+                              (amid:text (nth 7 d))))))
         (setq i (1+ i)))
       (setq res (amid:porta-retalls txt))
-      (princ (strcat "\n" (itoa n) " entitats: " (itoa nt) " tancades, "
+      (princ (strcat "\n" (itoa ne) " entitats (" (itoa (- n ne)) " textos descartats): " (itoa nt) " tancades, "
                      (itoa nl) " amb llargada, " (itoa na) " amb area, "
                      (itoa nr) " amb retol a dins."))
       (cond

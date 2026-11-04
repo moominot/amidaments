@@ -57,7 +57,8 @@ sistema» (`components/CadSistemaModal.jsx`, `utils/cadSistemes.js`):
    **d'on surt cada paràmetre**: àrea, perímetre, llargada de les obertes, nombre d'entitats o el
    valor del sistema (comú a totes les zones). Per defecte s'intueix pel nom (`A` → àrea, `P` →
    perímetre) i després es recorda per sistema.
-3. **Taula de zones**: nom i valors editables, amb el total i les condicions de cada una.
+3. **Taula de zones**: nom i valors editables, amb el total i les condicions de cada una. Una
+   zona es pot descartar (la paperera) i no s'insereix; «recupera-les» les torna totes.
 4. **Insereix**: una instància per zona, amb paràmetres propis (`A`, `A_2`...) i línia de zona.
    Les partides que comparteixen s'ajunten abans d'inserir (`fusionaArbres`), de manera que una
    partida té les línies de totes les zones, cadascuna amb el seu títol.
@@ -97,5 +98,10 @@ dins del panell de l'assistent (`data-assistent-adjunts`).
   Abans, una caixa envolupant descarta els textos de fora, que en un plànol gran són milers.
 - Perímetre de les trames: contorns polilínia (amb curvatures) i vores de recta i d'arc. Les
   vores d'el·lipse i de spline no s'hi sumen; amb una spline es deixa de llegir aquell contorn.
+- Els `TEXT` i `MTEXT` seleccionats no surten a la llista: només fan de rètol. El parser també
+  els descarta, per als enganxats del LISP antic.
+- Tot el que és nou a la v2 (rètols, textos) va dins de `vl-catch-all-apply`: si falla, AMIDA
+  continua i deixa els rètols buits. Compte amb `=` i `/=`: en AutoLISP només són per a números
+  i textos; per comparar T i nil, `eq`.
 - **La versió 2 no s'ha pogut provar en un AutoCAD** des d'aquí: els tests en proven el format i
   tot el que passa a l'aplicació, no el LISP mateix.
