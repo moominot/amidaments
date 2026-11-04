@@ -11,7 +11,7 @@ npm install
 npm run dev
 npm run build     # ha de passar sempre abans de donar una feina per acabada
 npm run lint      # cobreix .js i .jsx; l'arbre ha de quedar amb 0 errors
-npm test          # Vitest; 267 tests sobre els càlculs, el parser i l'escriptor
+npm test          # Vitest; 282 tests sobre els càlculs, el parser i l'escriptor
 npm run test:watch
 ```
 
@@ -121,6 +121,11 @@ del sector: *amidament*, *partida*, *capítol*, *descomposat*, *rendiment*, *cer
   `launchQueue` d'escriptori i fitxers compartits des d'Android. Si hi afegeixes un camí nou,
   fes-lo passar per aquí i no repeteixis la comprovació: tenir-ne tres de diferents va deixar
   la File Handling API mirant un camp inexistent, fallant en silenci.
+- **Enganxar la sortida del LISP sense partida seleccionada** obre «Del CAD a un sistema»
+  (`utils/cadSistemes.js`): una instància per zona amb les partides compartides fusionades abans
+  d'inserir (si no, `mergeTreeBranches` perdria les línies de la segona), i `instancia.cad.handles`
+  per actualitzar-les després amb el dibuix. El LISP és la versió 2 (columna de rètols); el parser
+  ha de continuar llegint la 1. Veure `docs/cad.md`.
 - **Cap camp numèric no pot ser `type="number"`**: el navegador es menja la coma decimal i
   «12,5» es converteix en 125 sense avisar. Fes servir `components/NumberInput.jsx`.
 - **Res d'`opacity-0 group-hover:`**: al tacte no hi ha hover i el control queda inabastable.

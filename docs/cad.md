@@ -31,12 +31,45 @@ dimensions.
 Text tabulat, CRLF, amb una capçalera i una fila per entitat:
 
 ```
-AMIDAMENTS-CAD  1  <dibuix>
-<tipus>  <tancada 0|1>  <llargada>  <àrea>  <capa>  <bloc>  <handle>
+AMIDAMENTS-CAD  2  <dibuix>
+<tipus>  <tancada 0|1>  <llargada>  <àrea>  <capa>  <bloc>  <handle>  <rètols>
 ```
+
+La versió 1 no tenia la columna de rètols i es continua llegint. Els rètols són els textos
+(`TEXT` i `MTEXT`) que tenen el punt d'inserció dins de l'entitat tancada, separats per « | »;
+el parser en treu els codis de format dels MTEXT (`netejaMtext`) i `nomDeRetols` en tria el nom
+de la sala: el primer amb lletres que no sigui només una superfície («12,5 m²»).
 
 Les xifres arriben ja en metres i m²: el LISP pregunta les unitats del dibuix (per defecte,
 les d'`INSUNITS`) i les converteix. El parser accepta també coma decimal i BOM.
+
+## Del CAD a un sistema, per zones
+
+Enganxant la sortida del LISP **sense cap partida seleccionada** s'obre el quadre «Del CAD a un
+sistema» (`components/CadSistemaModal.jsx`, `utils/cadSistemes.js`):
+
+1. **Vincle**: si alguna entitat ja és d'una zona del projecte (cada instància inserida així
+   recorda els `handle` de les seves entitats a `instancia.cad`), es mostren els paràmetres que
+   canvien amb les mides d'ara i es poden actualitzar d'un cop. Si d'una zona falten entitats, es
+   compta amb les que hi ha i s'avisa.
+2. Amb les entitats que no són de cap zona: **el sistema** de la galeria, **com s'agrupen** (pel
+   rètol de dins, sense distingir majúscules; una zona per entitat; totes en una; per capa) i
+   **d'on surt cada paràmetre**: àrea, perímetre, llargada de les obertes, nombre d'entitats o el
+   valor del sistema (comú a totes les zones). Per defecte s'intueix pel nom (`A` → àrea, `P` →
+   perímetre) i després es recorda per sistema.
+3. **Taula de zones**: nom i valors editables, amb el total i les condicions de cada una.
+4. **Insereix**: una instància per zona, amb paràmetres propis (`A`, `A_2`...) i línia de zona.
+   Les partides que comparteixen s'ajunten abans d'inserir (`fusionaArbres`), de manera que una
+   partida té les línies de totes les zones, cadascuna amb el seu títol.
+
+Si el sistema té partides amb el text o el preu variables, com que les zones les comparteixen,
+agafen els valors de la primera; el quadre ho avisa.
+
+**Trames i illes.** L'àrea d'una `HATCH` ja és la neta: les illes (un pilar, un pati) es
+descompten. El LISP en llegeix també el perímetre de les dades DXF de la trama (no cal que sigui
+associativa): el de tots els contorns, l'exterior i els de les illes, que és el que es vol per a
+un sòcol. Si se seleccionen alhora la trama i la polilínia d'una mateixa sala, es compten dues
+vegades.
 
 ## Detalls del LISP
 
@@ -49,3 +82,11 @@ les d'`INSUNITS`) i les converteix. El parser accepta també coma decimal i BOM.
   (`Set-Clipboard`) a partir d'un fitxer temporal. És només Windows.
 - Les cadenes que el LISP escriu a la línia d'ordres van sense accents: les versions antigues
   d'AutoCAD llegeixen els `.lsp` en ANSI.
+- Els rètols es busquen a tots els textos de l'espai actual amb `ssget "_X"` (una finestra només
+  trobaria el que es veu a la pantalla) i la prova del raig sobre un polígon que segueix la
+  corba (els vèrtexs de les polilínies, 64 punts a la resta) o el contorn exterior de la trama.
+  Abans, una caixa envolupant descarta els textos de fora, que en un plànol gran són milers.
+- Perímetre de les trames: contorns polilínia (amb curvatures) i vores de recta i d'arc. Les
+  vores d'el·lipse i de spline no s'hi sumen; amb una spline es deixa de llegir aquell contorn.
+- **La versió 2 no s'ha pogut provar en un AutoCAD** des d'aquí: els tests en proven el format i
+  tot el que passa a l'aplicació, no el LISP mateix.

@@ -5,7 +5,7 @@ npm test          # una passada
 npm run test:watch
 ```
 
-**Vitest**, 267 tests en quinze fitxers, poc més d'un segon. `vitest.config.js` és a part de
+**Vitest**, 282 tests en setze fitxers, poc més d'un segon. `vitest.config.js` és a part de
 `vite.config.js` a posta: els tests són tots de lògica de càlcul i no munten cap component, de
 manera que no els cal ni el plugin de React ni l'entorn de navegador.
 
@@ -43,6 +43,7 @@ que has canviat és correcte abans de moure el número esperat.
 | `adjunts.test.js` | Imatges i PDF de l'assistent: la mida a què es redueixen les imatges (2576 px, 3,75 MP), el contingut del missatge (adjunts davant del text) i els límits d'imatges i de pes de tota la conversa |
 | `traduccio.test.js` | Traducció contra el BC3 de referència amb una «traducció» que marca els textos: arriba a descripcions, textos llargs, descomposat i base de preus; el PEM, els codis i les quantitats no es mouen; només l'abast triat |
 | `plantilles.test.js` | Rendiments amb fórmula (el preu segueix els paràmetres: 35,02 → 28,84 €/m fet a mà; error a 0; BC3 amb el preu i el rendiment calculats). Títols i descripcions amb variables: números i `si()` amb textos, errors, reanomenar, dins d'un sistema (es demanen, es reanomenen en inserir i tornen en extreure), BC3 i porta-retalls amb el text omplert |
+| `cadSistemes.test.js` | Del CAD a un sistema, amb un porta-retalls v2 fet a mà (tres sales, una amb dues polilínies i una trama amb illa): rètols i nom de sala, zones per rètol, capa, entitat o totes, inserció d'una instància per sala amb les partides compartides (64,75 m² i 63 m fets a mà), i el vincle que actualitza els paràmetres amb el dibuix modificat |
 | `cad.test.js` | El text del LISP `AMIDA` i què en surt segons la unitat (m2, m, ud, m3). Sense fitxer real: el text el genera el LISP |
 
 ## Per què aquests i no uns altres

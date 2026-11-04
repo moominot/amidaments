@@ -94,6 +94,8 @@ import ParametresPanel from './components/ParametresPanel';
 import AssistentPanel from './components/AssistentPanel';
 import TraduccioModal from './components/TraduccioModal';
 import VistaPlantilla from './components/VistaPlantilla';
+import CadSistemaModal from './components/CadSistemaModal';
+import { actualitzaDesDeCad } from './utils/cadSistemes';
 import { CAMPS_PLANTILLA, esPlantilla } from './utils/plantilles';
 import { processBC3Data } from './utils/bc3Parser';
 import { generateBC3, nomFitxerCertificacio } from './utils/bc3Writer';
@@ -1188,6 +1190,8 @@ export default function App() {
     const [quadreSistemes, setQuadreSistemes] = useState(null);
     // Quadre de traducció: `{}` per a tot el projecte, `{ id, codi, nom }` per a un node.
     const [quadreTraduccio, setQuadreTraduccio] = useState(null);
+    // Entitats del CAD enganxades sense partida: es passen a zones d'un sistema.
+    const [quadreCad, setQuadreCad] = useState(null);
     // Instància de sistema per la qual es filtra l'editor (`budget.sistemes[].id`), o `null`.
     const [filtreSistema, setFiltreSistema] = useState(null);
     const [showPrintConfigModal, setShowPrintConfigModal] = useState(false);
@@ -3030,6 +3034,8 @@ export default function App() {
                 ...(result.parametres?.length ? { parametres: [...(prev.parametres || []), ...result.parametres] } : {}),
                 ...(result.condicions?.length ? { condicions: [...(prev.condicions || []), ...result.condicions] } : {}),
                 ...(result.instancia ? { sistemes: [...(prev.sistemes || []), result.instancia] } : {}),
+                // Diverses zones d'un sistema inserides alhora des del CAD (`utils/cadSistemes.js`).
+                ...(result.instancies?.length ? { sistemes: [...(prev.sistemes || []), ...result.instancies] } : {}),
             }));
             notify(result.missatge || "Dades importades correctament");
         }
@@ -3412,12 +3418,14 @@ export default function App() {
         if (!dades) return false;
 
         const node = selectedId ? findNodeById(budget.chapters, selectedId) : null;
-        if (!node || !node.unit) {
-            notify('Selecciona una partida abans d\'enganxar les entitats del CAD', 'error');
-            return true;
-        }
         if (dades.entities.length === 0) {
             notify('El que s\'ha copiat del CAD no porta cap entitat', 'error');
+            return true;
+        }
+        // Sense partida de destí: un sistema per zona (o actualitzar les zones que ja en surten).
+        // Veure `utils/cadSistemes.js`.
+        if (!node || !node.unit) {
+            setQuadreCad(dades);
             return true;
         }
 
@@ -5140,6 +5148,26 @@ export default function App() {
                         // Trigger sign in directly after saving if needed
                     }}
                     onClose={() => setShowDriveSettings(false)}
+                />
+            )}
+
+            {quadreCad && (
+                <CadSistemaModal
+                    dades={quadreCad}
+                    budget={budget}
+                    priceDatabase={priceDatabase}
+                    onInsereix={(r, missatge) => {
+                        insereixNodes(r.chapters, r.prices, null, missatge,
+                            { parametres: r.parametres, condicions: r.condicions, instancies: r.instancies });
+                        setQuadreCad(null);
+                        commutaParametres(true);
+                    }}
+                    onActualitza={(_, canvis) => {
+                        // Sobre l'estat del moment, no sobre el que tenia el quadre en obrir-se.
+                        setBudget(prev => actualitzaDesDeCad(prev, quadreCad.entities).budget);
+                        notify(`Actualitzats ${canvis.length} paràmetres amb el dibuix`);
+                    }}
+                    onTanca={() => setQuadreCad(null)}
                 />
             )}
 

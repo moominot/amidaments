@@ -13,13 +13,39 @@
  *
  * Format (separat per tabuladors, una entitat per fila):
  *
- *   AMIDAMENTS-CAD  1  <dibuix>
- *   <tipus>  <tancada 0|1>  <llargada>  <àrea>  <capa>  <nom de bloc>  <handle>
+ *   AMIDAMENTS-CAD  2  <dibuix>
+ *   <tipus>  <tancada 0|1>  <llargada>  <àrea>  <capa>  <nom de bloc>  <handle>  <rètols>
+ *
+ * Els rètols (versió 2) són els textos que el LISP troba dins de cada entitat tancada, separats
+ * per « | »: d'aquí surt el nom de la sala (`nomDeRetols`). La versió 1 no en porta.
  *
  * Les xifres ja arriben en metres: la conversió des de les unitats del dibuix la fa el LISP.
  */
 
 export const CAD_HEADER = 'AMIDAMENTS-CAD';
+
+/**
+ * Text d'un MTEXT sense els codis de format: \P (salt de línia), {\fArial|b0;...},
+ * \H1.5x;, \C1;, \L... i els símbols %%c, %%d i %%p.
+ */
+export const netejaMtext = (s) => String(s || '')
+    .replace(/\\P/g, ' ')
+    .replace(/\\[ACcFfHhQqTtWwp][^;\\]*;/g, '')
+    .replace(/\\[LlOoKk]/g, '')
+    .replace(/\\~/g, ' ')
+    .replace(/[{}]/g, '')
+    .replace(/%%[cC]/g, 'Ø').replace(/%%[dD]/g, '°').replace(/%%[pP]/g, '±')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+/**
+ * El nom d'una sala a partir dels rètols de dins: el primer que porta lletres i no és només
+ * una superfície («12,5 m²», «S: 20 m2»). Buit si no n'hi ha cap.
+ */
+export const nomDeRetols = (retols = []) => {
+    const esSuperficie = (t) => /^\s*(s|sup|superf[ií]cie|àrea|area)?\s*[:=]?\s*[\d.,]+\s*(m2|m²|m\^2)?\s*$/i.test(t);
+    return retols.find(t => /\p{L}/u.test(t) && !esSuperficie(t)) || '';
+};
 
 const num = (s) => {
     const v = parseFloat(String(s ?? '').trim().replace(',', '.'));
@@ -43,6 +69,7 @@ export const parseCadClipboard = (text) => {
             layer: (c[4] || '').trim(),
             name: (c[5] || '').trim(),
             handle: (c[6] || '').trim(),
+            labels: (c[7] || '').split(' | ').map(netejaMtext).filter(Boolean),
         };
     }).filter(e => e.type);
 
