@@ -10,6 +10,7 @@ import { svgAEsquema, midaDataUrl } from '../esquema';
 import { previsualitza } from '../sistemesDoc';
 import {
     FONTS, MODES, fontPerDefecte, respostesDeZona, muntaInstancies, fusionaArbres, actualitzaDesDeCad, zonesDeIndicacio,
+    entitatsLliures,
 } from '../cadSistemes';
 
 /**
@@ -564,7 +565,7 @@ export const DEFINICIONS = [
     },
     {
         name: 'insereix_zones_cad',
-        description: 'Insereix un sistema de la galeria per a cada zona (sala, tram) a partir de les entitats del CAD que l\'usuari ha enganxat al xat: una instància per zona, amb paràmetres propis trets de les magnituds de les seves entitats, i les partides compartides amb una línia amb el nom de cada zona. Les zones es fan amb una agrupació o amb una llista explícita d\'índexs d\'entitats. Les entitats que ja són d\'una zona del projecte no s\'hi tornen a posar: per a aquestes, actualitza_zones_cad.',
+        description: 'Insereix un sistema de la galeria per a cada zona (sala, tram) a partir de les entitats del CAD que l\'usuari ha enganxat al xat: una instància per zona, amb paràmetres propis trets de les magnituds de les seves entitats, i les partides compartides amb una línia amb el nom de cada zona. Les zones es fan amb una agrupació o amb una llista explícita d\'índexs d\'entitats. Les mateixes entitats poden fer zones de sistemes diferents (paviment i fals sostre de la mateixa sala); les que ja són d\'una zona del mateix sistema no s\'hi tornen a posar: per a aquestes, actualitza_zones_cad.',
         input_schema: {
             type: 'object',
             properties: {
@@ -688,19 +689,20 @@ const insereixZonesCad = async (input, llegeix, ctx) => {
     const { id: idGaleria, doc } = sistemaDeGaleria(ctx, input.sistema);
     const { budget, priceDatabase } = llegeix();
 
-    // Les entitats que ja són d'una zona es fan servir per actualitzar-la, no per repetir-la.
-    const vincle = actualitzaDesDeCad(budget, dades.entities);
-    const jaFetes = new Set(dades.entities.filter(e => !vincle.noves.includes(e)));
+    // Una entitat que ja és d'una zona d'aquest mateix sistema no s'hi torna a posar (s'actualitza);
+    // d'un altre sistema, sí: la mateixa sala pot tenir paviment i fals sostre.
+    const lliures = entitatsLliures(budget.sistemes || [], dades.entities, { idGaleria, nomSistema: doc.nom });
+    const jaFetes = new Set(dades.entities.filter(e => !lliures.includes(e)));
     let zones;
     try {
         zones = input.zones?.length
             ? zonesDeIndicacio(dades.entities, { zones: input.zones })
-            : zonesDeIndicacio(vincle.noves, { agrupacio: input.agrupacio });
+            : zonesDeIndicacio(lliures, { agrupacio: input.agrupacio });
     } catch (e) {
         throw new ErrorEina(e.message);
     }
     const repetides = zones.filter(z => z.entitats.some(e => jaFetes.has(e))).map(z => z.nom);
-    if (repetides.length) throw new ErrorEina(`Les zones ${repetides.join(', ')} tenen entitats que ja són de zones del projecte (${vincle.vinculades.join(', ')}): fes servir actualitza_zones_cad`);
+    if (repetides.length) throw new ErrorEina(`Les zones ${repetides.join(', ')} tenen entitats que ja són de zones de «${doc.nom}»: per posar-les al dia amb el dibuix, actualitza_zones_cad`);
     if (!zones.length) throw new ErrorEina('No hi ha cap entitat nova per fer-ne zones');
 
     const demanats = doc.parametres.filter(p => !p.formula);

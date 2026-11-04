@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { parseCadClipboard, netejaMtext, nomDeRetols } from '../src/utils/cadPaste';
 import {
     magnituds, agrupaEntitats, modePerDefecte, fontPerDefecte, muntaInstancies, fusionaArbres,
-    instanciesVinculades, actualitzaDesDeCad,
+    instanciesVinculades, actualitzaDesDeCad, entitatsLliures,
 } from '../src/utils/cadSistemes';
 import { llegeixDocument, FORMAT_SISTEMA } from '../src/utils/sistemesDoc';
 import { resolveFormules } from '../src/utils/parametres';
@@ -187,5 +187,40 @@ describe('vincle amb el dibuix', () => {
         expect(r.canvis).toEqual([]);
         const nomesCuina = actualitzaDesDeCad({ ...projecte(), sistemes: projecte().sistemes.map(i => (i.nom === 'Cuina' ? { ...i, cad: { ...i.cad, handles: ['2F1', 'ESBORRADA'] } } : i)) }, entitats());
         expect(nomesCuina.incompletes).toEqual(['Cuina']);
+    });
+});
+
+describe('la mateixa polilínia per a sistemes diferents', () => {
+    const FALS_SOSTRE = { ...PAVIMENT, nom: 'Fals sostre de placa' };
+    const zones = () => agrupaEntitats(entitats(), 'retol');
+    const projecte = () => {
+        const r = muntaInstancies(PAVIMENT, zones(), { assignacio: { A: 'area', P: 'perimetre' }, idGaleria: 'pav' });
+        return { chapters: r.chapters, parametres: r.parametres, condicions: r.condicions, sistemes: r.instancies };
+    };
+
+    it('les entitats ja fetes amb el paviment estan lliures per al fals sostre, però no per al paviment', () => {
+        const b = projecte();
+        expect(entitatsLliures(b.sistemes, entitats(), { idGaleria: 'pav', nomSistema: 'Paviment de gres' })).toEqual([]);
+        expect(entitatsLliures(b.sistemes, entitats(), { idGaleria: 'fs', nomSistema: 'Fals sostre de placa' })).toHaveLength(4);
+    });
+
+    it('sense id de galeria (inserit a mà), es compara pel nom del sistema', () => {
+        const sistemes = projecte().sistemes.map(i => ({ ...i, cad: { ...i.cad, galeria: undefined } }));
+        expect(entitatsLliures(sistemes, entitats(), { idGaleria: 'pav', nomSistema: 'Paviment de gres' })).toEqual([]);
+        expect(entitatsLliures(sistemes, entitats(), { idGaleria: 'fs', nomSistema: 'Fals sostre de placa' })).toHaveLength(4);
+    });
+
+    it('el fals sostre de les mateixes sales té les seves zones i paràmetres, i actualitzar el dibuix les posa al dia totes', () => {
+        const b = projecte();
+        const fs = muntaInstancies(FALS_SOSTRE, zones(), {
+            assignacio: { A: 'area', P: 'perimetre' }, idGaleria: 'fs',
+            parametresProjecte: b.parametres, sistemesProjecte: b.sistemes,
+        });
+        expect(fs.instancies.map(i => i.nom)).toEqual(['Cuina 2', 'Menjador 2', 'Estar 2']);
+        const tot = { ...b, parametres: [...b.parametres, ...fs.parametres], sistemes: [...b.sistemes, ...fs.instancies] };
+        const modificades = entitats().map(e => (e.handle === '2F1' ? { ...e, area: 14, length: 15 } : e));
+        const r = actualitzaDesDeCad(tot, modificades);
+        expect(r.canvis.map(c => `${c.instancia}·${c.parametre}`)).toEqual(['Cuina·A', 'Cuina·P', 'Cuina 2·A_4', 'Cuina 2·P_4']);
+        expect(r.vinculadesAmbSistema.map(v => v.sistema)).toEqual(['Paviment de gres', 'Paviment de gres', 'Paviment de gres', 'Fals sostre de placa', 'Fals sostre de placa', 'Fals sostre de placa']);
     });
 });

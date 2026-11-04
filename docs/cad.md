@@ -63,6 +63,12 @@ sistema» (`components/CadSistemaModal.jsx`, `utils/cadSistemes.js`):
    Les partides que comparteixen s'ajunten abans d'inserir (`fusionaArbres`), de manera que una
    partida té les línies de totes les zones, cadascuna amb el seu títol.
 
+**La mateixa polilínia per a diversos sistemes.** Una sala pot tenir paviment, fals sostre i
+pintura: s'enganxen les mateixes entitats una vegada per sistema. Una entitat només és «ja feta»
+per al sistema del qual ja és una zona (`entitatsLliures`, per l'id de la galeria o, si no en
+té, pel nom del sistema); per a un altre sistema surt com a lliure. En canvi, actualitzar amb el
+dibuix modificat posa al dia les zones de tots els sistemes que surten d'aquelles entitats.
+
 Si el sistema té partides amb el text o el preu variables, com que les zones les comparteixen,
 agafen els valors de la primera; el quadre ho avisa.
 

@@ -8,7 +8,7 @@ import { previsualitza } from '../utils/sistemesDoc';
 import { CAMPS_PLANTILLA, esPlantilla } from '../utils/plantilles';
 import {
     FONTS, MODES, magnituds, agrupaEntitats, modePerDefecte, fontPerDefecte, valorsDeZona, respostesDeZona,
-    muntaInstancies, actualitzaDesDeCad,
+    muntaInstancies, actualitzaDesDeCad, entitatsLliures,
 } from '../utils/cadSistemes';
 
 /**
@@ -34,7 +34,6 @@ const CadSistemaModal = ({ dades, budget, priceDatabase, onInsereix, onActualitz
     // Primer, el vincle: les entitats que ja són d'una zona del projecte.
     const vincle = useMemo(() => actualitzaDesDeCad(budget, totes), [budget, totes]);
     const [actualitzat, setActualitzat] = useState(false);
-    const entitats = vincle.vinculades.length ? vincle.noves : totes;
 
     const galeria = useMemo(() => llistaSistemes(), []);
     const [idSistema, setIdSistema] = useState(() => {
@@ -42,9 +41,17 @@ const CadSistemaModal = ({ dades, budget, priceDatabase, onInsereix, onActualitz
         return galeria.some(s => s.id === desat) ? desat : galeria[0]?.id || '';
     });
     const doc = useMemo(() => (idSistema ? llegeixSistema(idSistema) : null), [idSistema]);
+    // Per a zones noves, les entitats que no són encara de cap zona d'aquest sistema: la mateixa
+    // polilínia pot servir per a un altre sistema (paviment i fals sostre de la mateixa sala).
+    const entitats = useMemo(
+        () => (doc ? entitatsLliures(budget.sistemes || [], totes, { idGaleria: idSistema, nomSistema: doc.nom }) : totes),
+        [doc, idSistema, budget.sistemes, totes],
+    );
+    const jaDelSistema = totes.length - entitats.length;
     const demanats = useMemo(() => (doc?.parametres || []).filter(p => !p.formula), [doc]);
 
-    const [mode, setMode] = useState(() => modePerDefecte(entitats));
+    // Amb totes les enganxades: les lliures depenen del sistema triat i poden ser cap.
+    const [mode, setMode] = useState(() => modePerDefecte(totes));
     const [assignacio, setAssignacio] = useState({});
     const [comuns, setComuns] = useState({});
     useEffect(() => {
@@ -138,7 +145,7 @@ const CadSistemaModal = ({ dades, budget, priceDatabase, onInsereix, onActualitz
                         <div className="p-4 border-b border-slate-200 bg-violet-50/60 text-[11px] text-slate-700 space-y-2">
                             <p>
                                 <b>{totes.length - vincle.noves.length}</b> d&apos;aquestes entitats ja són de {vincle.vinculades.length === 1 ? 'la zona' : 'les zones'}{' '}
-                                <b>{vincle.vinculades.join(', ')}</b>.
+                                <b>{vincle.vinculadesAmbSistema.map(v => (v.sistema ? `${v.nom} (${v.sistema})` : v.nom)).join(', ')}</b>.
                                 {vincle.incompletes.length > 0 && <> Falten entitats de <b>{vincle.incompletes.join(', ')}</b>: es compta amb les que hi ha.</>}
                             </p>
                             {actualitzat ? (
@@ -163,9 +170,7 @@ const CadSistemaModal = ({ dades, budget, priceDatabase, onInsereix, onActualitz
                         </div>
                     )}
 
-                    {entitats.length === 0 ? (
-                        <p className="p-4 text-xs text-slate-500">No hi ha cap entitat nova per fer-ne zones.</p>
-                    ) : galeria.length === 0 ? (
+                    {galeria.length === 0 ? (
                         <p className="p-4 text-xs text-slate-500 leading-relaxed">
                             No hi ha cap sistema a la galeria. Desa&apos;n un (Sistema › Desa aquest projecte com a sistema) o, per afegir les
                             entitats com a línies, selecciona una partida i torna a enganxar.
@@ -186,7 +191,8 @@ const CadSistemaModal = ({ dades, budget, priceDatabase, onInsereix, onActualitz
                                         </select>
                                     </label>
                                     <p className="text-[10px] text-slate-400">
-                                        {entitats.length} entitats noves: {nTancades} tancades{nTrames ? ` (${nTrames} ${nTrames === 1 ? 'trama' : 'trames'}, amb l'àrea neta de les illes)` : ''}, {entitats.length - nTancades} obertes.
+                                        {entitats.length} entitats per a aquest sistema: {nTancades} tancades{nTrames ? ` (${nTrames} ${nTrames === 1 ? 'trama' : 'trames'}, amb l'àrea neta de les illes)` : ''}, {entitats.length - nTancades} obertes.
+                                        {jaDelSistema > 0 && ` ${jaDelSistema} ja són de zones d'aquest sistema i no es tornen a posar.`}
                                     </p>
                                     {doc?.esquema && <Esquema esquema={doc.esquema} className="max-h-40" titol={`Esquema de ${doc.nom}`} />}
                                 </div>
@@ -258,7 +264,13 @@ const CadSistemaModal = ({ dades, budget, priceDatabase, onInsereix, onActualitz
                                             </button>
                                         )}
                                     </div>
-                                    {zones.length === 0 && <p className="text-[11px] text-slate-500">Les has descartades totes: no s&apos;inserirà res.</p>}
+                                    {zones.length === 0 && (
+                                        <p className="text-[11px] text-slate-500">
+                                            {entitats.length === 0
+                                                ? 'Totes aquestes entitats ja són de zones d\'aquest sistema: tria\'n un altre, o actualitza-les a dalt si has canviat el dibuix.'
+                                                : 'Les has descartades totes: no s\'inserirà res.'}
+                                        </p>
+                                    )}
                                     <div className="space-y-2">
                                         {zones.map((z, i) => {
                                             const pv = previs[i];

@@ -168,7 +168,25 @@ export const muntaInstancies = (doc, zones, {
 
 // ─── Vincle amb el dibuix ───
 
-/** Les instàncies del projecte que surten d'alguna d'aquestes entitats. */
+/**
+ * Si una instància és d'aquest sistema de la galeria: per l'id de la galeria i, si la instància
+ * no en té (inserida a mà, no des del CAD), pel nom del sistema.
+ */
+const esDelSistema = (inst, { idGaleria, nomSistema } = {}) => (
+    inst.cad?.galeria && idGaleria ? inst.cad.galeria === idGaleria : inst.sistema === nomSistema
+);
+
+/**
+ * Les entitats que encara no són de cap zona **d'aquest sistema**. Una mateixa polilínia pot
+ * fer de sala per a sistemes diferents (paviment, fals sostre, pintura): només no s'ha de
+ * repetir dins del mateix sistema.
+ */
+export const entitatsLliures = (sistemes = [], entitats = [], sistema = {}) => {
+    const usats = new Set(sistemes.filter(i => esDelSistema(i, sistema)).flatMap(i => i.cad?.handles || []));
+    return entitats.filter(e => !e.handle || !usats.has(e.handle));
+};
+
+/** Les instàncies del projecte que surten d'alguna d'aquestes entitats (de qualsevol sistema). */
 export const instanciesVinculades = (sistemes = [], entitats = []) => {
     const handles = new Set(entitats.map(e => e.handle).filter(Boolean));
     return sistemes.filter(i => (i.cad?.handles || []).some(h => handles.has(h)));
@@ -211,6 +229,7 @@ export const actualitzaDesDeCad = (budget, entitats = []) => {
         canvis,
         incompletes,
         vinculades: vinculades.map(i => i.nom),
+        vinculadesAmbSistema: vinculades.map(i => ({ nom: i.nom, sistema: i.sistema || '' })),
         noves: entitats.filter(e => !e.handle || !usats.has(e.handle)),
     };
 };

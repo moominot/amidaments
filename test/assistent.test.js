@@ -443,6 +443,20 @@ describe('eines del CAD als sistemes', () => {
         expect(segon.resultat.pem).toBe(round2(64.75 * 30 + 63 * 8));
     });
 
+    it('les mateixes entitats poden fer zones d\'un altre sistema', async () => {
+        const fet = await executaEina('insereix_zones_cad', { sistema: 'g1', agrupacio: 'retol' }, buit(), ctx());
+        const dos = {
+            ...ctx(),
+            galeria: {
+                llista: () => [{ id: 'g1', nom: 'Paviment de gres' }, { id: 'g2', nom: 'Fals sostre' }],
+                llegeix: (id) => (id === 'g2' ? { ...PAVIMENT, nom: 'Fals sostre' } : PAVIMENT),
+            },
+        };
+        const r = await executaEina('insereix_zones_cad', { sistema: 'Fals sostre', agrupacio: 'retol' }, fet.estat, dos);
+        expect(r.resultat.zones.map(z => z.nom)).toEqual(['Cuina 2', 'Menjador 2', 'Estar 2']);
+        await expect(executaEina('insereix_zones_cad', { sistema: 'g1', agrupacio: 'retol' }, r.estat, dos)).rejects.toThrow(/Cap entitat|cap entitat nova/i);
+    });
+
     it('no repeteix entitats que ja són d\'una zona, i actualitza_zones_cad les posa al dia', async () => {
         const fet = await executaEina('insereix_zones_cad', { sistema: 'g1', agrupacio: 'retol' }, buit(), ctx());
         await expect(executaEina('insereix_zones_cad', { sistema: 'g1', zones: [{ nom: 'Cuina bis', entitats: [0] }] }, fet.estat, ctx()))
