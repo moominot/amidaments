@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { X, Plus, Variable, Trash2, AlertCircle, AlertTriangle, CheckCircle2, SlidersHorizontal, ChevronDown, ChevronRight, Image as ImageIcon } from 'lucide-react';
+import { X, Plus, Variable, Trash2, AlertCircle, AlertTriangle, CheckCircle2, SlidersHorizontal, ChevronDown, ChevronRight, Image as ImageIcon, Pencil } from 'lucide-react';
 import FormulaInput from './FormulaInput';
 import Esquema from './Esquema';
 import { preparaEsquema, ACCEPTA_ESQUEMA } from '../utils/esquema';
@@ -222,6 +222,27 @@ const agrupa = (parametres, nomGrup = (p) => p.grup || '') => {
     return out.sort((a, b) => (a.nom === '' ? -1 : b.nom === '' ? 1 : 0));
 };
 
+/** El nom d'una zona (instància) mentre s'edita: Enter o sortir el desa, Esc el descarta. */
+const NomZonaInput = ({ nom, onDesa, onCancela }) => {
+    const [draft, setDraft] = useState(nom);
+    const cancelat = useRef(false);
+    return (
+        <input
+            autoFocus
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            onFocus={e => e.currentTarget.select()}
+            onBlur={() => { if (!cancelat.current) onDesa(draft); }}
+            onKeyDown={e => {
+                if (e.key === 'Enter') e.currentTarget.blur();
+                if (e.key === 'Escape') { cancelat.current = true; onCancela(); }
+            }}
+            className="flex-1 min-w-0 m-1.5 px-2 py-1 text-[11px] font-bold text-violet-900 border border-violet-400 outline-none bg-white"
+            aria-label="Nom de la zona"
+        />
+    );
+};
+
 /** L'esquema del projecte: el que s'emportarà si es desa com a sistema. */
 const EditorEsquema = ({ esquema, onCanvia, notify }) => {
     const fitxer = useRef(null);
@@ -266,10 +287,11 @@ const EditorEsquema = ({ esquema, onCanvia, notify }) => {
 
 const ParametresPanel = ({
     parametres = [], condicions = [], sistemes = [], esquema = null, resolts, comprovacio, usos,
-    onAfegeix, onCanvia, onReanomena, onEsborra, onCanviaEsquema, notify,
+    onAfegeix, onCanvia, onReanomena, onEsborra, onCanviaEsquema, onReanomenaInstancia, notify,
     onAfegeixCondicio, onCanviaCondicio, onEsborraCondicio, onTanca,
 }) => {
     const [nouId, setNouId] = useState(null);
+    const [editantNom, setEditantNom] = useState(null);
     const afegeix = (grup) => setNouId(onAfegeix(grup));
 
     // Els d'una instància que ja no hi és (o d'una instància sense entrada) es queden al projecte.
@@ -389,20 +411,40 @@ const ParametresPanel = ({
                     const pendents = inst.avisos + inst.condicions.filter(incomplerta).length;
                     return (
                         <div key={inst.id} className="border-t-2 border-violet-200">
-                            <button
-                                onClick={() => commuta(inst.id)}
-                                className="sticky top-0 z-10 w-full bg-violet-50 hover:bg-violet-100 border-b border-violet-200 px-3 py-2 flex items-center gap-2 text-left touch-manipulation"
-                                aria-expanded={oberta}
-                            >
-                                {oberta ? <ChevronDown size={13} className="text-violet-500 flex-shrink-0" /> : <ChevronRight size={13} className="text-violet-500 flex-shrink-0" />}
-                                <span className="flex-1 min-w-0">
-                                    <span className="block text-[11px] font-bold text-violet-900 truncate">{inst.nom}</span>
-                                    {inst.sistema && inst.sistema !== inst.nom && <span className="block text-[9px] text-violet-500 truncate">{inst.sistema}</span>}
-                                </span>
-                                {inst.esquema && <ImageIcon size={12} className="text-violet-400 flex-shrink-0" aria-label="Té esquema" />}
-                                {pendents > 0 && <AlertTriangle size={12} className="text-amber-500 flex-shrink-0" aria-label="Té condicions que no es compleixen" />}
-                                <span className="text-[9px] font-mono text-violet-500 flex-shrink-0">{inst.nParametres}</span>
-                            </button>
+                            <div className="sticky top-0 z-10 bg-violet-50 border-b border-violet-200 flex items-stretch">
+                                {editantNom === inst.id ? (
+                                    <NomZonaInput
+                                        nom={inst.nom}
+                                        onDesa={(nou) => { setEditantNom(null); onReanomenaInstancia?.(inst.id, nou); }}
+                                        onCancela={() => setEditantNom(null)}
+                                    />
+                                ) : (
+                                    <button
+                                        onClick={() => commuta(inst.id)}
+                                        className="flex-1 min-w-0 hover:bg-violet-100 px-3 py-2 flex items-center gap-2 text-left touch-manipulation"
+                                        aria-expanded={oberta}
+                                    >
+                                        {oberta ? <ChevronDown size={13} className="text-violet-500 flex-shrink-0" /> : <ChevronRight size={13} className="text-violet-500 flex-shrink-0" />}
+                                        <span className="flex-1 min-w-0">
+                                            <span className="block text-[11px] font-bold text-violet-900 truncate">{inst.nom}</span>
+                                            {inst.sistema && inst.sistema !== inst.nom && <span className="block text-[9px] text-violet-500 truncate">{inst.sistema}</span>}
+                                        </span>
+                                        {inst.esquema && <ImageIcon size={12} className="text-violet-400 flex-shrink-0" aria-label="Té esquema" />}
+                                        {pendents > 0 && <AlertTriangle size={12} className="text-amber-500 flex-shrink-0" aria-label="Té condicions que no es compleixen" />}
+                                        <span className="text-[9px] font-mono text-violet-500 flex-shrink-0">{inst.nParametres}</span>
+                                    </button>
+                                )}
+                                {onReanomenaInstancia && editantNom !== inst.id && (
+                                    <button
+                                        onClick={() => setEditantNom(inst.id)}
+                                        className="px-2.5 text-violet-400 hover:text-violet-700 hover:bg-violet-100 touch-manipulation"
+                                        title="Canvia el nom de la zona (també a les línies d'amidament)"
+                                        aria-label={`Canvia el nom de ${inst.nom}`}
+                                    >
+                                        <Pencil size={12} />
+                                    </button>
+                                )}
+                            </div>
                             {oberta && (
                                 <div>
                                     {inst.esquema && <div className="px-3 py-2 border-b border-slate-100"><Esquema esquema={inst.esquema} className="max-h-40" titol={`Esquema de ${inst.nom}`} /></div>}

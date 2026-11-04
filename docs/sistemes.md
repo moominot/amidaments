@@ -250,6 +250,12 @@ per defecte, es posa a les línies d'amidament de cada partida:
 Així, a les partides on s'ajunten línies de diverses instàncies (o de l'obra), es veu de quina
 zona és cada una. Les línies porten `sistema`, així que es filtren i es treuen amb la instància.
 
+**Canviar el nom de la zona**: el llapis del bloc de la instància al panell de paràmetres
+(`reanomenaInstancia`). El canvia a la instància (i al filtre), al grup dels seus paràmetres i
+condicions i a les línies: les de títol sempre, i les que el tenen com a text només si encara
+diuen el nom vell (si s'hi ha escrit una altra cosa, es respecta). Si el nom ja és d'una altra
+instància, s'hi afegeix un número.
+
 Si una partida variable (text amb variables o rendiments amb fórmula) ja és al projecte i s'hi
 afegeixen les línies d'una altra instància, el títol i el preu continuen sent els de la primera:
 el quadre de duplicats ho avisa i recomana afegir-la com a partida nova.

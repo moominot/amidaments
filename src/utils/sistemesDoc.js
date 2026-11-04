@@ -432,3 +432,38 @@ export const treuInstancia = (budget, id) => {
         sistemes: (budget.sistemes || []).filter(i => i.id !== id),
     };
 };
+
+/**
+ * Canvia el nom d'una instància (la zona) a tot arreu: a `budget.sistemes`, al grup dels seus
+ * paràmetres i condicions («Façana nord · Mur» → «Façana sud · Mur») i a les línies que porten el
+ * nom: les de títol (`zona`) i les que el tenen com a text (`nomZona`), però aquestes només si
+ * encara diuen el nom vell (si algú hi ha escrit una altra cosa, es respecta). Si el nom ja és
+ * d'una altra instància, s'hi afegeix un número.
+ */
+export const reanomenaInstancia = (budget, id, nouNom) => {
+    const inst = (budget.sistemes || []).find(i => i.id === id);
+    const net = String(nouNom || '').trim();
+    if (!inst || !net || net === inst.nom) return budget;
+    const nom = nomInstanciaLliure(net, (budget.sistemes || []).filter(i => i.id !== id));
+    const vell = inst.nom;
+    const prefix = `${vell} · `;
+    const grup = (g) => (g === vell ? nom : (g || '').startsWith(prefix) ? `${nom} · ${g.slice(prefix.length)}` : g);
+    const linia = (m) => {
+        if (m.sistema !== id) return m;
+        if (m.zona || (m.nomZona && m.description === vell)) return { ...m, description: nom };
+        return m;
+    };
+    const arbre = (nodes) => nodes.map(n => ({
+        ...n,
+        ...(n.measurements ? { measurements: n.measurements.map(linia) } : {}),
+        subChapters: arbre(n.subChapters || []),
+        items: arbre(n.items || []),
+    }));
+    return {
+        ...budget,
+        chapters: arbre(budget.chapters || []),
+        parametres: (budget.parametres || []).map(p => (p.sistema === id ? { ...p, grup: grup(p.grup) } : p)),
+        condicions: (budget.condicions || []).map(c => (c.sistema === id ? { ...c, grup: grup(c.grup) } : c)),
+        sistemes: budget.sistemes.map(i => (i.id === id ? { ...i, nom } : i)),
+    };
+};

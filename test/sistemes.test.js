@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
     documentDeProjecte, llegeixDocument, parametresADemanar, instancia, previsualitza,
-    filtraPerInstancia, extreuInstancia, treuInstancia, nomInstanciaLliure, FORMAT_SISTEMA,
+    filtraPerInstancia, extreuInstancia, treuInstancia, nomInstanciaLliure, reanomenaInstancia, FORMAT_SISTEMA,
 } from '../src/utils/sistemesDoc';
 import { llistaSistemes, desaSistema } from '../src/utils/galeriaSistemes';
 import { resolveFormules } from '../src/utils/parametres';
@@ -478,5 +478,37 @@ describe('esquema del sistema', () => {
         expect(llegeixDocument({ ...MUR, esquema: { dades: 'javascript:alert(1)' } }).esquema).toBeUndefined();
         expect(llegeixDocument({ ...MUR, esquema: { dades: 'data:text/html;base64,PGI+' } }).esquema).toBeUndefined();
         expect(documentDeProjecte({ chapters: [], esquema: 'no' }).esquema).toBeUndefined();
+    });
+});
+
+describe('canviar el nom d\'una instància', () => {
+    const muntat = () => {
+        const inst = instancia(MUR, { nomInstancia: 'Façana nord', liniaZona: true, id: 'R1' });
+        return { chapters: inst.chapters, parametres: inst.parametres, condicions: inst.condicions, sistemes: [inst.instancia, { id: 'R2', nom: 'Façana sud' }] };
+    };
+    const linies = (b) => Object.values(partides(b.chapters)).flatMap(p => p.measurements || []);
+
+    it('el canvia a la instància, als grups i a les línies de la zona', () => {
+        const r = reanomenaInstancia(muntat(), 'R1', 'Façana est');
+        expect(r.sistemes[0].nom).toBe('Façana est');
+        expect(r.parametres.every(p => p.grup === 'Façana est' || p.grup.startsWith('Façana est · '))).toBe(true);
+        expect(r.condicions.every(c => c.grup === 'Façana est')).toBe(true);
+        expect(linies(r).filter(m => m.zona || m.nomZona).every(m => m.description === 'Façana est')).toBe(true);
+        expect(linies(r).some(m => m.description === 'Façana nord')).toBe(false);
+    });
+
+    it('respecta una línia on s\'ha escrit una altra cosa, i no repeteix el nom d\'una altra instància', () => {
+        const b = muntat();
+        const primera = linies(b).find(m => m.nomZona);
+        primera.description = 'Façana nord, tram del portal';
+        const r = reanomenaInstancia(b, 'R1', 'Façana sud');
+        expect(r.sistemes[0].nom).toBe('Façana sud 2');
+        expect(linies(r).find(m => m.id === primera.id).description).toBe('Façana nord, tram del portal');
+    });
+
+    it('un nom buit o el mateix no canvia res', () => {
+        const b = muntat();
+        expect(reanomenaInstancia(b, 'R1', '  ')).toBe(b);
+        expect(reanomenaInstancia(b, 'R1', 'Façana nord')).toBe(b);
     });
 });

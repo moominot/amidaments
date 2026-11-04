@@ -113,7 +113,7 @@ import { exportWasteStudyPDF } from './utils/wasteStudyPdf';
 import WasteStudyModal from './components/WasteStudyModal';
 import PriceBankPicker from './components/PriceBankPicker';
 import SistemesModal from './components/SistemesModal';
-import { filtraPerInstancia, extreuInstancia, treuInstancia } from './utils/sistemesDoc';
+import { filtraPerInstancia, extreuInstancia, treuInstancia, reanomenaInstancia } from './utils/sistemesDoc';
 import {
     EXTENSIO_PROJECTE, MIME_PROJECTE, esFitxerProjecte, esFitxerBC3,
     serialitzaProjecte, llegeixProjecte,
@@ -5734,6 +5734,7 @@ export default function App() {
                             onReanomena={reanomenaParametre}
                             onEsborra={esborraParametre}
                             sistemes={budget.sistemes || []}
+                            onReanomenaInstancia={(id, nom) => setBudget(prev => reanomenaInstancia(prev, id, nom))}
                             esquema={budget.esquema || null}
                             onCanviaEsquema={(e) => setBudget(prev => {
                                 // eslint-disable-next-line no-unused-vars
