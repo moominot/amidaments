@@ -5,6 +5,7 @@ import {
     Blocks,
     Variable,
     Sparkles,
+    Heading,
     Languages,
     ListPlus,
     FileText,
@@ -3314,13 +3315,21 @@ export default function App() {
         setBudget(prev => ({ ...prev, chapters: updateInTree(prev.chapters) }));
     };
 
-    const addMeasurementLine = (itemId) => {
+    /**
+     * Afegeix una línia d'amidament. Amb `titol`, una línia de títol (`zona: true`, a 0): el nom
+     * d'una zona o d'un grup de línies, com les que posa un sistema, que es veu a tota l'amplada i
+     * a la impressió surt sense xifres.
+     */
+    const addMeasurementLine = (itemId, { titol = false } = {}) => {
+        const nova = titol
+            ? { id: crypto.randomUUID(), description: '', units: 0, length: 0, width: 0, height: 0, zona: true }
+            : { id: crypto.randomUUID(), description: 'Nova línia', units: 0, length: 0, width: 0, height: 0 };
         const updateInTree = (nodes) => {
             return nodes.map(node => {
                 if (node.id === itemId) {
                     return {
                         ...node,
-                        measurements: [...(node.measurements || []), { id: crypto.randomUUID(), description: 'Nova línia', units: 0, length: 0, width: 0, height: 0 }]
+                        measurements: [...(node.measurements || []), nova]
                     };
                 }
                 return {
@@ -6298,13 +6307,13 @@ export default function App() {
                                                                     // Línia de zona d'una instància de sistema: el nom, a tota l'amplada.
                                                                     <tr key={m.id} className="group bg-violet-50/70">
                                                                         <td colSpan={5} className="p-1.5">
-                                                                            <input type="text" value={m.description} onChange={(e) => updateMeasurement(node.id, m.id, 'description', e.target.value)} className="w-full bg-transparent border-none font-bold text-violet-800 outline-none p-0" aria-label="Nom de la zona" />
+                                                                            <input type="text" value={m.description} onChange={(e) => updateMeasurement(node.id, m.id, 'description', e.target.value)} placeholder="Nom de la zona o títol" autoFocus={!m.description} className="w-full bg-transparent border-none font-bold text-violet-800 outline-none p-0 placeholder:text-violet-300 placeholder:font-normal" aria-label="Nom de la zona" />
                                                                         </td>
                                                                         <td className="p-1.5 text-right">
                                                                             <button
                                                                                 onClick={() => deleteMeasurementLine(node.id, m.id)}
                                                                                 className="opacity-60 md:opacity-0 md:group-hover:opacity-100 text-slate-400 hover:text-red-500 p-2 -m-1 touch-manipulation"
-                                                                                title="Treu la línia de zona"
+                                                                                title="Treu la línia de títol"
                                                                             >
                                                                                 <X size={10} />
                                                                             </button>
@@ -6364,6 +6373,13 @@ export default function App() {
                                                             <div className="flex flex-wrap gap-2">
                                                                 <button onClick={() => addMeasurementLine(node.id)} className="text-[10px] md:text-[9px] bg-white border border-slate-200 px-2 py-1 flex items-center gap-1 hover:bg-slate-100 transition-colors uppercase font-bold text-slate-600">
                                                                     <Plus size={10} /> Afegir línia
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => addMeasurementLine(node.id, { titol: true })}
+                                                                    className="text-[10px] md:text-[9px] bg-white border border-violet-200 text-violet-700 px-2 py-1 flex items-center gap-1 hover:bg-violet-50 transition-colors uppercase font-bold"
+                                                                    title="Línia de títol: el nom d'una zona o d'un grup de línies, sense xifres"
+                                                                >
+                                                                    <Heading size={10} /> Títol
                                                                 </button>
                                                                 <button onClick={() => setLinkTarget(node.id)} className="text-[10px] md:text-[9px] bg-white border border-blue-200 text-blue-700 px-2 py-1 flex items-center gap-1 hover:bg-blue-50 transition-colors uppercase font-bold" title="Prendre l'amidament d'una altra partida">
                                                                     <LinkIcon size={10} /> Vincular

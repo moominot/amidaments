@@ -250,6 +250,10 @@ per defecte, es posa a les línies d'amidament de cada partida:
 Així, a les partides on s'ajunten línies de diverses instàncies (o de l'obra), es veu de quina
 zona és cada una. Les línies porten `sistema`, així que es filtren i es treuen amb la instància.
 
+**Títols a mà**: el botó «Títol» del detall d'amidament afegeix una línia de títol (`zona: true`,
+a 0, sense `sistema`) a qualsevol partida, per separar les línies per zones o grups. Es veu i
+s'imprimeix com les de zona dels sistemes; com que no és de cap instància, no es treu amb cap.
+
 **Canviar el nom de la zona**: el llapis del bloc de la instància al panell de paràmetres
 (`reanomenaInstancia`). El canvia a la instància (i al filtre), al grup dels seus paràmetres i
 condicions i a les línies: les de títol sempre, i les que el tenen com a text només si encara
