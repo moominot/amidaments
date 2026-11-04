@@ -30,10 +30,10 @@ comentat al codi (`App.jsx:466`), de manera que a pantalla només es veu el PEM.
 `<style>` inline al final del component (`App.jsx:497`): `@page { size: A4; margin: 1.5cm }`,
 `page-break-inside: avoid` a les files, i `break-before: page` per als capítols.
 
-## PDF d'amidaments — `handleExportPDF` (`App.jsx:1094`)
+## PDF d'amidaments — `handleExportPDF`
 
 jsPDF + `jspdf-autotable`. L'arbre s'aplana amb `flattenBudget` a files tipades
-(`chapter`, `item`, `item-long-desc`, `measurement`, `item-total`, `chapter-total`) i el hook
+(`chapter`, `item`, `item-long-desc`, `measurement`, `breakdown`, `chapter-total`) i el hook
 `didParseCell` aplica l'estil segons el tipus. `didDrawPage` pinta capçalera, títol del
 projecte, data i número de pàgina.
 
@@ -42,10 +42,23 @@ Amb `chaptersOnNewPage` es genera una taula independent per capítol, cadascuna 
 Les files de partida omplen les 10 columnes de la capçalera en les posicions exactes
 (`Long.`/`Ampl.`/`Alç.`/`Parc.` en blanc per a la fila resum, `Quant.`/`Preu`/`Import` amb
 els totals), i `flattenBudget` també genera línies d'amidament (`showMeasurements`),
-descomposat (`showBreakdown`) i el total de cada capítol, igual que `renderPrintNode` a la
-previsualització. Veure `docs/estat-actual.md` § 32 (defecte ja corregit: les partides
-sortien amb les columnes desplaçades i les opcions `showMeasurements`/`showBreakdown` no
-tenien cap efecte al PDF).
+descomposat (`showBreakdown`) i el total de cada capítol.
+
+### `walkPrintTree` (`utils/printTree.js`): una sola implementació per a totes dues sortides
+
+`flattenBudget` (PDF) i `renderPrintRows` dins de `PrintView` (previsualització HTML) **no
+recorren l'arbre cada una pel seu compte**: totes dues criden `walkPrintTree`, que decideix
+quins capítols mostren capçalera pròpia segons `maxLevels`, porta la numeració correlativa i
+aplica `ambImport` (amagar import 0). Cada sortida només rep els avisos
+`onChapterHeader` / `onItem` / `onChapterFooter` i decideix com dibuixar-los (files
+d'`autoTable` o `<tr>` de React).
+
+Abans cadascuna tenia la seva pròpia còpia d'aquesta lògica i van divergir dues vegades reals
+(§32 de `docs/estat-actual.md`): un cop amb les columnes de la partida desplaçades al PDF, un
+altre amb el subarbre sencer d'un capítol aplanat (que supera `maxLevels`) desapareixent del
+PDF en lloc de pujar al nivell del pare. Qualsevol sortida nova que recorri l'arbre de
+pressupost ha de cridar `walkPrintTree` en lloc de tornar-se a escriure la numeració i
+l'aplanament. Els tests de `test/printTree.test.js` fixen aquest comportament.
 
 ## PDF de resum — `handleExportSummaryPDF` (`App.jsx:1231`)
 
@@ -90,7 +103,7 @@ cauen a `node.price`**, que pot estar desfasat respecte del banc de preus.
 
 Ara mateix el passen:
 
-- `flattenBudget` i `renderPrintNode` (línies 129 i 195) ✔
+- `walkPrintTree`, i per tant `flattenBudget` i `renderPrintRows` que hi criden a sobre ✔
 
 I **no** el passen:
 

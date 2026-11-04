@@ -69,7 +69,7 @@ Navegador
 
 | Component | Línia | Què fa |
 |---|---|---|
-| `flattenBudget` (funció) | 119 | Aplana l'arbre a files per al PDF d'amidaments. |
+| `flattenBudget` (funció) | 119 | Aplana l'arbre a files per al PDF d'amidaments, cridant `walkPrintTree` (`utils/printTree.js`) per decidir quins nodes surten — la mateixa funció que fa servir `renderPrintRows` a `PrintView` per a la previsualització. |
 | `numberToTextCatalan` (funció) | 72 | Import en lletres, en català, per al peu del pressupost. |
 | `PrintView` | 177 | Overlay a pantalla completa: previsualització A4 (amidaments \| resum). |
 | `ImportConfirmModal` | 513 | Resolució de codis duplicats en importar. |

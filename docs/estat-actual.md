@@ -2,7 +2,7 @@
 
 Inventari fet llegint el codi (agost 2026).
 
-**Estat: els trenta-tres defectes estan corregits.** Es conserva la descripció de cadascun
+**Estat: els trenta-quatre defectes estan corregits.** Es conserva la descripció de cadascun
 perquè expliquen decisions del codi actual i serveixen de referència si tornen a aparèixer.
 El deute tècnic de la segona meitat del document continua obert.
 
@@ -604,6 +604,41 @@ La segona, de fora: el domini de proxy.cors.sh ha deixat d'existir.
 Es treu la capçalera i el proxy mort. La solució que no depèn de tercers continua essent el
 worker de `worker/` amb `VITE_CORS_PROXY`: si la consola no mostra cap intent contra el
 worker, és que el secret no és al repositori o el worker no està desplegat.
+
+---
+
+### 34. Un capítol aplanat (per `maxLevels`) feia desaparèixer tot el seu subarbre del PDF ✅
+
+Relacionat amb el §32, però no és el mateix defecte: un cop corregides les columnes, un
+capítol que supera `config.maxLevels` encara es perdia sencer al PDF — no només la seva
+capçalera (que és el comportament volgut, «aplanar-lo»), sinó **totes les partides que hi
+havia a dins**.
+
+A `renderPrintNode` (la previsualització) la crida recursiva als fills és sempre
+incondicional: si `shouldShowHeader` és fals només s'omet la capçalera, però els fills es
+recorren igual, al mateix nivell i amb el mateix comptador, en lloc d'obrir-ne un de nou. A
+`flattenBudget` la crida recursiva estava dins de l'`if (shouldShowHeader)`: si el capítol no
+es mostrava, la recursió no s'executava mai i el subarbre sencer desapareixia.
+
+Correcció: moure la recursió fora de la condició, igual que a `renderPrintNode`.
+
+### Unificació: `walkPrintTree` (`utils/printTree.js`)
+
+Els defectes §32 i §34 tenen la mateixa causa de fons: `flattenBudget` (PDF) i
+`renderPrintNode` (previsualització) eren dues reimplementacions separades de la mateixa
+lògica de recorregut (quins nivells mostren capçalera, numeració correlativa, aplanament), i
+van divergir dues vegades sense que cap test ho detectés.
+
+Per no tornar-hi, aquesta lògica s'ha extret a `walkPrintTree` (`utils/printTree.js`), que és
+ara l'única implementació. `flattenBudget` i `renderPrintRows` (l'antic `renderPrintNode`,
+ara dins de `PrintView`) hi criden a sobre i només decideixen com dibuixar cada avís
+(`onChapterHeader`/`onItem`/`onChapterFooter`): files d'`autoTable` l'una, `<tr>` de React
+l'altra. `ambImport` (amagar partides i capítols amb import 0) també s'ha mogut al mateix
+fitxer, perquè és part de la mateixa decisió de «què es veu».
+
+`test/printTree.test.js` fixa el comportament correcte (aplanament sense perdre partides,
+numeració correlativa, `ambImport`) perquè una regressió futura la detecti un test i no un
+PDF mal generat.
 
 ## Deute tècnic
 

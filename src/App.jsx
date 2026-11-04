@@ -121,60 +121,37 @@ import {
 } from './utils/projectFile';
 import { toWindows1252Bytes } from './utils/googleDrive';
 import { baixaFitxer } from './utils/baixa';
+import { ambImport, walkPrintTree } from './utils/printTree';
 
 const formatPrice = (val) => formatNumber(val, 2);
 
-// Amb «amagar import 0», ni les partides ni els capítols amb import 0 surten a la impressió.
-// Tots els camins (previsualització, PDF d'amidaments i de resum) han de passar per aquí.
-const ambImport = (nodes, config, priceDatabase) => (config.hideZeroItems
-    ? nodes.filter(n => (n.unit ? calcItemTotalAmount(n, priceDatabase) : calcChapterTotal(n, priceDatabase)) !== 0)
-    : nodes);
-
-const flattenBudget = (nodesAll, level = 0, parentRef = '', counterObj = { val: 0 }, config, priceDatabase) => {
-    const nodes = ambImport(nodesAll, config, priceDatabase);
+// `counterObj` és opcional i només cal quan es genera una taula per capítol
+// (`config.chaptersOnNewPage`): cada pàgina és una crida diferent però la numeració
+// correlativa ha de continuar, així que el comptador es comparteix entre crides.
+const flattenBudget = (nodes, config, priceDatabase, counterObj = { val: 0 }) => {
     // Sense preus, la taula perd les columnes Preu i Import: 8 columnes en comptes de 10
     const prices = config.showPrices !== false;
     const cols = prices ? 10 : 8;
-    let rows = [];
-    nodes.forEach((node) => {
-        const isChapter = !node.unit;
-        const shouldShowHeader = !isChapter || (level < config.maxLevels);
+    const rows = [];
 
-        let displayCode = node.code;
-        let currentRef = parentRef;
-
-        if (shouldShowHeader) {
-            counterObj.val++;
-            currentRef = parentRef ? `${parentRef}.${counterObj.val}` : `${counterObj.val}`;
-            displayCode = config.useCorrelativeCodes ? currentRef : node.code;
-        }
-
-        const totalAmount = isChapter ? calcChapterTotal(node, priceDatabase) : calcItemTotalAmount(node, priceDatabase);
-
-        if (shouldShowHeader && isChapter) {
-            // Chapter Header Row
+    walkPrintTree(nodes, config, priceDatabase, {
+        onChapterHeader: ({ node, displayCode, totalAmount }) => {
             rows.push({
                 type: 'chapter',
-                level: level,
                 data: prices
                     ? [displayCode, { content: node.description.toUpperCase(), colSpan: 8 }, formatNumber(totalAmount, 2)]
                     : [displayCode, { content: node.description.toUpperCase(), colSpan: 7 }]
             });
 
-            // Chapter Long Description
             if (config.showLongDesc && node.fullDescription && node.fullDescription !== node.description) {
                 rows.push({
                     type: 'item-long-desc',
-                    data: [
-                        '',
-                        { content: node.fullDescription, colSpan: cols - 1 }
-                    ]
+                    data: ['', { content: node.fullDescription, colSpan: cols - 1 }]
                 });
             }
-        }
-
-        if (shouldShowHeader && !isChapter) {
-            // Item Row - les columnes han de coincidir amb la capçalera
+        },
+        onItem: ({ node, displayCode, totalAmount }) => {
+            // Les columnes han de coincidir amb la capçalera
             // (Codi, Descripció, Ud, Long., Ampl., Alç., Parc., Quant., Preu, Import)
             rows.push({
                 type: 'item',
@@ -188,18 +165,13 @@ const flattenBudget = (nodesAll, level = 0, parentRef = '', counterObj = { val: 
                 ]
             });
 
-            // Item Long Description
             if (config.showLongDesc && node.fullDescription && node.fullDescription !== node.description) {
                 rows.push({
                     type: 'item-long-desc',
-                    data: [
-                        '',
-                        { content: node.fullDescription, colSpan: cols - 1 }
-                    ]
+                    data: ['', { content: node.fullDescription, colSpan: cols - 1 }]
                 });
             }
 
-            // Measurement Lines
             if (config.showMeasurements && node.measurements && node.measurements.length > 0) {
                 const subtotal = node.measurements.filter(l => !l.isIncrement).reduce((acc, l) => acc + calcMeasureTotal(l), 0);
                 node.measurements.forEach((m) => {
@@ -225,25 +197,9 @@ const flattenBudget = (nodesAll, level = 0, parentRef = '', counterObj = { val: 
                     });
                 });
             }
-        }
-
-        // Recursive children - sempre es recorren, igual que renderPrintNode: si el capítol
-        // s'aplana (supera maxLevels i no mostra capçalera), les partides de dins no es poden
-        // perdre, només puja el nivell i el comptador sense obrir-ne un de nou.
-        const children = [...(node.subChapters || []), ...(node.items || [])];
-        if (children.length > 0) {
-            rows.push(...flattenBudget(
-                children,
-                isChapter ? (shouldShowHeader ? level + 1 : level) : level + 1,
-                currentRef,
-                isChapter && shouldShowHeader ? { val: 0 } : counterObj,
-                config,
-                priceDatabase
-            ));
-        }
-
-        // Chapter Footer Total (com a renderPrintNode)
-        if (prices && isChapter && shouldShowHeader) {
+        },
+        onChapterFooter: ({ node, level, displayCode, totalAmount }) => {
+            if (!prices) return;
             rows.push({
                 type: 'chapter-total',
                 data: [
@@ -252,7 +208,8 @@ const flattenBudget = (nodesAll, level = 0, parentRef = '', counterObj = { val: 
                 ]
             });
         }
-    });
+    }, 0, '', counterObj);
+
     return rows;
 };
 
@@ -268,152 +225,134 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, setConfig, onOp
     const cols = prices ? 10 : 8;
 
 
-    const renderPrintNode = (node, level = 0, parentRef = '', counterObj = { val: 0 }) => {
-        const isChapter = !node.unit;
-        const shouldShowHeader = !isChapter || (level < config.maxLevels);
+    // Genera els <tr> de la taula d'amidaments recorrent l'arbre amb walkPrintTree, la
+    // mateixa funció que fa servir flattenBudget per al PDF: així les dues sortides
+    // mostren sempre els mateixos capítols/partides amb la mateixa numeració (§32 de
+    // docs/estat-actual.md).
+    const renderPrintRows = () => {
+        const trs = [];
 
-        let displayCode = node.code;
-        let currentRef = parentRef;
-
-        if (shouldShowHeader) {
-            counterObj.val++;
-            currentRef = parentRef ? `${parentRef}.${counterObj.val}` : `${counterObj.val}`;
-            displayCode = config.useCorrelativeCodes ? currentRef : node.code;
-        }
-
-        const totalAmount = isChapter ? calcChapterTotal(node, priceDatabase) : calcItemTotalAmount(node, priceDatabase);
-        const totalQty = isChapter ? 0 : calcItemTotalQty(node);
-        const unitPrice = isChapter ? 0 : getItemUnitPrice(node, priceDatabase);
-
-        return (
-            <React.Fragment key={node.id}>
-                {shouldShowHeader && (
-                    <>
-                        {isChapter ? (
-                            <tr className={`border-b-2 border-black/20 break-inside-avoid align-bottom ${level === 0 && config.chaptersOnNewPage ? 'break-before-page' : ''}`}>
-                                <td className="p-1 px-2 font-bold text-[11px] uppercase" colSpan={prices ? 9 : cols}>
-                                    <div className="flex flex-col gap-1">
-                                        <span>{level === 0 ? 'CAPÍTOL ' : 'SUBCAPÍTOL '} {displayCode} {node.description}</span>
-                                        {config.showLongDesc && node.fullDescription && node.fullDescription !== node.description && (
-                                            <div className="text-[9px] text-slate-700 mt-0.5 whitespace-pre-wrap leading-normal font-normal normal-case">
-                                                {node.fullDescription}
-                                            </div>
-                                        )}
+        walkPrintTree(budget.chapters || [], config, priceDatabase, {
+            onChapterHeader: ({ node, level, displayCode, totalAmount }) => {
+                trs.push(
+                    <tr key={`${node.id}-h`} className={`border-b-2 border-black/20 break-inside-avoid align-bottom ${level === 0 && config.chaptersOnNewPage ? 'break-before-page' : ''}`}>
+                        <td className="p-1 px-2 font-bold text-[11px] uppercase" colSpan={prices ? 9 : cols}>
+                            <div className="flex flex-col gap-1">
+                                <span>{level === 0 ? 'CAPÍTOL ' : 'SUBCAPÍTOL '} {displayCode} {node.description}</span>
+                                {config.showLongDesc && node.fullDescription && node.fullDescription !== node.description && (
+                                    <div className="text-[9px] text-slate-700 mt-0.5 whitespace-pre-wrap leading-normal font-normal normal-case">
+                                        {node.fullDescription}
                                     </div>
-                                </td>
-                                {prices && (
-                                    <td className="p-1 text-right font-bold text-[11px] font-mono">
-                                        {formatNumber(totalAmount, 2)}
-                                    </td>
                                 )}
-                            </tr>
-                        ) : (
-                            <>
-                                {/* Item Main Row */}
-                                <tr className="text-[10px] break-inside-avoid-page align-top">
-                                    <td className="p-1 px-2 font-mono whitespace-nowrap">{displayCode}</td>
-                                    <td className="p-1 px-2 leading-tight" colSpan={cols - 1}>
-                                        <div className="font-bold flex gap-2">
-                                            <span className="min-w-[20px]">{node.unit}</span>
-                                            <span>{node.description}</span>
-                                        </div>
-                                        {config.showLongDesc && node.fullDescription && node.fullDescription !== node.description && (
-                                            <div className="text-[9px] text-slate-700 mt-0.5 whitespace-pre-wrap leading-normal font-normal">
-                                                {node.fullDescription}
-                                            </div>
-                                        )}
-                                    </td>
-                                </tr>
-
-                                {/* Measurement Lines */}
-                                {config.showMeasurements && node.measurements && node.measurements.length > 0 && (
-                                    <>
-                                        {(() => {
-                                            const subtotal = node.measurements.filter(l => !l.isIncrement).reduce((acc, l) => acc + calcMeasureTotal(l), 0);
-                                            return node.measurements.map((m, i) => {
-                                                const c = columnesMesura(m, subtotal);
-                                                return (
-                                                    <tr key={i} className="text-[9px] text-slate-600 align-top border-none leading-tight">
-                                                        <td className="p-1"></td>
-                                                        <td className="p-0.5 px-4 italic">{m.description}</td>
-                                                        <td className="p-0.5 text-center font-mono">{c.units}</td>
-                                                        <td className="p-0.5 text-right font-mono">{c.length}</td>
-                                                        <td className="p-0.5 text-right font-mono">{c.width}</td>
-                                                        <td className="p-0.5 text-right font-mono">{c.height}</td>
-                                                        <td className="p-0.5 text-right font-mono">{c.partial}</td>
-                                                        <td className="p-0.5" colSpan={cols - 7}></td>
-                                                    </tr>
-                                                );
-                                            });
-                                        })()}
-                                    </>
-                                )}
-
-                                {/* Item Totals Row */}
-                                <tr className="text-[10px] align-bottom">
-                                    <td colSpan={7}></td>
-                                    <td className="border-t border-black/40"></td>
-                                    {prices && <td className="border-t border-black/40"></td>}
-                                    {prices && <td className="border-t border-black/40"></td>}
-                                </tr>
-                                <tr className="text-[10px] font-bold align-bottom">
-                                    <td colSpan={7}></td>
-                                    <td className="p-1 text-right font-mono font-bold">{formatNumber(totalQty, 2)}</td>
-                                    {prices && <td className="p-1 text-right font-mono">{formatNumber(unitPrice, 2)}</td>}
-                                    {prices && <td className="p-1 text-right font-mono">{formatNumber(totalAmount, 2)}</td>}
-                                </tr>
-                                <tr className="h-1">
-                                    <td colSpan={cols}></td>
-                                </tr>
-
-                                {/* Breakdown (if expanded): és tot preus, sense preus no surt */}
-                                {prices && config.showBreakdown && node.breakdown && node.breakdown.length > 0 && (
-                                    <tr>
-                                        <td></td>
-                                        <td colSpan={9} className="p-2 pt-0">
-                                            <table className="w-full text-[8px] bg-slate-50/50 border border-slate-200">
-                                                <thead>
-                                                    <tr className="bg-slate-100 text-[7px] uppercase tracking-tighter text-slate-500">
-                                                        <th className="p-1 text-left">Codi</th>
-                                                        <th className="p-1 text-left">Component</th>
-                                                        <th className="p-1 text-right">Rend.</th>
-                                                        <th className="p-1 text-right">Preu</th>
-                                                        <th className="p-1 text-right">Total</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {node.breakdown.map((b, i) => (
-                                                        <tr key={i} className="border-t border-slate-100">
-                                                            <td className="p-1 font-mono">{b.code}</td>
-                                                            <td className="p-1">{b.description}</td>
-                                                            <td className="p-1 text-right font-mono">{formatNumber(b.yield, 3)}</td>
-                                                            <td className="p-1 text-right font-mono">{formatNumber(b.price, 2)}</td>
-                                                            <td className="p-1 text-right font-mono">{formatNumber(b.total, 2)}</td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </td>
-                                    </tr>
-                                )}
-                            </>
+                            </div>
+                        </td>
+                        {prices && (
+                            <td className="p-1 text-right font-bold text-[11px] font-mono">
+                                {formatNumber(totalAmount, 2)}
+                            </td>
                         )}
-                    </>
-                )}
+                    </tr>
+                );
+            },
+            onItem: ({ node, displayCode, totalAmount }) => {
+                const totalQty = calcItemTotalQty(node);
+                const unitPrice = getItemUnitPrice(node, priceDatabase);
 
-                {/* Recursive Children - Determine if they bubble up or start fresh counter */}
-                {ambImport([...(node.subChapters || []), ...(node.items || [])], config, priceDatabase).map((child) => (
-                    renderPrintNode(
-                        child,
-                        isChapter ? (shouldShowHeader ? level + 1 : level) : level + 1,
-                        currentRef,
-                        isChapter && shouldShowHeader ? { val: 0 } : counterObj
-                    )
-                ))}
+                trs.push(
+                    <tr key={`${node.id}-main`} className="text-[10px] break-inside-avoid-page align-top">
+                        <td className="p-1 px-2 font-mono whitespace-nowrap">{displayCode}</td>
+                        <td className="p-1 px-2 leading-tight" colSpan={cols - 1}>
+                            <div className="font-bold flex gap-2">
+                                <span className="min-w-[20px]">{node.unit}</span>
+                                <span>{node.description}</span>
+                            </div>
+                            {config.showLongDesc && node.fullDescription && node.fullDescription !== node.description && (
+                                <div className="text-[9px] text-slate-700 mt-0.5 whitespace-pre-wrap leading-normal font-normal">
+                                    {node.fullDescription}
+                                </div>
+                            )}
+                        </td>
+                    </tr>
+                );
 
-                {/* Chapter Footer Total */}
-                {prices && isChapter && shouldShowHeader && (
-                    <tr className="text-[10px] font-bold break-inside-avoid">
+                if (config.showMeasurements && node.measurements && node.measurements.length > 0) {
+                    const subtotal = node.measurements.filter(l => !l.isIncrement).reduce((acc, l) => acc + calcMeasureTotal(l), 0);
+                    node.measurements.forEach((m, i) => {
+                        const c = columnesMesura(m, subtotal);
+                        trs.push(
+                            <tr key={`${node.id}-m${i}`} className="text-[9px] text-slate-600 align-top border-none leading-tight">
+                                <td className="p-1"></td>
+                                <td className="p-0.5 px-4 italic">{m.description}</td>
+                                <td className="p-0.5 text-center font-mono">{c.units}</td>
+                                <td className="p-0.5 text-right font-mono">{c.length}</td>
+                                <td className="p-0.5 text-right font-mono">{c.width}</td>
+                                <td className="p-0.5 text-right font-mono">{c.height}</td>
+                                <td className="p-0.5 text-right font-mono">{c.partial}</td>
+                                <td className="p-0.5" colSpan={cols - 7}></td>
+                            </tr>
+                        );
+                    });
+                }
+
+                trs.push(
+                    <tr key={`${node.id}-tot1`} className="text-[10px] align-bottom">
+                        <td colSpan={7}></td>
+                        <td className="border-t border-black/40"></td>
+                        {prices && <td className="border-t border-black/40"></td>}
+                        {prices && <td className="border-t border-black/40"></td>}
+                    </tr>
+                );
+                trs.push(
+                    <tr key={`${node.id}-tot2`} className="text-[10px] font-bold align-bottom">
+                        <td colSpan={7}></td>
+                        <td className="p-1 text-right font-mono font-bold">{formatNumber(totalQty, 2)}</td>
+                        {prices && <td className="p-1 text-right font-mono">{formatNumber(unitPrice, 2)}</td>}
+                        {prices && <td className="p-1 text-right font-mono">{formatNumber(totalAmount, 2)}</td>}
+                    </tr>
+                );
+                trs.push(
+                    <tr key={`${node.id}-sp`} className="h-1">
+                        <td colSpan={cols}></td>
+                    </tr>
+                );
+
+                // Breakdown (if expanded): és tot preus, sense preus no surt
+                if (prices && config.showBreakdown && node.breakdown && node.breakdown.length > 0) {
+                    trs.push(
+                        <tr key={`${node.id}-bd`}>
+                            <td></td>
+                            <td colSpan={9} className="p-2 pt-0">
+                                <table className="w-full text-[8px] bg-slate-50/50 border border-slate-200">
+                                    <thead>
+                                        <tr className="bg-slate-100 text-[7px] uppercase tracking-tighter text-slate-500">
+                                            <th className="p-1 text-left">Codi</th>
+                                            <th className="p-1 text-left">Component</th>
+                                            <th className="p-1 text-right">Rend.</th>
+                                            <th className="p-1 text-right">Preu</th>
+                                            <th className="p-1 text-right">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {node.breakdown.map((b, i) => (
+                                            <tr key={i} className="border-t border-slate-100">
+                                                <td className="p-1 font-mono">{b.code}</td>
+                                                <td className="p-1">{b.description}</td>
+                                                <td className="p-1 text-right font-mono">{formatNumber(b.yield, 3)}</td>
+                                                <td className="p-1 text-right font-mono">{formatNumber(b.price, 2)}</td>
+                                                <td className="p-1 text-right font-mono">{formatNumber(b.total, 2)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                    );
+                }
+            },
+            onChapterFooter: ({ node, level, displayCode, totalAmount }) => {
+                if (!prices) return;
+                trs.push(
+                    <tr key={`${node.id}-f`} className="text-[10px] font-bold break-inside-avoid">
                         <td colSpan={9} className="p-1 pt-4 text-right pr-4 uppercase italic">
                             <div className="flex items-end gap-2">
                                 <span className="whitespace-nowrap">Total {level === 0 ? 'Capítol' : 'Subcapítol'} {displayCode} {node.description}</span>
@@ -424,9 +363,11 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, setConfig, onOp
                             {formatNumber(totalAmount, 2)}
                         </td>
                     </tr>
-                )}
-            </React.Fragment>
-        );
+                );
+            }
+        });
+
+        return trs;
     };
 
     return (
@@ -566,10 +507,7 @@ const PrintView = ({ budget, priceDatabase, budgetTotal, config, setConfig, onOp
                                 </tr>
                             </thead>
                             <tbody>
-                                {(() => {
-                                    const counter = { val: 0 };
-                                    return ambImport(budget.chapters || [], config, priceDatabase).map(node => renderPrintNode(node, 0, '', counter));
-                                })()}
+                                {renderPrintRows()}
                             </tbody>
                             {prices && (
                                 <tfoot className="border-t-2 border-black mt-8">
@@ -1673,7 +1611,7 @@ export default function App() {
         const prices = config.showPrices !== false;
 
         const generateTableForNodes = (nodes, isFirst, currentCounter) => {
-            const rows = flattenBudget(nodes, 0, '', currentCounter, config, priceDatabase);
+            const rows = flattenBudget(nodes, config, priceDatabase, currentCounter);
 
             autoTable(doc, {
                 head: [[
