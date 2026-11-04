@@ -105,108 +105,127 @@ const flattenBudget = (nodes, level = 0, parentRef = '', counterObj = { val: 0 }
         const isChapter = !node.unit;
         const shouldShowHeader = !isChapter || (level < config.maxLevels);
 
+        let displayCode = node.code;
+        let currentRef = parentRef;
+
         if (shouldShowHeader) {
             counterObj.val++;
-            const currentRef = parentRef ? `${parentRef}.${counterObj.val}` : `${counterObj.val}`;
-            const displayCode = config.useCorrelativeCodes ? currentRef : node.code;
-            const totalAmount = isChapter ? calcChapterTotal(node, priceDatabase) : calcItemTotalAmount(node, priceDatabase);
+            currentRef = parentRef ? `${parentRef}.${counterObj.val}` : `${counterObj.val}`;
+            displayCode = config.useCorrelativeCodes ? currentRef : node.code;
+        }
 
-            if (isChapter) {
-                // Chapter Header Row
+        const totalAmount = isChapter ? calcChapterTotal(node, priceDatabase) : calcItemTotalAmount(node, priceDatabase);
+
+        if (shouldShowHeader && isChapter) {
+            // Chapter Header Row
+            rows.push({
+                type: 'chapter',
+                level: level,
+                data: [
+                    displayCode,
+                    { content: node.description.toUpperCase(), colSpan: 8 },
+                    formatNumber(totalAmount, 2)
+                ]
+            });
+
+            // Chapter Long Description
+            if (config.showLongDesc && node.fullDescription && node.fullDescription !== node.description) {
                 rows.push({
-                    type: 'chapter',
-                    level: level,
+                    type: 'item-long-desc',
                     data: [
-                        displayCode,
-                        { content: node.description.toUpperCase(), colSpan: 8 },
-                        formatNumber(totalAmount, 2)
+                        '',
+                        { content: node.fullDescription, colSpan: 9 }
                     ]
                 });
-
-                // Chapter Long Description
-                if (config.showLongDesc && node.fullDescription && node.fullDescription !== node.description) {
-                    rows.push({
-                        type: 'item-long-desc',
-                        data: [
-                            '',
-                            { content: node.fullDescription, colSpan: 9 }
-                        ]
-                    });
-                }
-
-                // Recursive children - New counter for next level
-                const children = [...(node.subChapters || []), ...(node.items || [])];
-                rows.push(...flattenBudget(children, level + 1, currentRef, { val: 0 }, config, priceDatabase));
-
-                // Chapter Footer Total (com a renderPrintNode)
-                rows.push({
-                    type: 'chapter-total',
-                    data: [
-                        { content: `Total ${level === 0 ? 'Capítol' : 'Subcapítol'} ${displayCode} ${node.description}`, colSpan: 9 },
-                        formatNumber(totalAmount, 2)
-                    ]
-                });
-            } else {
-                // Item Row - les columnes han de coincidir amb la capçalera
-                // (Codi, Descripció, Ud, Long., Ampl., Alç., Parc., Quant., Preu, Import)
-                rows.push({
-                    type: 'item',
-                    data: [
-                        displayCode,
-                        node.description,
-                        node.unit,
-                        '', '', '', '',
-                        formatNumber(calcItemTotalQty(node), 2),
-                        formatPrice(getItemUnitPrice(node, priceDatabase)),
-                        formatNumber(totalAmount, 2)
-                    ]
-                });
-
-                // Item Long Description
-                if (config.showLongDesc && node.fullDescription && node.fullDescription !== node.description) {
-                    rows.push({
-                        type: 'item-long-desc',
-                        data: [
-                            '',
-                            { content: node.fullDescription, colSpan: 9 }
-                        ]
-                    });
-                }
-
-                // Measurement Lines
-                if (config.showMeasurements && node.measurements && node.measurements.length > 0) {
-                    node.measurements.forEach((m) => {
-                        rows.push({
-                            type: 'measurement',
-                            data: [
-                                '',
-                                m.description || '',
-                                formatNumber(m.units, 0),
-                                m.length > 1 || (m.width === 1 && m.height === 1 && m.length !== 0) ? formatNumber(m.length, 2) : '',
-                                m.width > 1 ? formatNumber(m.width, 2) : '',
-                                m.height > 1 ? formatNumber(m.height, 2) : '',
-                                formatNumber(m.units * m.length * m.width * m.height, 2),
-                                '', '', ''
-                            ]
-                        });
-                    });
-                }
-
-                // Breakdown (descomposat)
-                if (config.showBreakdown && node.breakdown && node.breakdown.length > 0) {
-                    node.breakdown.forEach((b) => {
-                        rows.push({
-                            type: 'breakdown',
-                            data: [
-                                '',
-                                `${b.code}  ${b.description}  (rend. ${formatNumber(b.yield, 3)} x ${formatNumber(b.price, 2)} €)`,
-                                '', '', '', '', '', '', '',
-                                formatNumber(b.total, 2)
-                            ]
-                        });
-                    });
-                }
             }
+        }
+
+        if (shouldShowHeader && !isChapter) {
+            // Item Row - les columnes han de coincidir amb la capçalera
+            // (Codi, Descripció, Ud, Long., Ampl., Alç., Parc., Quant., Preu, Import)
+            rows.push({
+                type: 'item',
+                data: [
+                    displayCode,
+                    node.description,
+                    node.unit,
+                    '', '', '', '',
+                    formatNumber(calcItemTotalQty(node), 2),
+                    formatPrice(getItemUnitPrice(node, priceDatabase)),
+                    formatNumber(totalAmount, 2)
+                ]
+            });
+
+            // Item Long Description
+            if (config.showLongDesc && node.fullDescription && node.fullDescription !== node.description) {
+                rows.push({
+                    type: 'item-long-desc',
+                    data: [
+                        '',
+                        { content: node.fullDescription, colSpan: 9 }
+                    ]
+                });
+            }
+
+            // Measurement Lines
+            if (config.showMeasurements && node.measurements && node.measurements.length > 0) {
+                node.measurements.forEach((m) => {
+                    rows.push({
+                        type: 'measurement',
+                        data: [
+                            '',
+                            m.description || '',
+                            formatNumber(m.units, 0),
+                            m.length > 1 || (m.width === 1 && m.height === 1 && m.length !== 0) ? formatNumber(m.length, 2) : '',
+                            m.width > 1 ? formatNumber(m.width, 2) : '',
+                            m.height > 1 ? formatNumber(m.height, 2) : '',
+                            formatNumber(m.units * m.length * m.width * m.height, 2),
+                            '', '', ''
+                        ]
+                    });
+                });
+            }
+
+            // Breakdown (descomposat)
+            if (config.showBreakdown && node.breakdown && node.breakdown.length > 0) {
+                node.breakdown.forEach((b) => {
+                    rows.push({
+                        type: 'breakdown',
+                        data: [
+                            '',
+                            `${b.code}  ${b.description}  (rend. ${formatNumber(b.yield, 3)} x ${formatNumber(b.price, 2)} €)`,
+                            '', '', '', '', '', '', '',
+                            formatNumber(b.total, 2)
+                        ]
+                    });
+                });
+            }
+        }
+
+        // Recursive children - sempre es recorren, igual que renderPrintNode: si el capítol
+        // s'aplana (supera maxLevels i no mostra capçalera), les partides de dins no es poden
+        // perdre, només puja el nivell i el comptador sense obrir-ne un de nou.
+        const children = [...(node.subChapters || []), ...(node.items || [])];
+        if (children.length > 0) {
+            rows.push(...flattenBudget(
+                children,
+                isChapter ? (shouldShowHeader ? level + 1 : level) : level + 1,
+                currentRef,
+                isChapter && shouldShowHeader ? { val: 0 } : counterObj,
+                config,
+                priceDatabase
+            ));
+        }
+
+        // Chapter Footer Total (com a renderPrintNode)
+        if (isChapter && shouldShowHeader) {
+            rows.push({
+                type: 'chapter-total',
+                data: [
+                    { content: `Total ${level === 0 ? 'Capítol' : 'Subcapítol'} ${displayCode} ${node.description}`, colSpan: 9 },
+                    formatNumber(totalAmount, 2)
+                ]
+            });
         }
     });
     return rows;
