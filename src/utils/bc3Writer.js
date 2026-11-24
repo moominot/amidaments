@@ -69,7 +69,23 @@ export const generateBC3 = ({ budget, chapters, priceDatabase = {}, certificatio
 
     const getExportCode = (normCode) => {
         const concept = concepts.get(normCode);
-        return (concept && concept.isDecomposed) ? `${normCode}#` : normCode;
+        // El `#` de la norma marca el capítol (i l'arrel `##`), no «té descomposat»: una partida
+        // amb descomposat, com Presto la escriu, va sense. Posar-lo a tot el que té fills
+        // convertia les partides i els components en capítols falsos al programa que ho llegia.
+        return (concept && concept.isDecomposed && !concept.unit) ? `${normCode}#` : normCode;
+    };
+
+    /**
+     * El parser, a una partida sense descomposat però amb preu, li penja una línia sintètica
+     * `pa<codi>` (el «preu alçat» amb què es mostra a la taula). No és al fitxer d'origen i no
+     * s'ha d'escriure: si hi surt, cada partida simple es reimporta com una partida amb un
+     * descomposat d'un sol component fantasma.
+     */
+    const descomposatReal = (node) => {
+        const b = node.breakdown || [];
+        if (b.length === 0) return [];
+        const sintetic = b.length === 1 && normalizeCode(b[0].code) === normalizeCode(`pa${node.code}`);
+        return sintetic ? [] : b;
     };
 
     /**
@@ -94,10 +110,11 @@ export const generateBC3 = ({ budget, chapters, priceDatabase = {}, certificatio
         return { lines: [], total: 0 };
     };
 
-    const processNode = (node) => {
+    const processNode = (node, esComponent = false) => {
         const norm = normalizeCode(node.code);
         const hasChildren = (node.subChapters?.length > 0 || node.items?.length > 0);
-        const hasBreakdown = (node.breakdown?.length > 0);
+        const breakdownReal = descomposatReal(node);
+        const hasBreakdown = breakdownReal.length > 0;
 
         if (!concepts.has(norm)) {
             concepts.set(norm, {
@@ -106,7 +123,7 @@ export const generateBC3 = ({ budget, chapters, priceDatabase = {}, certificatio
                 fullDescription: node.fullDescription || '',
                 // Una partida amb descomposat val el que en surt (amb els rendiments ja resolts,
                 // que poden ser fórmules dels paràmetres); el preu desat al node pot ser antic.
-                price: node.unit && hasBreakdown ? getItemUnitPrice(node, priceDatabase) : (node.price || 0),
+                price: node.unit && (node.breakdown?.length > 0) ? getItemUnitPrice(node, priceDatabase) : (node.price || 0),
                 isDecomposed: false,
             });
         }
@@ -128,9 +145,11 @@ export const generateBC3 = ({ budget, chapters, priceDatabase = {}, certificatio
             const afegeix = (codi, rendiment) => {
                 if (codi && !rels.some(r => r.child === codi)) rels.push({ child: codi, factor: 1, yield: rendiment });
             };
-            (node.breakdown || []).forEach(b => {
+            breakdownReal.forEach(b => {
                 const bNorm = normalizeCode(b.code);
-                afegeix(bNorm, b.yield || 1);
+                // `??` i no `||`: un rendiment 0 és legítim (Presto el fa servir a les línies
+                // de «formes de medir») i no s'ha de convertir en 1.
+                afegeix(bNorm, b.yield ?? 1);
                 if (!concepts.has(bNorm)) {
                     concepts.set(bNorm, { unit: b.unit || '', description: b.description || '', price: b.price || 0, isDecomposed: false });
                 }
@@ -153,7 +172,9 @@ export const generateBC3 = ({ budget, chapters, priceDatabase = {}, certificatio
         }
 
         // Només les partides porten amidament; els capítols el tenen pels seus fills.
-        if (node.unit) {
+        // Els fills d'una partida són els components del descomposat (mà d'obra, materials…):
+        // no tenen amidament propi, i escriure'ls un `~M` amb zero n'omplia el fitxer.
+        if (node.unit && !esComponent) {
             const amidament = amidamentDe(node);
             const previ = measurementsByCode.get(norm);
             if (previ) {
@@ -166,8 +187,8 @@ export const generateBC3 = ({ budget, chapters, priceDatabase = {}, certificatio
             }
         }
 
-        (node.subChapters || []).forEach(processNode);
-        (node.items || []).forEach(processNode);
+        (node.subChapters || []).forEach(c => processNode(c, false));
+        (node.items || []).forEach(c => processNode(c, !!node.unit));
     };
 
     (chapters || []).forEach(processNode);

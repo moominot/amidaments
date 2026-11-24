@@ -173,8 +173,10 @@ describe('certificacions com a fitxer propi', () => {
     });
 
     it('hi ha un ~M per concepte, certificat o no', () => {
-        const codis = new Set(partides(r.chapters).map(p => normalizeCode(p.code)));
-        expect(bc3.split('\n').filter(l => l.startsWith('~M|'))).toHaveLength(codis.size);
+        // Un per partida, no per component del descomposat: el fitxer de Presto en té 144 i
+        // l'exportació n'ha de tenir els mateixos (abans n'escrivia 185, amb zeros per a la
+        // mà d'obra i els materials).
+        expect(bc3.split('\n').filter(l => l.startsWith('~M|'))).toHaveLength(144);
     });
 });
 
@@ -220,5 +222,27 @@ describe('conceptes orfes', () => {
         expect(r.chapters).toHaveLength(1);
         expect(partida(r.chapters, 'DCE010')).toBeTruthy();
         expect(Object.keys(r.prices).length).toBeGreaterThan(15); // però sí que hi són, al banc
+    });
+});
+
+describe('exportació: descomposats i partides simples (Presto, Felanitx)', () => {
+    const origen = llegeixBC3('test/fixtures/presto-felanitx.bc3');
+    const r = processBC3Data(origen);
+    const out = exporta(r);
+    const registres = (tipus) => out.split('\n').filter(l => l.startsWith(`~${tipus}|`));
+
+    it('no escriu cap concepte ni descomposat sintètic `pa…`', () => {
+        expect(out).not.toMatch(/\|pa[A-Za-z]{0,3}\d/);
+        expect(registres('D')).toHaveLength(origen.split('\n').filter(l => l.startsWith('~D|')).length);
+    });
+
+    it('només els capítols porten `#`; partides i components, no', () => {
+        expect(out).toContain('~D|RF02.07|mo112\\1\\0,253\\mo113\\1\\0,309\\%0700\\1\\0,07');
+        expect(out).toMatch(/~C\|03\.01#\|\|Desmontes/);
+        expect(registres('C').filter(l => /^~C\|(?!##)[^|]+#\|[^|]+\|/.test(l))).toHaveLength(0);
+    });
+
+    it('no escriu `~M` per als components del descomposat', () => {
+        expect(out).not.toMatch(/~M\|mo112\|/);
     });
 });
