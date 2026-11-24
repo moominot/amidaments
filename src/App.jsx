@@ -3970,7 +3970,7 @@ export default function App() {
         let baseTotalForPercent = 0;
         (node.breakdown || []).forEach(line => {
             const cat = getComponentCategory(line.code);
-            if (cat !== 'percent') {
+            if (cat !== 'percent' && !line.ajust) {
                 const dbPrice = priceDatabase[normalizeCode(line.code)]?.price;
                 const finalPrice = dbPrice !== undefined ? dbPrice : (line.price || 0);
                 baseTotalForPercent += round2(finalPrice * (line.yield || 0));

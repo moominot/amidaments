@@ -29,7 +29,7 @@ describe('traduir el projecte de referència', () => {
     });
 
     it('no mou el PEM, ni els codis, ni les quantitats', () => {
-        expect(pem(traduit.budget.chapters, traduit.priceDatabase)).toBe(135202.54);
+        expect(pem(traduit.budget.chapters, traduit.priceDatabase)).toBe(135204.61);
         const abans = partides(estat.budget.chapters);
         const despres = partides(traduit.budget.chapters);
         expect(despres.map(p => p.code)).toEqual(abans.map(p => p.code));

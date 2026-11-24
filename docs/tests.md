@@ -18,7 +18,7 @@ No hi ha maquetes. Els tests treballen amb tres BC3 reals:
 
 | Fitxer | Què és | Per a què serveix |
 |---|---|---|
-| `REFORMA ESPORLES_MEDICIONES_AJUSTADO.bc3` (arrel) | Export de Presto 8.7 | PEM 135.202,54 €, 24 capítols, 248 partides |
+| `REFORMA ESPORLES_MEDICIONES_AJUSTADO.bc3` (arrel) | Export de Presto 8.7 | PEM 135.204,61 €, 24 capítols, 248 partides |
 | `test/fixtures/cype-demolicio.bc3` | CYPE `DCE010` | Residus per components addicionals |
 | `test/fixtures/cype-pilar.bc3` | CYPE `EHS010` | Residus de col·locació i embalatge, i petjada de carboni |
 

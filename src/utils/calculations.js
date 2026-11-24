@@ -2,7 +2,14 @@
  * Utilitats de càlcul per a Amidaments i Certificacions
  */
 
-export const round2 = (val) => Math.round(((Number(val) || 0) + Number.EPSILON) * 100) / 100;
+// Arrodoneix a 2 decimals, la meitat cap a fora de zero. El producte s'agafa amb 12 xifres
+// significatives abans d'arrodonir: 5,14 × 3,75 val 19,275 però en coma flotant és
+// 19,27499…, i amb l'arrodoniment pelat sortia 19,27 on Presto (i qualsevol calculadora)
+// dona 19,28. Era la causa de dècimes que s'acumulaven en amidaments llargs.
+export const round2 = (val) => {
+    const n = Number(val) || 0;
+    return Math.sign(n) * Math.round(Number((Math.abs(n) * 100).toPrecision(12))) / 100;
+};
 
 export const normalizeCode = (code) => code ? code.trim().replace(/#+$/, '') : '';
 
@@ -72,7 +79,8 @@ export const getItemUnitPrice = (item, priceDatabase = {}) => {
         let baseTotal = 0;
         item.breakdown.forEach(line => {
             const cat = getComponentCategory(line.code);
-            if (cat !== 'percent') {
+            // La línia d'ajust (veure `bc3Parser`) suma al preu però no a la base dels percentuals.
+            if (cat !== 'percent' && !line.ajust) {
                 const dbPrice = priceDatabase[normalizeCode(line.code)]?.price;
                 const unitPrice = dbPrice !== undefined ? dbPrice : (line.price || 0);
                 baseTotal = round2(baseTotal + round2(unitPrice * (line.yield || 0)));

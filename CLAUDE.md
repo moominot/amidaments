@@ -170,7 +170,7 @@ del sector: *amidament*, *partida*, *capítol*, *descomposat*, *rendiment*, *cer
    dels defectes d'usabilitat trobats només es veien des del mòbil.
 5. Si has tocat càlculs, exportació o el parser: `npm test` ja hi passa el cicle complet amb
    `REFORMA ESPORLES_MEDICIONES_AJUSTADO.bc3` (importar → veure PEM → exportar → reimportar).
-   El PEM de referència d'aquest fitxer és **135.202,54 €** amb 24 capítols i 248 partides.
+   El PEM de referència d'aquest fitxer és **135.204,61 €** amb 24 capítols i 248 partides.
    El cicle ha de conservar el PEM, el nombre de capítols, el seu ordre i les quantitats, i ha
    de ser estable encadenant-lo tres vegades. Comprovar només les quantitats no basta: els
    defectes §25 i §26 hi passaven pel mig (el PEM se n'anava a 394.955,33 € i els capítols es

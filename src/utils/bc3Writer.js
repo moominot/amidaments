@@ -82,7 +82,8 @@ export const generateBC3 = ({ budget, chapters, priceDatabase = {}, certificatio
      * descomposat d'un sol component fantasma.
      */
     const descomposatReal = (node) => {
-        const b = node.breakdown || [];
+        // La línia d'ajust és nostra: el seu efecte ja és al preu del `~C`.
+        const b = (node.breakdown || []).filter(l => !l.ajust);
         if (b.length === 0) return [];
         const sintetic = b.length === 1 && normalizeCode(b[0].code) === normalizeCode(`pa${node.code}`);
         return sintetic ? [] : b;

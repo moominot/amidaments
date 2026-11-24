@@ -20,7 +20,7 @@ export const llegeixBC3 = (ruta) =>
     new TextDecoder('windows-1252').decode(fs.readFileSync(path.resolve(ARREL, ruta)));
 
 export const FITXERS = {
-    /** Export de Presto 8.7: 24 capítols, 248 partides, PEM 135.202,54 €. */
+    /** Export de Presto 8.7: 24 capítols, 248 partides, PEM 135.204,61 €. */
     referencia: 'REFORMA ESPORLES_MEDICIONES_AJUSTADO.bc3',
     /** CYPE DCE010, demolició completa d'un edifici: porta residus, no petjada. */
     demolicio: 'test/fixtures/cype-demolicio.bc3',

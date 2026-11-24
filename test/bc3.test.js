@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { processBC3Data } from '../src/utils/bc3Parser';
 import { generateBC3, nomFitxerCertificacio, dataFiebdc } from '../src/utils/bc3Writer';
-import { calcChapterTotal, calcItemTotalQty, normalizeCode, round2 } from '../src/utils/calculations';
+import { calcChapterTotal, calcItemTotalQty, getItemUnitPrice, normalizeCode, round2 } from '../src/utils/calculations';
 import { llegeixBC3, FITXERS, partides, partida } from './ajuda';
 
 /**
@@ -13,7 +13,7 @@ import { llegeixBC3, FITXERS, partides, partida } from './ajuda';
  * plegat encadenant el cicle tres vegades.
  */
 
-const PEM_REFERENCIA = 135202.54;
+const PEM_REFERENCIA = 135204.61;
 
 const pem = (chapters, prices) => round2(chapters.reduce((a, c) => a + calcChapterTotal(c, prices), 0));
 const codisCapitol = (chapters) => chapters.map(c => normalizeCode(c.code)).join(',');
@@ -244,5 +244,29 @@ describe('exportació: descomposats i partides simples (Presto, Felanitx)', () =
 
     it('no escriu `~M` per als components del descomposat', () => {
         expect(out).not.toMatch(/~M\|mo112\|/);
+    });
+});
+
+describe('preu del fitxer enfront del descomposat (Presto, Felanitx)', () => {
+    const r = processBC3Data(llegeixBC3('test/fixtures/presto-felanitx.bc3'));
+    const pem = (c, p) => round2(c.reduce((a, x) => a + calcChapterTotal(x, p), 0));
+
+    it('el PEM coincideix amb el del PDF de Presto: 519.416,66 €', () => {
+        expect(pem(r.chapters, r.prices)).toBe(519416.66);
+    });
+
+    it('una partida amb rendiments a 0 conserva el preu del fitxer, via línia d\'ajust', () => {
+        const p = partides(r.chapters).find(n => normalizeCode(n.code) === 'RF22.01.03');
+        expect(p.breakdown.some(b => b.ajust)).toBe(true);
+        expect(getItemUnitPrice(p, r.prices)).toBe(91.35);
+    });
+
+    it('l\'ajust no s\'escriu i el cicle conserva PEM i preus', () => {
+        const out = exporta(r);
+        expect(out).not.toContain('AJUST');
+        const r2 = processBC3Data(out);
+        expect(pem(r2.chapters, r2.prices)).toBe(519416.66);
+        const p = partides(r2.chapters).find(n => normalizeCode(n.code) === 'RF22.01.03');
+        expect(getItemUnitPrice(p, r2.prices)).toBe(91.35);
     });
 });

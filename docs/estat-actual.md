@@ -166,6 +166,27 @@ navegador: sense text, el botó no en tenia. Corregit definint `screens: { xs: '
 
 ---
 
+### 35. El PEM d'un BC3 de Presto no coincidia amb el de Presto, i l'exportació escrivia els descomposats com a partides ✅
+
+Comparant l'export de Presto de Felanitx amb el seu PDF de mesuraments (519.416,66 €), l'app en
+donava 524.479,12 €. Quatre causes, totes corregides:
+
+1. **El preu del `~C` no és sempre la suma del descomposat.** Presto deixa ajustar-lo a mà
+   (`RF22.01.03` té tots els rendiments a 0 i val 91,35 €/m²). Ara el parser afegeix una línia
+   d'ajust (`ajust: true`, codi `AJUST`) quan el preu del fitxer és > 0 i no quadra. L'ajust suma
+   al preu però **no entra a la base dels percentuals**, i l'escriptor no el torna a escriure:
+   el seu efecte ja és al `~C`. CYPE deixa el preu a 0 i no n'entra cap.
+2. **`round2` fallava amb productes com 5,14 × 3,75 = 19,275**, que en coma flotant és
+   19,27499… i sortia 19,27. Ara es pren el producte amb 12 xifres significatives.
+3. **L'escriptor** escrivia la línia sintètica `pa<codi>` com a descomposat real, posava `#` a
+   tot el que té fills i un `~M` amb zeros a cada component. Ara el `#` és només dels capítols.
+4. El rendiment 0 es convertia en 1 (`||` en lloc de `??`).
+
+El PEM de referència d'Esporles passa de 135.202,54 a **135.204,61 €**, que és el que suma
+Presto (els 24 capítols, un per un). El número anterior era una desviació de l'app, no de Presto.
+
+---
+
 ## Funcionalitats afegides
 
 ### Resum de certificació

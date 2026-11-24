@@ -1,4 +1,4 @@
-import { normalizeCode } from './calculations';
+import { normalizeCode, getItemUnitPrice, round2 } from './calculations';
 
 /**
  * Parser per al format FIEBDC-3 (BC3)
@@ -331,6 +331,25 @@ export const processBC3Data = (text) => {
                 total: lineTotal
             });
         });
+
+        // El preu del `~C` mana: Presto deixa ajustar-lo a mà, i llavors no és la suma del
+        // descomposat (RF22.01.03 té tots els rendiments a 0 i val 91,35 €/m²). Si la suma
+        // calculada no hi quadra (i el fitxer en porta un: CYPE el deixa a 0 i el preu surt del descomposat), s'afegeix una línia d'ajust que cobreix la diferència; no
+        // entra a la base dels percentuals (`ajust`) i l'escriptor no la torna a escriure.
+        if (breakdown.length > 0 && concept.unit && concept.unit !== '%' && concept.price > 0) {
+            const diferencia = round2((concept.price || 0) - getItemUnitPrice({ breakdown }, {}));
+            if (Math.abs(diferencia) >= 0.005) {
+                breakdown.push({
+                    code: 'AJUST',
+                    description: 'Ajust de preu (diferència amb el preu del fitxer)',
+                    unit: 'u',
+                    yield: 1,
+                    price: diferencia,
+                    total: diferencia,
+                    ajust: true,
+                });
+            }
+        }
 
         if (breakdown.length === 0 && concept.unit && concept.price > 0) {
             breakdown.push({
