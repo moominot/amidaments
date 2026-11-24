@@ -610,3 +610,63 @@ describe('IFC: lectura del fitxer', () => {
         await expect(llegeixFitxerIfc({ name: 'gran.ifc', size: (LIMIT_IFC_MB + 1) * 1024 * 1024 })).rejects.toThrow(/límit/);
     });
 });
+
+// ───────────────────────── Elements exclosos: es recorden i es poden tornar a marcar ─────────────────────────
+describe('IFC: elements exclosos i memòria', () => {
+    const biga = per('Biga').guid;
+    const columna = per('Columna').guid;
+    const r = muntaPressupost(model, { exclou: [biga, columna], classes: { IFCDOOR: { inclou: false } } });
+    const amb = (nom, pla) => pla.noves.chapters.flatMap(c => c.items).some(p => p.description === nom);
+
+    it('els grups conserven els exclosos perquè es puguin tornar a marcar', () => {
+        const g = r.grups.find(x => x.descripcio === 'Biga');
+        expect(g.elements).toEqual([{ guid: biga, nom: 'Biga', planta: 'Storey', exclos: true }]);
+        expect(r.chapters.flatMap(c => c.items).some(p => p.description === 'Biga')).toBe(false);
+        expect(r.total).toBe(12);      // 15 − biga − columna − porta
+    });
+
+    it('la memòria porta els exclosos a mà i les tries de classe', () => {
+        expect(r.memoria.exclosos).toEqual({
+            [biga]: { nom: 'Biga', classe: 'IFCBEAM', tipus: null },
+            [columna]: { nom: 'Columna', classe: 'IFCCOLUMN', tipus: null },
+        });
+        expect(r.memoria.classes).toEqual({ IFCDOOR: { inclou: false } });
+    });
+
+    it('en reimportar, els exclosos no són nous: es llisten a part', () => {
+        const pla = planificaActualitzacio(r.chapters, model, {}, r.memoria);
+        expect(pla.noves.chapters).toEqual([]);
+        expect(pla.afegides).toEqual([]);
+        expect(pla.exclosos.map(x => x.nom).sort()).toEqual(['Biga', 'Columna']);
+        expect(pla.exclosos.every(x => !x.inclos)).toBe(true);
+        expect(pla.classesFora.map(c => [c.classe, c.n])).toEqual([['IFCDOOR', 1]]);
+        expect(pla.iguals).toBe(12);
+    });
+
+    it('tornar a marcar un exclòs el fa entrar, i ja no s\'hi recorda', () => {
+        const pla = planificaActualitzacio(r.chapters, model, { reinclou: [biga] }, r.memoria);
+        expect(amb('Biga', pla)).toBe(true);
+        expect(amb('Columna', pla)).toBe(false);
+        expect(Object.keys(pla.memoria.exclosos)).toEqual([columna]);
+        expect(pla.exclosos.find(x => x.guid === biga).inclos).toBe(true);
+    });
+
+    it('tornar a marcar una classe n\'importa els elements', () => {
+        const pla = planificaActualitzacio(r.chapters, model, { classes: { IFCDOOR: { inclou: true } } }, r.memoria);
+        expect(amb('Porta', pla)).toBe(true);
+        expect(pla.memoria.classes.IFCDOOR.inclou).toBe(true);
+    });
+
+    it('un exclòs que ja no és al model s\'oblida', () => {
+        const m2 = structuredClone(model);
+        m2.elements = m2.elements.filter(e => e.guid !== biga);
+        const pla = planificaActualitzacio(r.chapters, m2, {}, r.memoria);
+        expect(Object.keys(pla.memoria.exclosos)).toEqual([columna]);
+    });
+
+    it('sense memòria (importació antiga), tot funciona igual que abans', () => {
+        const pla = planificaActualitzacio(muntaPressupost(model).chapters, model);
+        expect(pla.exclosos).toEqual([]);
+        expect(pla.iguals).toBe(15);
+    });
+});

@@ -61,11 +61,21 @@ const maxSequencies = (chapters, prefix) => {
  * @param {object} model       El que torna `llegeixIfc`.
  * @param {object} [opcionsImport]  Les mateixes de `muntaPressupost` (classes, usa…) per a les noves partides.
  */
-export const planificaActualitzacio = (chapters, model, opcionsImport = {}) => {
+export const planificaActualitzacio = (chapters, model, opcionsImport = {}, memoria = {}) => {
+    // El que es va triar en importar (`budget.ifc`): les classes i els elements exclosos a mà. Els
+    // exclosos no són «nous» en reimportar: es llisten a part (`pla.exclosos`) perquè es puguin tornar a marcar.
+    const reincloure = new Set(opcionsImport.reinclou || []);
+    const recordats = memoria.exclosos || {};
+    opcionsImport = {
+        ...opcionsImport,
+        classes: { ...(memoria.classes || {}), ...(opcionsImport.classes || {}) },
+        exclou: [...(opcionsImport.exclou || []), ...Object.keys(recordats).filter(g => !reincloure.has(g))],
+    };
     const prefix = opcionsImport.prefix || 'IFC';
     const existents = liniesIfc(chapters);
     const perGuid = new Map(model.elements.map(e => [e.guid, e]));
-    const pla = { canvis: [], conflictes: [], afegides: [], noves: { chapters: [], prices: {} }, eliminades: [], avisos: [], iguals: 0 };
+    const pla = { canvis: [], conflictes: [], afegides: [], noves: { chapters: [], prices: {} }, eliminades: [], avisos: [], iguals: 0, exclosos: [], classesFora: [], memoria: null };
+    pla.exclosos = model.elements.filter(e => recordats[e.guid]).map(e => ({ guid: e.guid, nom: e.nom, classe: e.classe, tipus: e.tipus, inclos: reincloure.has(e.guid) }));
 
     // 1) El que ja hi és.
     for (const [guid, { node, linia }] of existents) {
@@ -134,6 +144,13 @@ export const planificaActualitzacio = (chapters, model, opcionsImport = {}) => {
         });
         pla.noves.chapters.push({ ...cap, code, items });
     }
+    pla.classesFora = nou.classes.filter(c => !c.inclou && !c.exclosa);
+    // La memòria que quedaria: els exclosos que continuen al model i no s'han tornat a marcar.
+    const presents = new Set(model.elements.map(e => e.guid));
+    pla.memoria = {
+        exclosos: Object.fromEntries(Object.entries(recordats).filter(([g]) => presents.has(g) && !reincloure.has(g))),
+        classes: opcionsImport.classes,
+    };
     // Els preus de les partides que no s'han reanomenat (vinculades al banc) no hi són: ja són al projecte.
     return pla;
 };

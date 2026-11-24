@@ -18,10 +18,12 @@ const IfcImportModal = ({ nom, model, priceDatabase, onInsereix, onTanca }) => {
     const [usa, setUsa] = useState({});
     // Codi del banc triat a mà per a cada partida (per la seva clau); buit = sense vincle.
     const [codis, setCodis] = useState({});
+    // Elements que no s'importen (per GlobalId). Es recorden al projecte per poder-los tornar a marcar en reimportar.
+    const [exclosos, setExclosos] = useState(() => new Set());
 
     const r = useMemo(
-        () => muntaPressupost(model, { classes, capitols, usa, banc: priceDatabase, codis }),
-        [model, classes, capitols, usa, priceDatabase, codis],
+        () => muntaPressupost(model, { classes, capitols, usa, banc: priceDatabase, codis, exclou: exclosos }),
+        [model, classes, capitols, usa, priceDatabase, codis, exclosos],
     );
     const detallDe = (nodeId) => r.detall.filter(d => d.nodeId === nodeId);
     const nVinculades = new Set(r.detall.filter(d => d.vinculada).map(d => d.nodeId)).size;
@@ -30,6 +32,13 @@ const IfcImportModal = ({ nom, model, priceDatabase, onInsereix, onTanca }) => {
     const altres = r.avisos.filter(a => !a.sospitos);
 
     const canvia = (classe, camps) => setClasses(prev => ({ ...prev, [classe]: { ...prev[classe], ...camps } }));
+
+    const marca = (guids, exclou) => setExclosos(prev => {
+        const n = new Set(prev);
+        guids.forEach(g => (exclou ? n.add(g) : n.delete(g)));
+        return n;
+    });
+    const nElements = r.grups.reduce((s, g) => s + g.elements.length, 0);
 
     const insereix = () => onInsereix(r, `IFC importat: ${partides.length} partides, ${r.total} línies d'amidament`);
 
@@ -127,6 +136,40 @@ const IfcImportModal = ({ nom, model, priceDatabase, onInsereix, onTanca }) => {
                         </div>
                     )}
 
+                    <div className="p-4 border-b border-slate-100">
+                        <details>
+                            <summary className="cursor-pointer touch-manipulation text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                Elements ({nElements - exclosos.size} de {nElements} entren) · marca què s&apos;importa
+                            </summary>
+                            <p className="mt-1 text-[10px] text-slate-400">Els que desmarquis es recorden al projecte: en reimportar l&apos;IFC es podran tornar a marcar.</p>
+                            <div className="mt-2 space-y-2">
+                                {r.grups.map(g => {
+                                    const guids = g.elements.map(e => e.guid);
+                                    const entren = g.elements.filter(e => !exclosos.has(e.guid)).length;
+                                    return (
+                                        <div key={g.clau} className="border border-slate-100">
+                                            <div className="flex items-center gap-2 px-2 py-1 bg-slate-50 text-[11px]">
+                                                <span className="flex-1 min-w-0 truncate font-bold">{g.descripcio} <span className="font-mono font-normal text-slate-400">{g.regla.classe.replace(/^IFC/, '')}</span></span>
+                                                <span className="font-mono text-slate-400">{entren}/{g.elements.length}</span>
+                                                <button type="button" onClick={() => marca(guids, false)} className="text-[10px] text-blue-600 touch-manipulation px-1">tots</button>
+                                                <button type="button" onClick={() => marca(guids, true)} className="text-[10px] text-blue-600 touch-manipulation px-1">cap</button>
+                                            </div>
+                                            <div className="max-h-40 overflow-y-auto divide-y divide-slate-50">
+                                                {g.elements.map(e => (
+                                                    <label key={e.guid} className="flex items-center gap-2 px-2 py-1 text-[11px] cursor-pointer touch-manipulation">
+                                                        <input type="checkbox" checked={!exclosos.has(e.guid)} onChange={ev => marca([e.guid], !ev.target.checked)} className="accent-blue-600" />
+                                                        <span className={`flex-1 min-w-0 truncate ${exclosos.has(e.guid) ? 'text-slate-400 line-through' : ''}`}>{e.nom || g.descripcio}</span>
+                                                        {e.planta && <span className="text-slate-400 flex-shrink-0">{e.planta}</span>}
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </details>
+                    </div>
+
                     <div className="p-4">
                         <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">
                             Partides que entraran ({partides.length}) · {r.total} línies{nVinculades > 0 && ` · ${nVinculades} vinculades al banc`}
@@ -178,11 +221,11 @@ const IfcImportModal = ({ nom, model, priceDatabase, onInsereix, onTanca }) => {
                                 ))}
                             </div>
                         )}
-                        {(altres.length > 0 || r.excloses.length > 0) && (
+                        {(altres.length > 0 || r.excloses.some(x => !x.manual)) && (
                             <details className="mt-3 text-[11px] text-slate-500">
-                                <summary className="cursor-pointer touch-manipulation">{r.excloses.length} elements sense quantitat, {altres.length} avisos</summary>
+                                <summary className="cursor-pointer touch-manipulation">{r.excloses.filter(x => !x.manual).length} elements sense quantitat, {altres.length} avisos</summary>
                                 <ul className="mt-1 space-y-0.5">
-                                    {r.excloses.map(x => <li key={x.guid}>{x.nom || x.classe}: {x.motiu}</li>)}
+                                    {r.excloses.filter(x => !x.manual).map(x => <li key={x.guid}>{x.nom || x.classe}: {x.motiu}</li>)}
                                     {altres.map(a => <li key={a.guid}>{a.nom || a.classe}: {a.text}</li>)}
                                 </ul>
                             </details>

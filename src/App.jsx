@@ -3066,6 +3066,8 @@ export default function App() {
                 ...(result.parametres?.length ? { parametres: [...(prev.parametres || []), ...result.parametres] } : {}),
                 ...(result.condicions?.length ? { condicions: [...(prev.condicions || []), ...result.condicions] } : {}),
                 ...(result.instancia ? { sistemes: [...(prev.sistemes || []), result.instancia] } : {}),
+                // El que es va triar d'un IFC (classes i elements exclosos), per poder-ho recuperar en reimportar-lo.
+                ...(result.ifc ? { ifc: result.ifc } : {}),
                 // Diverses zones d'un sistema inserides alhora des del CAD (`utils/cadSistemes.js`).
                 ...(result.instancies?.length ? { sistemes: [...(prev.sistemes || []), ...result.instancies] } : {}),
             }));
@@ -5218,14 +5220,15 @@ export default function App() {
                     nom={quadreIfc.nom}
                     model={quadreIfc.model}
                     chapters={budget.chapters}
+                    memoria={budget.ifc}
                     priceDatabase={priceDatabase}
                     onInsereix={(r, missatge) => {
-                        insereixNodes(r.chapters, r.prices, null, missatge);
+                        insereixNodes(r.chapters, r.prices, null, missatge, { ifc: r.memoria });
                         setQuadreIfc(null);
                     }}
-                    onActualitza={(pla, opcions, res) => {
+                    onActualitza={(opcions, res, pla) => {
                         // Sobre l'estat del moment: el pla porta ids de línia, no l'arbre.
-                        setBudget(prev => ({ ...prev, chapters: aplicaActualitzacio(prev.chapters, pla, opcions) }));
+                        setBudget(prev => ({ ...prev, chapters: aplicaActualitzacio(prev.chapters, pla, opcions), ifc: pla.memoria }));
                         const part = [
                             res.actualitzades && `${res.actualitzades} línies actualitzades`,
                             res.afegides && `${res.afegides} d'afegides`,
@@ -5233,7 +5236,7 @@ export default function App() {
                         ].filter(Boolean).join(', ');
                         setQuadreIfc(null);
                         if (opcions.inserirNoves && pla.noves.chapters.length) {
-                            insereixNodes(pla.noves.chapters, pla.noves.prices, null, `IFC actualitzat: ${part ? `${part}, ` : ''}${res.noves} partides noves`);
+                            insereixNodes(pla.noves.chapters, pla.noves.prices, null, `IFC actualitzat: ${part ? `${part}, ` : ''}${res.noves} partides noves`, { ifc: pla.memoria });
                         } else notify(`IFC actualitzat: ${part || 'res a canviar'}`);
                     }}
                     onTanca={() => setQuadreIfc(null)}

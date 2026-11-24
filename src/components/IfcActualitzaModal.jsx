@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { X, RefreshCw, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { formatNumber } from '../utils/calculations';
-import { resumActualitzacio } from '../utils/ifc/actualitza';
+import { resumActualitzacio, planificaActualitzacio } from '../utils/ifc/actualitza';
 
 /**
  * Reimportació d'un IFC sobre un projecte que ja en té línies (veure `utils/ifc/actualitza.js`).
@@ -21,7 +21,16 @@ const Fila = ({ codi, text, abans, despres, unitat }) => (
     </div>
 );
 
-const IfcActualitzaModal = ({ nom, pla, onAplica, onComNou, onTanca }) => {
+const IfcActualitzaModal = ({ nom, chapters, model, memoria, onAplica, onComNou, onTanca }) => {
+    // Què es torna a marcar ara: elements exclosos abans i classes que no es van importar.
+    const [reinclou, setReinclou] = useState(() => new Set());
+    const [classesInc, setClassesInc] = useState(() => new Set());
+    const pla = useMemo(() => planificaActualitzacio(
+        chapters, model,
+        { reinclou: [...reinclou], classes: Object.fromEntries([...classesInc].map(c => [c, { inclou: true }])) },
+        memoria,
+    ), [chapters, model, memoria, reinclou, classesInc]);
+    const alterna = (set, setter, valor) => setter(prev => { const n = new Set(prev); if (n.has(valor)) n.delete(valor); else n.add(valor); return n; });
     const [treu, setTreu] = useState(false);
     const [sobreescriu, setSobreescriu] = useState(false);
     const [inserirNoves, setInserirNoves] = useState(true);
@@ -29,7 +38,8 @@ const IfcActualitzaModal = ({ nom, pla, onAplica, onComNou, onTanca }) => {
     const nNoves = pla.noves.chapters.reduce((s, c) => s + c.items.length, 0);
     const res = resumActualitzacio(pla, { treu, sobreescriu });
     const res2 = { ...res, noves: inserirNoves ? res.noves : 0 };
-    const hiHaRes = res2.actualitzades + res2.afegides + res2.noves + res2.eliminades > 0;
+    const canviaMemoria = reinclou.size > 0 || classesInc.size > 0;
+    const hiHaRes = res2.actualitzades + res2.afegides + res2.noves + res2.eliminades > 0 || canviaMemoria;
 
     const Opcio = ({ checked, onChange, children }) => (
         <label className="flex items-start gap-2 py-1 text-xs cursor-pointer touch-manipulation">
@@ -106,6 +116,29 @@ const IfcActualitzaModal = ({ nom, pla, onAplica, onComNou, onTanca }) => {
                         </div>
                     )}
 
+                    {(pla.exclosos.length > 0 || pla.classesFora.length > 0) && (
+                        <div>
+                            <Titol>Exclosos en la importació anterior</Titol>
+                            {pla.exclosos.length > 0 && (
+                                <div className="border border-slate-100 divide-y divide-slate-50 mb-1.5 max-h-48 overflow-y-auto">
+                                    {pla.exclosos.map(x => (
+                                        <label key={x.guid} className="flex items-center gap-2 px-2 py-1 text-[11px] cursor-pointer touch-manipulation">
+                                            <input type="checkbox" checked={reinclou.has(x.guid)} onChange={() => alterna(reinclou, setReinclou, x.guid)} className="accent-blue-600" />
+                                            <span className="flex-1 min-w-0 truncate">{x.nom || x.tipus || x.classe}</span>
+                                            <span className="font-mono text-slate-400">{x.classe.replace(/^IFC/, '')}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            )}
+                            {pla.classesFora.map(c => (
+                                <Opcio key={c.classe} checked={classesInc.has(c.classe)} onChange={() => alterna(classesInc, setClassesInc, c.classe)}>
+                                    Importa també els {c.n} de la classe <span className="font-mono">{c.classe.replace(/^IFC/, '')}</span> <span className="text-slate-400">(no s&apos;havia triat)</span>
+                                </Opcio>
+                            ))}
+                            <p className="text-[10px] text-slate-400">Els que marquis entren com a elements nous.</p>
+                        </div>
+                    )}
+
                     {pla.eliminades.length > 0 && (
                         <div>
                             <Titol>Ja no són al model ({pla.eliminades.length})</Titol>
@@ -131,7 +164,7 @@ const IfcActualitzaModal = ({ nom, pla, onAplica, onComNou, onTanca }) => {
                     <button onClick={onComNou} className="flex-1 text-left text-[10px] text-slate-400 hover:text-slate-700 underline touch-manipulation">Importa-ho com a nou, sense actualitzar</button>
                     <button onClick={onTanca} className="px-3 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 touch-manipulation">Cancel·la</button>
                     <button
-                        onClick={() => onAplica({ treu, sobreescriu, inserirNoves }, res2)} disabled={!hiHaRes}
+                        onClick={() => onAplica({ treu, sobreescriu, inserirNoves }, res2, pla)} disabled={!hiHaRes}
                         className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-xs font-bold disabled:opacity-40 hover:bg-blue-700 touch-manipulation"
                     >
                         <CheckCircle2 size={14} /> {hiHaRes ? 'Actualitza' : 'Res a actualitzar'}

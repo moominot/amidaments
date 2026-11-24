@@ -151,3 +151,27 @@ lloc de la importació; hi ha l'enllaç *Importa-ho com a nou* per saltar-s'ho.
   he mesurat. Si es nota, el lector (`llegeixIfc`) és pur i es pot moure a un worker sense canvis.
 - Com a la resta, una vegada instal·lada la PWA s'han de tornar a instal·lar perquè el sistema
   reconegui l'associació nova: el manifest el llegeix l'instal·lador, no la pàgina.
+
+## Elements exclosos: es recorden
+
+Al quadre d'importació, la secció **Elements** deixa marcar o desmarcar cada element (i *tots/cap*
+per grup). El que es tria es desa a `budget.ifc`:
+
+```js
+budget.ifc = {
+  exclosos: { "<GlobalId>": { nom, classe, tipus } },   // desmarcats a mà
+  classes:  { IFCDOOR: { inclou: false, unitat: 'ud' } } // el que s'ha tocat a la taula de classes
+}
+```
+
+En reimportar (`planificaActualitzacio(chapters, model, opcions, budget.ifc)`):
+
+- els exclosos **no surten com a nous**: es llisten a «Exclosos en la importació anterior», amb una
+  casella cada un, i els que es marquen entren com a elements nous (a la partida del seu tipus si ja
+  hi és, o com a partida nova);
+- les classes que no es van importar es poden marcar també (`pla.classesFora`);
+- les tries de classe (unitat, incloure) es mantenen com a valor per defecte;
+- un exclòs que ja no és al model s'oblida; `pla.memoria` és la que es desa en aplicar.
+
+Limitació: si es marca un exclòs però es desmarca *Insereix les partides noves*, l'element deixa de
+ser exclòs i tampoc no entra. Cal tornar-lo a desmarcar a mà si no es volia.

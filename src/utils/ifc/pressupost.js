@@ -177,7 +177,7 @@ const entradaDelBanc = (banc, codi) => {
  * @param {Object<string,object>} [opcions.banc]  `priceDatabase`: les partides la classificació de les quals
  *   (o el codi triat a `codis`) hi és, es vinculen al concepte del banc: en prenen el codi, el resum, la unitat i el preu.
  * @param {Object<string,string>} [opcions.codis]  Codi del banc triat a mà per a cada partida (per `clau`).
- * @returns {{ chapters, prices, classes, avisos, excloses, total, detall }}  `detall`: per partida, `{ clau, nodeId, codiBanc, classificacio, vinculada, avis }`.
+ * @returns {{ chapters, prices, classes, avisos, excloses, total, detall, grups }}  `grups`: tots els grups (classe i tipus) amb els seus elements, exclosos inclosos; `memoria`: el que es desa a `budget.ifc`.  `detall`: per partida, `{ clau, nodeId, codiBanc, classificacio, vinculada, avis }`.
  */
 export const muntaPressupost = (model, opcions = {}) => {
     const { classes: canvis = {}, capitols = 'classe', usa = {}, prefix = 'IFC', banc = null, codis = {} } = opcions;
@@ -199,12 +199,13 @@ export const muntaPressupost = (model, opcions = {}) => {
         resumClasses.set(r.classe, f);
     });
 
-    // 1) Els elements que entren, agrupats per classe i tipus.
+    // 1) Els elements que entren, agrupats per classe i tipus. `tots` recorda també els exclosos a mà
+    //    (i els que no tenen quantitat) perquè el quadre els pugui tornar a marcar.
     const grups = new Map(); // clau → { regla, descripcio, elements }
+    const tots = new Map();  // clau → { regla, descripcio, elements: [{ guid, nom, planta, exclos }] }
     for (const e of model.elements) {
         const r = regla(e);
         if (!r.inclou) continue;
-        if (exclouGuids.has(e.guid)) { excloses.push({ guid: e.guid, nom: e.nom, motiu: 'Exclòs a mà' }); continue; }
 
         const fills = perPare.get(e.id) || [];
         // Un conjunt sense quantitats pròpies compta per les seves parts; si en té, les parts no hi compten.
@@ -216,6 +217,11 @@ export const muntaPressupost = (model, opcions = {}) => {
 
         const descripcio = e.tipus || e.nom || nomNeteja(r.classe);
         const clau = `${r.classe}|${r.unitat}|${descripcio}`;
+        if (!tots.has(clau)) tots.set(clau, { clau, regla: r, descripcio, elements: [] });
+        const exclos = exclouGuids.has(e.guid);
+        tots.get(clau).elements.push({ guid: e.guid, nom: e.nom, planta: model.plantes.find(p => p.id === e.planta)?.nom || null, exclos });
+        if (exclos) { excloses.push({ guid: e.guid, nom: e.nom, classe: e.classe, tipus: e.tipus, motiu: 'Exclòs a mà', manual: true }); continue; }
+
         if (!grups.has(clau)) grups.set(clau, { regla: r, descripcio, elements: [] });
         grups.get(clau).elements.push(e);
     }
@@ -340,6 +346,13 @@ export const muntaPressupost = (model, opcions = {}) => {
         avisos,
         excloses,
         detall,
+        grups: [...tots.values()],
+        // El que cal recordar al projecte perquè, en reimportar, es puguin tornar a marcar els elements
+        // exclosos a mà i es mantinguin les tries de classes (`budget.ifc`).
+        memoria: {
+            exclosos: Object.fromEntries(excloses.filter(x => x.manual).map(x => [x.guid, { nom: x.nom || null, classe: x.classe, tipus: x.tipus || null }])),
+            classes: canvis,
+        },
         total: [...finals.values()].reduce((s, f) => s + f.linies.length, 0),
     };
 };
