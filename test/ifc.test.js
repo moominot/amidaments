@@ -348,3 +348,124 @@ describe('IFC: model de buildingSMART (Building-Architecture, IFC4)', () => {
         expect(fora).toEqual(['IFCBUILDINGELEMENTPROXY', 'IFCCHIMNEY', 'IFCFURNITURE', 'IFCSPACE', 'IFCSPATIALZONE']);
     });
 });
+
+// ───────────────────────── Fase 3: classificacions i banc de preus ─────────────────────────
+describe('IFC: classificacions', () => {
+    // Dos murs d'un mateix tipus classificat (la classificació és al tipus, com fa Revit) i un tercer
+    // amb la seva pròpia; el codi existeix al banc amb una altra unitat.
+    const ifc = `ISO-10303-21;
+HEADER;FILE_SCHEMA(('IFC4'));ENDSEC;
+DATA;
+#1=IFCSIUNIT(*,.LENGTHUNIT.,$,.METRE.);
+#2=IFCUNITASSIGNMENT((#1));
+#3=IFCPROJECT('p',$,'P',$,$,$,$,(),#2);
+#4=IFCBUILDINGSTOREY('s',$,'Planta 0',$,$,$,$,$,.ELEMENT.,0.);
+#5=IFCWALLTYPE('t1',$,'Paret 14 cm',$,$,$,$,$,$,.STANDARD.);
+#6=IFCWALL('w1',$,'M1',$,$,$,$,$,$);
+#7=IFCWALL('w2',$,'M2',$,$,$,$,$,$);
+#8=IFCWALL('w3',$,'M3',$,$,$,$,$,$);
+#9=IFCRELDEFINESBYTYPE('r1',$,$,$,(#6,#7),#5);
+#10=IFCCLASSIFICATION('Uniclass','2015',$,'Uniclass 2015');
+#11=IFCCLASSIFICATIONREFERENCE($,'EF_25_10',$,#10,$,$);
+#12=IFCRELASSOCIATESCLASSIFICATION('r2',$,$,$,(#5),#11);
+#13=IFCCLASSIFICATIONREFERENCE($,'ef_25_30',$,#10,$,$);
+#14=IFCRELASSOCIATESCLASSIFICATION('r3',$,$,$,(#8),#13);
+#20=IFCQUANTITYAREA('NetSideArea',$,$,10.,$);
+#21=IFCQUANTITYVOLUME('NetVolume',$,$,2.,$);
+#22=IFCELEMENTQUANTITY('q1',$,'Qto',$,$,(#20,#21));
+#23=IFCQUANTITYAREA('NetSideArea',$,$,4.,$);
+#24=IFCELEMENTQUANTITY('q2',$,'Qto',$,$,(#23));
+#25=IFCRELDEFINESBYPROPERTIES('r4',$,$,$,(#6),#22);
+#26=IFCRELDEFINESBYPROPERTIES('r5',$,$,$,(#7),#22);
+#27=IFCRELDEFINESBYPROPERTIES('r6',$,$,$,(#8),#24);
+#28=IFCRELCONTAINEDINSPATIALSTRUCTURE('r7',$,$,$,(#6,#7,#8),#4);
+ENDSEC;
+END-ISO-10303-21;`;
+    const m = llegeixIfc(ifc);
+    const banc = {
+        EF_25_10: { code: 'EF_25_10', price: 41.5, summary: 'Paret de maó de 14 cm', unit: 'm2' },
+        'EF_25_30': { code: 'EF_25_30', price: 120, summary: 'Paret de formigó', unit: 'm3' },
+    };
+
+    it('llegeix la classificació de l\'element, del seu tipus, i el nom del sistema', () => {
+        const [m1, m2, m3] = m.elements;
+        expect(m1.tipus).toBe('Paret 14 cm');
+        expect(m1.classificacions).toEqual([{ sistema: 'Uniclass 2015', codi: 'EF_25_10', nom: null }]);
+        expect(m2.classificacions[0].codi).toBe('EF_25_10');
+        expect(m3.classificacions[0].codi).toBe('ef_25_30');
+    });
+
+    it('la classificació de l\'edifici no es pengen als elements del model de buildingSMART', () => {
+        const bsi = llegeixIfc(readFileSync('test/fixtures/bsi-building-architecture.ifc', 'utf8'));
+        expect(bsi.elements.every(e => e.classificacions.length === 0)).toBe(true);
+    });
+
+    it('sense banc, no es vincula res: partides pròpies', () => {
+        const r = muntaPressupost(m);
+        expect(r.chapters.flatMap(c => c.items).map(p => p.code)).toEqual(['IFC.MUR.01', 'IFC.MUR.02']);
+    });
+
+    it('amb banc, la partida pren el codi, el resum i el preu; i no es duplica el preu', () => {
+        const r = muntaPressupost(m, { banc });
+        const ps = r.chapters.flatMap(c => c.items);
+        const p1 = ps.find(p => p.code === 'EF_25_10');
+        expect(p1).toMatchObject({ description: 'Paret de maó de 14 cm', unit: 'm2', price: 41.5 });
+        expect(p1.measurements.map(l => l.length)).toEqual([10, 10]);   // dos murs del mateix tipus
+        expect(r.prices).toEqual({});                                   // totes dues són del banc
+        expect(r.detall.filter(d => d.vinculada)).toHaveLength(2);
+    });
+
+    it('si el banc amida en una altra unitat, s\'hi passa quan tots els elements la tenen', () => {
+        const clau = muntaPressupost(m).detall.find(d => d.codiBanc === 'EF_25_10').clau;
+        const r = muntaPressupost(m, { banc, codis: { [clau]: 'ef_25_30' }, exclou: ['w3'] });    // coincidència sense majúscules
+        const p = r.chapters.flatMap(c => c.items).find(x => x.unit === 'm3');
+        expect(p.code).toBe('EF_25_30');
+        expect(p.measurements.map(l => l.length)).toEqual([2, 2]);                // NetVolume dels dos murs
+    });
+
+    it('si algun element no té la unitat del banc, es queda en la seva i s\'avisa', () => {
+        const r = muntaPressupost(m, { banc });
+        const p = r.chapters.flatMap(c => c.items).find(x => x.code === 'EF_25_30');   // M3 només té àrea
+        expect(p.unit).toBe('m2');
+        expect(p.measurements.map(l => l.length)).toEqual([4]);
+        expect(r.avisos.some(a => /no es pot obtenir/.test(a.text))).toBe(true);
+    });
+
+    it('dues partides d\'unitats diferents no es fusionen al mateix concepte', () => {
+        const clau = muntaPressupost(m).detall.find(d => d.codiBanc === 'EF_25_10').clau;
+        const r = muntaPressupost(m, { banc, codis: { [clau]: 'ef_25_30' } });   // M1+M2 en m³, M3 només en m²
+        const ps = r.chapters.flatMap(c => c.items);
+        expect(ps.filter(p => p.code === 'EF_25_30')).toHaveLength(1);
+        expect(ps.some(p => p.code.startsWith('IFC.MUR'))).toBe(true);
+        expect(r.avisos.some(a => /No es pot posar/.test(a.text))).toBe(true);
+    });
+});
+
+describe('IFC: codi del banc triat a mà', () => {
+    const banc = { MUR01: { code: 'MUR01', price: 50, summary: 'Paret de maó', unit: 'm3' } };
+    const clauMur = muntaPressupost(model).detall.find(d => d.clau.includes('|Mur')).clau;
+
+    it('una partida del fixture es vincula a un concepte en m³ i recalcula l\'amidament', () => {
+        const r = muntaPressupost(model, { banc, codis: { [clauMur]: 'MUR01' } });
+        const p = r.chapters.flatMap(c => c.items).find(x => x.code === 'MUR01');
+        expect(p).toMatchObject({ unit: 'm3', price: 50, description: 'Paret de maó' });
+        expect(p.measurements[0].length).toBeCloseTo(1.0, 6);           // volum del mur
+        expect(p.measurements[0].ifc.guid).toBe(per('Mur').guid);
+        expect(r.prices['MUR01']).toBeUndefined();
+    });
+
+    it('un codi que no és al banc no vincula res', () => {
+        const r = muntaPressupost(model, { banc, codis: { [clauMur]: 'NOEXISTEIX' } });
+        expect(r.chapters.flatMap(c => c.items).some(p => p.code === 'NOEXISTEIX')).toBe(false);
+        expect(r.detall.find(d => d.clau === clauMur).vinculada).toBe(false);
+    });
+
+    it('dues partides al mateix concepte en fan una de sola', () => {
+        const clauLlosa = muntaPressupost(model).detall.find(d => d.clau.includes('|Llosa')).clau;
+        const bancM2 = { X: { code: 'X', price: 10, summary: 'Paret o llosa', unit: 'm2' } };
+        const r = muntaPressupost(model, { banc: bancM2, codis: { [clauMur]: 'X', [clauLlosa]: 'X' } });
+        const x = r.chapters.flatMap(c => c.items).filter(p => p.code === 'X');
+        expect(x).toHaveLength(1);
+        expect(x[0].measurements).toHaveLength(2);
+    });
+});

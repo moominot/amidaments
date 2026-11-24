@@ -18,6 +18,7 @@
  */
 
 import { normalizeCode } from '../calculations.js';
+import { cadUnitKind } from '../cadPaste.js';
 
 /** unitat → magnitud IFC i noms de quantitat per ordre de preferència */
 const PER_UNITAT = {
@@ -134,6 +135,16 @@ const liniaDe = (valor, unitat, camps) => ({
 
 const arrodoneix = (n) => Math.round(n * 1e6) / 1e6;
 
+/** Entrada del banc per codi, sense distingir majúscules si no hi ha coincidència exacta. */
+const entradaDelBanc = (banc, codi) => {
+    if (!codi || !banc || /##$/.test(codi.trim())) return null;   // «root##» és el concepte arrel, no un preu
+    const n = normalizeCode(codi);
+    if (banc[n]) return banc[n];
+    const minus = n.toLowerCase();
+    const clau = Object.keys(banc).find(k => k.toLowerCase() === minus);
+    return clau ? banc[clau] : null;
+};
+
 /**
  * Munta el pressupost a partir del model.
  *
@@ -144,10 +155,13 @@ const arrodoneix = (n) => Math.round(n * 1e6) / 1e6;
  * @param {Object<string,'qto'|'geometria'>} [opcions.usa]  Per `guid`: què fer en una quantitat sospitosa.
  * @param {Set<string>|string[]} [opcions.exclou]  `guid`s que no entren.
  * @param {string} [opcions.prefix='IFC']  Prefix dels codis.
- * @returns {{ chapters: object[], prices: object, classes: object[], avisos: object[], excloses: object[], total: number }}
+ * @param {Object<string,object>} [opcions.banc]  `priceDatabase`: les partides la classificació de les quals
+ *   (o el codi triat a `codis`) hi és, es vinculen al concepte del banc: en prenen el codi, el resum, la unitat i el preu.
+ * @param {Object<string,string>} [opcions.codis]  Codi del banc triat a mà per a cada partida (per `clau`).
+ * @returns {{ chapters, prices, classes, avisos, excloses, total, detall }}  `detall`: per partida, `{ clau, nodeId, codiBanc, classificacio, vinculada, avis }`.
  */
 export const muntaPressupost = (model, opcions = {}) => {
-    const { classes: canvis = {}, capitols = 'classe', usa = {}, prefix = 'IFC' } = opcions;
+    const { classes: canvis = {}, capitols = 'classe', usa = {}, prefix = 'IFC', banc = null, codis = {} } = opcions;
     const exclouGuids = new Set(opcions.exclou || []);
     const avisos = [];
     const excloses = [];
@@ -166,7 +180,8 @@ export const muntaPressupost = (model, opcions = {}) => {
         resumClasses.set(r.classe, f);
     });
 
-    const partides = new Map(); // clau → { classe, regla, nom, linies }
+    // 1) Els elements que entren, agrupats per classe i tipus.
+    const grups = new Map(); // clau → { regla, descripcio, elements }
     for (const e of model.elements) {
         const r = regla(e);
         if (!r.inclou) continue;
@@ -180,46 +195,118 @@ export const muntaPressupost = (model, opcions = {}) => {
             if (pare && ambQuantitats(pare)) continue;
         }
 
-        const q = quantitatDeElement(e, r.unitat, usa[e.guid]);
-        if (q.valor == null) {
-            excloses.push({ guid: e.guid, nom: e.nom, classe: e.classe, motiu: q.avis });
-            continue;
-        }
-        if (q.avis) avisos.push({ guid: e.guid, nom: e.nom, classe: e.classe, text: q.avis, origen: q.origen, sospitos: !!q.sospitos });
-
         const descripcio = e.tipus || e.nom || nomNeteja(r.classe);
         const clau = `${r.classe}|${r.unitat}|${descripcio}`;
-        if (!partides.has(clau)) partides.set(clau, { regla: r, descripcio, linies: [] });
-        const planta = model.plantes.find(p => p.id === e.planta);
-        partides.get(clau).linies.push(liniaDe(arrodoneix(q.valor), r.unitat, {
-            description: [e.nom && e.nom !== descripcio ? e.nom : null, planta?.nom].filter(Boolean).join(' · ') || descripcio,
-            ifc: { guid: e.guid, classe: e.classe, quantitat: q.nom, origen: q.origen },
-        }));
+        if (!grups.has(clau)) grups.set(clau, { regla: r, descripcio, elements: [] });
+        grups.get(clau).elements.push(e);
     }
 
-    // Capítols i codis: estables per a un mateix model (ordre de les classes i dels noms).
-    const capitolsMap = new Map();
+    // 2) Per a cada grup: a quin concepte del banc va (si va a algun), en quina unitat s'amida i les línies.
+    const calculaLinies = (g, unitat) => {
+        const linies = [];
+        const propis = [];
+        for (const e of g.elements) {
+            const q = quantitatDeElement(e, unitat, usa[e.guid]);
+            if (q.valor == null) { propis.push({ guid: e.guid, nom: e.nom, classe: e.classe, motiu: q.avis }); continue; }
+            const planta = model.plantes.find(p => p.id === e.planta);
+            linies.push({
+                q, e,
+                linia: liniaDe(arrodoneix(q.valor), unitat, {
+                    description: [e.nom && e.nom !== g.descripcio ? e.nom : null, planta?.nom].filter(Boolean).join(' · ') || g.descripcio,
+                    ifc: { guid: e.guid, classe: e.classe, quantitat: q.nom, origen: q.origen },
+                }),
+            });
+        }
+        return { linies, propis };
+    };
+
+    const finals = new Map(); // codi final → { code, descripcio, unit, price, vinculada, regla, linies, claus }
+    const detall = [];
+    const sensePartida = [];
+    for (const [clau, g] of [...grups.entries()].sort((a, b) =>
+        a[1].regla.capitol.localeCompare(b[1].regla.capitol, 'ca') || a[1].descripcio.localeCompare(b[1].descripcio, 'ca'))) {
+        // Concepte del banc: el triat a mà o el de la classificació (la de l'element, la del tipus o la del conjunt).
+        const classificacio = g.elements.flatMap(e => e.classificacions || []).find(c => c.codi) || null;
+        const triat = codis[clau];
+        const codiBanc = triat != null ? triat : classificacio?.codi;
+        const entrada = banc ? entradaDelBanc(banc, codiBanc) : null;
+
+        let unitat = g.regla.unitat;
+        let avisPartida = null;
+        if (entrada) {
+            const unitatBanc = cadUnitKind(entrada.unit);
+            if (unitatBanc && unitatBanc !== unitat) {
+                // Si el banc amida en una altra unitat, es prova de fer-ho així; si algun element no hi té quantitat, no.
+                const prova = calculaLinies(g, unitatBanc);
+                if (prova.propis.length === 0) unitat = unitatBanc;
+                else avisPartida = `La unitat del banc (${entrada.unit}) no es pot obtenir per a tots els elements: s'amida en ${unitat}.`;
+            } else if (!unitatBanc) {
+                avisPartida = `La unitat del banc (${entrada.unit || 'cap'}) no és amidable des del model: s'amida en ${unitat}.`;
+            }
+        }
+        const { linies, propis } = calculaLinies(g, unitat);
+        excloses.push(...propis);
+        if (linies.length === 0) continue;
+        linies.forEach(({ q, e }) => {
+            if (q.avis) avisos.push({ guid: e.guid, nom: e.nom, classe: e.classe, text: q.avis, origen: q.origen, sospitos: !!q.sospitos });
+        });
+        if (avisPartida) avisos.push({ guid: null, nom: g.descripcio, classe: g.regla.classe, text: avisPartida, origen: 'banc', sospitos: false });
+
+        sensePartida.push({ clau, g, entrada, unitat, linies: linies.map(l => l.linia), classificacio, codiBanc, avisPartida });
+    }
+
+    // Codis: els del banc, i els propis (IFC.MUR.01…) estables per a un mateix model.
     const comptadors = new Map();
-    const llistaPartides = [...partides.values()].sort((a, b) =>
-        a.regla.capitol.localeCompare(b.regla.capitol, 'ca') || a.descripcio.localeCompare(b.descripcio, 'ca'));
+    for (const p of sensePartida) {
+        let code;
+        let vinculada = false;
+        if (p.entrada) {
+            code = p.entrada.code || normalizeCode(p.codiBanc);
+            vinculada = true;
+            // Dues partides al mateix concepte només es fusionen si s'amiden en la mateixa unitat.
+            if (finals.get(normalizeCode(code))?.unit !== undefined && finals.get(normalizeCode(code)).unit !== p.unitat) {
+                avisos.push({ guid: null, nom: p.g.descripcio, classe: p.g.regla.classe, origen: 'banc', sospitos: false,
+                    text: `No es pot posar a «${code}»: l'altra partida que hi va s'amida en ${finals.get(normalizeCode(code)).unit} i aquesta en ${p.unitat}.` });
+                vinculada = false;
+            }
+        }
+        if (!vinculada) {
+            const n = (comptadors.get(p.g.regla.abr) || 0) + 1;
+            comptadors.set(p.g.regla.abr, n);
+            code = `${prefix}.${p.g.regla.abr}.${String(n).padStart(2, '0')}`;
+        }
+        const k = normalizeCode(code);
+        // Dos grups que van al mateix concepte del banc fan una sola partida.
+        if (!finals.has(k)) {
+            finals.set(k, {
+                code, vinculada, regla: p.g.regla, unit: p.unitat, linies: [], claus: [],
+                descripcio: vinculada ? (p.entrada.summary || p.g.descripcio) : p.g.descripcio,
+                price: vinculada ? (p.entrada.price || 0) : 0,
+            });
+        }
+        const f = finals.get(k);
+        f.linies.push(...p.linies);
+        f.claus.push({ clau: p.clau, classificacio: p.classificacio, codiBanc: p.codiBanc, avis: p.avisPartida });
+    }
+
     const prices = {};
-    for (const p of llistaPartides) {
-        const n = (comptadors.get(p.regla.abr) || 0) + 1;
-        comptadors.set(p.regla.abr, n);
-        const code = `${prefix}.${p.regla.abr}.${String(n).padStart(2, '0')}`;
+    const capitolsMap = new Map();
+    for (const f of finals.values()) {
         const node = {
             id: crypto.randomUUID(),
-            code,
-            description: p.descripcio,
-            fullDescription: `${p.descripcio} (${p.regla.classe})`,
-            unit: p.regla.unitat,
-            price: 0,
+            code: f.code,
+            description: f.descripcio,
+            fullDescription: `${f.descripcio} (${f.regla.classe})`,
+            unit: f.unit,
+            price: f.price,
             breakdown: [],
-            measurements: p.linies,
+            measurements: f.linies,
             certifications: {},
         };
-        prices[normalizeCode(code)] = { code, price: 0, summary: p.descripcio, unit: p.regla.unitat };
-        const clauCap = capitols === 'unic' ? 'unic' : p.regla.capitol;
+        // Les del banc ja hi són: no es tornen a posar (i el preu del projecte mana).
+        if (!f.vinculada) prices[normalizeCode(f.code)] = { code: f.code, price: 0, summary: f.descripcio, unit: f.unit };
+        f.claus.forEach(c => detall.push({ ...c, nodeId: node.id, vinculada: f.vinculada }));
+        const clauCap = capitols === 'unic' ? 'unic' : f.regla.capitol;
         if (!capitolsMap.has(clauCap)) capitolsMap.set(clauCap, []);
         capitolsMap.get(clauCap).push(node);
     }
@@ -240,6 +327,7 @@ export const muntaPressupost = (model, opcions = {}) => {
         classes: [...resumClasses.values()].sort((a, b) => b.n - a.n),
         avisos,
         excloses,
-        total: llistaPartides.reduce((s, p) => s + p.linies.length, 0),
+        detall,
+        total: [...finals.values()].reduce((s, f) => s + f.linies.length, 0),
     };
 };

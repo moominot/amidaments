@@ -107,7 +107,7 @@ const llegeixUnitats = (entitats, avisos) => {
  *
  * Element: `{ id, guid, classe, nom, tipus, planta, pare, espai, geometria, quantitats }`, on `classe` és
  * en majúscules (`IFCWALL`), `tipus` el nom de l'`IfcTypeObject` si en té i `planta` l'id de la
- * planta (o null), `pare` l'id de l'element del qual és part i `geometria` el que torna
+ * planta (o null), `pare` l'id de l'element del qual és part, `classificacions` (`{sistema, codi, nom}`, les de l'element o del seu tipus) i `geometria` el que torna
  * `geometriaElement` (volum, superfície, cara més gran). Quantitat: `{ conjunt, nom, magnitud, valor }`, amb `valor` en SI.
  */
 export const llegeixIfc = (contingut, { geometria = true } = {}) => {
@@ -141,6 +141,8 @@ export const llegeixIfc = (contingut, { geometria = true } = {}) => {
     const candidats = new Set();
     const quantitatsDe = new Map(); // element → [IfcElementQuantity]
     const tipusDe = new Map();      // element → nom del tipus
+    const tipusIdDe = new Map();    // element → id de l'IfcTypeObject
+    const classificacionsDe = new Map(); // objecte → [{ sistema, codi, nom }]
 
     for (const r of perTipus('IFCRELCONTAINEDINSPATIALSTRUCTURE')) {
         const estructura = esRef(r.args[5]) ? r.args[5].ref : null;
@@ -169,9 +171,25 @@ export const llegeixIfc = (contingut, { geometria = true } = {}) => {
         const tipus = esRef(r.args[5]) ? entitats.get(r.args[5].ref) : null;
         for (const id of llistaRefs(r.args[4])) {
             candidats.add(id);
-            if (tipus) tipusDe.set(id, text(tipus.args[2]));
+            if (tipus) { tipusDe.set(id, text(tipus.args[2])); tipusIdDe.set(id, tipus.id); }
         }
     }
+
+    // Classificacions (Uniclass, OmniClass, CCI…): IFC4 té la referència a (Location, Identification, Name,
+    // Source…) i IFC2x3 a (Location, ItemReference, Name, Source): el codi és al segon lloc en tots dos.
+    for (const r of perTipus('IFCRELASSOCIATESCLASSIFICATION')) {
+        const ref = esRef(r.args[5]) ? entitats.get(r.args[5].ref) : null;
+        if (!ref || ref.tipus !== 'IFCCLASSIFICATIONREFERENCE') continue;
+        const font = esRef(ref.args[3]) ? entitats.get(ref.args[3].ref) : null;
+        const c = { sistema: font?.tipus === 'IFCCLASSIFICATION' ? text(font.args[3]) || text(font.args[0]) : null, codi: text(ref.args[1]), nom: text(ref.args[2]) };
+        if (!c.codi) continue;
+        for (const id of llistaRefs(r.args[4])) classificacionsDe.set(id, [...(classificacionsDe.get(id) || []), c]);
+    }
+    // La de l'element, i si no en porta, la del seu tipus o la del conjunt del qual és part.
+    const classificacionsElement = (id) => classificacionsDe.get(id)
+        || classificacionsDe.get(tipusIdDe.get(id))
+        || (agregatA.has(id) ? classificacionsDe.get(agregatA.get(id)) : null)
+        || [];
 
     const plantaDe = (id) => {
         let actual = id;
@@ -229,6 +247,7 @@ export const llegeixIfc = (contingut, { geometria = true } = {}) => {
             // ser a les parts i no al conjunt, i no s'han de comptar dues vegades.
             pare: pareElement(id),
             espai: e.tipus === 'IFCSPACE',
+            classificacions: classificacionsElement(id),
             geometria: geometria ? geometriaElement(entitats, id, unitats.longitud) : null,
             quantitats: (quantitatsDe.get(id) || []).flatMap(llegeixQuantitats),
         });

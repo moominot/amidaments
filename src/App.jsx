@@ -5214,6 +5214,7 @@ export default function App() {
                 <IfcImportModal
                     nom={quadreIfc.nom}
                     model={quadreIfc.model}
+                    priceDatabase={priceDatabase}
                     onInsereix={(r, missatge) => {
                         insereixNodes(r.chapters, r.prices, null, missatge);
                         setQuadreIfc(null);

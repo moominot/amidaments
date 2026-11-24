@@ -2,8 +2,8 @@
 
 Estat: **fases 1 i 2**. Un `.ifc` obert per qualsevol camí (selector, arrossegament) passa per
 `obreFitxer`, que obre `components/IfcImportModal.jsx`; el que s'hi accepta s'insereix pel flux
-d'`insereixNodes`, a l'arrel i a preu 0. Falten la vinculació amb preus, la reimportació i el
-manifest/service worker (fases 3 a 5).
+d'`insereixNodes`, a l'arrel i a preu 0. **Fase 3** (vinculació al banc de preus) feta; falten la reimportació i el manifest/service
+worker (fases 4 i 5).
 
 ## Què hi ha
 
@@ -91,3 +91,24 @@ desa res a `localStorage`: les tries es perden en tancar.
 
 Provat a 390 px amb emulació tàctil (sense desbordament horitzontal) i inserint el fixture
 d'IngeTrazo: 15 capítols amb una partida cada un.
+
+## Fase 3: classificacions i banc de preus
+
+- El lector llegeix `IfcRelAssociatesClassification` (IFC4 i IFC2x3) i desa a cada element
+  `classificacions: [{ sistema, codi, nom }]`: la de l'element o, si no en té, la del seu tipus
+  (és com ho fa Revit) o la del conjunt del qual és part. La classificació de l'`IfcBuilding` no
+  baixa als elements.
+- `muntaPressupost(model, { banc, codis })` vincula cada partida a un concepte del banc si el codi de
+  la classificació (o el triat a mà a `codis[clau]`) hi és; la coincidència admet majúscules
+  diferents. La partida en pren **codi, resum, unitat i preu**, i no es torna a posar a
+  `prices` (el preu del projecte mana). `detall` diu què s'ha vinculat i amb quin codi.
+- **Unitat del banc**: si el concepte amida en una altra unitat, s'hi passa només si tots els
+  elements en tenen la quantitat (un mur amb àrea però sense volum no es pot posar en m³: es queda
+  en la seva i s'avisa).
+- Dues partides al mateix concepte es fusionen, però només si s'amiden en la mateixa unitat; si no,
+  la segona queda amb codi propi i s'avisa.
+- El concepte arrel (`root##`) mai no és un destí vàlid.
+- Al quadre, cada partida porta un camp de codi amb la llista del banc; buit = sense vincle.
+
+Provat amb una classificació sintètica al tipus (els IFC de buildingSMART només classifiquen
+l'edifici) i amb el fixture d'IngeTrazo, que no en porta cap.

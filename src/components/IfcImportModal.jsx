@@ -12,12 +12,19 @@ import { formatNumber } from '../utils/calculations';
  */
 const total = (p) => p.measurements.reduce((s, m) => s + (m.units || 0) * (m.length || 1) * (m.width || 1) * (m.height || 1), 0);
 
-const IfcImportModal = ({ nom, model, onInsereix, onTanca }) => {
+const IfcImportModal = ({ nom, model, priceDatabase, onInsereix, onTanca }) => {
     const [classes, setClasses] = useState({});
     const [capitols, setCapitols] = useState('classe');
     const [usa, setUsa] = useState({});
+    // Codi del banc triat a mà per a cada partida (per la seva clau); buit = sense vincle.
+    const [codis, setCodis] = useState({});
 
-    const r = useMemo(() => muntaPressupost(model, { classes, capitols, usa }), [model, classes, capitols, usa]);
+    const r = useMemo(
+        () => muntaPressupost(model, { classes, capitols, usa, banc: priceDatabase, codis }),
+        [model, classes, capitols, usa, priceDatabase, codis],
+    );
+    const detallDe = (nodeId) => r.detall.filter(d => d.nodeId === nodeId);
+    const nVinculades = new Set(r.detall.filter(d => d.vinculada).map(d => d.nodeId)).size;
     const partides = useMemo(() => r.chapters.flatMap(c => c.items), [r]);
     const sospitosos = r.avisos.filter(a => a.sospitos);
     const altres = r.avisos.filter(a => !a.sospitos);
@@ -122,8 +129,13 @@ const IfcImportModal = ({ nom, model, onInsereix, onTanca }) => {
 
                     <div className="p-4">
                         <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">
-                            Partides que entraran ({partides.length}) · {r.total} línies
+                            Partides que entraran ({partides.length}) · {r.total} línies{nVinculades > 0 && ` · ${nVinculades} vinculades al banc`}
                         </div>
+                        {priceDatabase && Object.keys(priceDatabase).length > 0 && (
+                            <datalist id="codis-banc-ifc">
+                                {Object.values(priceDatabase).filter(c => c.code && !/##$/.test(c.code)).slice(0, 3000).map(c => <option key={c.code} value={c.code}>{c.summary}</option>)}
+                            </datalist>
+                        )}
                         {partides.length === 0 ? (
                             <p className="text-[11px] text-slate-500">Cap element amb les classes triades i quantitats utilitzables.</p>
                         ) : (
@@ -131,15 +143,37 @@ const IfcImportModal = ({ nom, model, onInsereix, onTanca }) => {
                                 {r.chapters.map(c => (
                                     <div key={c.id}>
                                         <div className="px-2 py-1 bg-slate-50 text-[10px] font-black uppercase tracking-wide text-slate-500">{c.description}</div>
-                                        {c.items.map(p => (
-                                            <div key={p.id} className="flex items-baseline gap-2 px-2 py-1 text-[11px]">
-                                                <span className="font-mono text-slate-400 w-20 flex-shrink-0">{p.code}</span>
-                                                <span className="flex-1 min-w-0 truncate">{p.description}</span>
-                                                <span className="font-mono text-slate-400">{p.measurements.length}×</span>
-                                                <span className="font-mono font-bold text-right w-20">{formatNumber(total(p))}</span>
-                                                <span className="font-mono text-slate-400 w-6">{p.unit}</span>
-                                            </div>
-                                        ))}
+                                        {c.items.map(p => {
+                                            const d = detallDe(p.id);
+                                            const un = d.length === 1 ? d[0] : null;   // si en porta diverses, el codi ja és el del banc
+                                            const valor = un ? (codis[un.clau] ?? un.codiBanc ?? '') : '';
+                                            return (
+                                                <div key={p.id} className="px-2 py-1 text-[11px]">
+                                                    <div className="flex items-baseline gap-2">
+                                                        <span className={`font-mono w-20 flex-shrink-0 truncate ${d.some(x => x.vinculada) ? 'text-emerald-700 font-bold' : 'text-slate-400'}`}>{p.code}</span>
+                                                        <span className="flex-1 min-w-0 truncate">{p.description}</span>
+                                                        <span className="font-mono text-slate-400">{p.measurements.length}×</span>
+                                                        <span className="font-mono font-bold text-right w-20">{formatNumber(total(p))}</span>
+                                                        <span className="font-mono text-slate-400 w-6">{p.unit}</span>
+                                                    </div>
+                                                    {un && priceDatabase && Object.keys(priceDatabase).length > 0 && (
+                                                        <div className="mt-1 flex items-center gap-1.5 pl-[88px]">
+                                                            <input
+                                                                value={valor}
+                                                                onChange={e => setCodis(prev => ({ ...prev, [un.clau]: e.target.value }))}
+                                                                list="codis-banc-ifc"
+                                                                placeholder="Codi del banc de preus"
+                                                                aria-label={`Codi del banc per a ${p.description}`}
+                                                                className="flex-1 min-w-0 border border-slate-200 px-1.5 py-1 text-[11px] font-mono outline-none focus:border-blue-500"
+                                                            />
+                                                            {un.vinculada && <span className="text-[10px] text-emerald-700 flex-shrink-0">vinculada · {formatNumber(p.price)} €</span>}
+                                                            {!un.vinculada && valor && <span className="text-[10px] text-amber-700 flex-shrink-0">no és al banc</span>}
+                                                            {un.classificacio && !un.vinculada && !valor && <span className="text-[10px] text-slate-400 flex-shrink-0 truncate">classif. {un.classificacio.codi}</span>}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 ))}
                             </div>
@@ -157,7 +191,7 @@ const IfcImportModal = ({ nom, model, onInsereix, onTanca }) => {
                 </div>
 
                 <div className="flex items-center gap-3 px-4 py-3 border-t border-slate-200 flex-shrink-0">
-                    <span className="flex-1 text-[10px] text-slate-400">Les partides entren a preu 0.</span>
+                    <span className="flex-1 text-[10px] text-slate-400">Les que no es vinculen al banc entren a preu 0.</span>
                     <button onClick={onTanca} className="px-3 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 touch-manipulation">Cancel·la</button>
                     <button
                         onClick={insereix} disabled={partides.length === 0}
