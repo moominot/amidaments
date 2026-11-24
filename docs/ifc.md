@@ -51,3 +51,31 @@ entrarà si cal calcular quantitats des de la geometria (models sense Qto).
 3. Vinculació amb classificacions i banc de preus.
 4. Reimportació per `GlobalId`.
 5. `obreFitxer`, manifest, service worker i fitxers compartits.
+
+## Fase 2: geometria i pressupost
+
+| Fitxer | Responsabilitat |
+|---|---|
+| `src/utils/ifc/geometria.js` | Volum, superfície i cara més gran d'un element: `IfcFacetedBrep`, `IfcShellBasedSurfaceModel`, `IfcTriangulatedFaceSet` i `IfcExtrudedAreaSolid` (perfil rectangular, circular o polilínia). Res de booleans: l'element surt amb `parcial: true`. |
+| `src/utils/ifc/pressupost.js` | `muntaPressupost(model, opcions)`: capítols per classe, una partida per tipus, una línia per element amb `ifc.guid`. `quantitatDeElement` tria i contrasta la quantitat. |
+
+Regles (`CLASSES`): mur → m² (`NetSideArea`), llosa/coberta/revestiment → m² (`NetArea`),
+pilar/biga/baranes/pilot/element → m (`Length`), sabata → m³, escala/rampa/porta/finestra → ud,
+armadura → kg. Les classes que no hi són (proxys, mobiliari, xemeneies…) surten **desactivades**;
+els espais i les zones, mai.
+
+**Contrast amb la geometria.** Una àrea declarada que coincideix (±0,5%) amb la superfície total
+d'un sòlid tancat és sospitosa: s'hi han comptat totes les cares. Es fa servir la cara més gran
+—al fixture d'IngeTrazo, 4 m² en lloc de 8,4— i s'avisa; `usa[guid] = 'qto'` ho torna al valor
+declarat. Un volum que difereix més d'un 2% de la geometria es manté i s'avisa. Sense volum
+declarat, es pren de la geometria.
+
+**Conjunts.** Si un element té parts (una coberta amb lloses) i no porta quantitats pròpies,
+compten les parts; si en porta, les parts no hi compten. Ho va destapar `Building-Architecture`
+de buildingSMART, on la coberta és buida i les lloses porten els Qto.
+
+**Provat amb** els 35 IFC de [buildingSMART/Certification-datasets](https://github.com/buildingSMART/Certification-datasets)
+(IFC2x3, IFC4 i IFC4.3): el lector els llegeix tots sense errors, en menys de 70 ms cada un. Un
+d'ells es manté a `test/fixtures/bsi-building-architecture.ifc` (CC BY 4.0, © buildingSMART
+International). Molts models d'infraestructura no porten cap Qto: caldria la geometria, que només
+es pot calcular per als casos de dalt.

@@ -15,6 +15,7 @@
  */
 
 import { parseStep } from './step.js';
+import { geometriaElement } from './geometria.js';
 
 /** Classes que organitzen el model però no són elements constructius. */
 const CLASSES_ESPACIALS = new Set(['IFCPROJECT', 'IFCSITE', 'IFCBUILDING', 'IFCBUILDINGSTOREY']);
@@ -104,11 +105,12 @@ const llegeixUnitats = (entitats, avisos) => {
  *   avisos: string[],
  * }}
  *
- * Element: `{ id, guid, classe, nom, tipus, planta, espai, quantitats: Quantitat[] }`, on `classe` és
+ * Element: `{ id, guid, classe, nom, tipus, planta, pare, espai, geometria, quantitats }`, on `classe` és
  * en majúscules (`IFCWALL`), `tipus` el nom de l'`IfcTypeObject` si en té i `planta` l'id de la
- * planta (o null). Quantitat: `{ conjunt, nom, magnitud, valor }`, amb `valor` en SI.
+ * planta (o null), `pare` l'id de l'element del qual és part i `geometria` el que torna
+ * `geometriaElement` (volum, superfície, cara més gran). Quantitat: `{ conjunt, nom, magnitud, valor }`, amb `valor` en SI.
  */
-export const llegeixIfc = (contingut) => {
+export const llegeixIfc = (contingut, { geometria = true } = {}) => {
     const step = parseStep(contingut);
     if (!step) return null;
     const { capcalera, entitats } = step;
@@ -150,6 +152,7 @@ export const llegeixIfc = (contingut) => {
         for (const id of llistaRefs(r.args[5])) {
             agregatA.set(id, pare);
             if (tipusPare === 'IFCBUILDINGSTOREY' || tipusPare === 'IFCSPACE' || tipusPare === 'IFCBUILDING') candidats.add(id);
+            else if (tipusPare && !CLASSES_ESPACIALS.has(tipusPare)) candidats.add(id);
         }
     }
     for (const r of perTipus('IFCRELDEFINESBYPROPERTIES')) {
@@ -204,6 +207,12 @@ export const llegeixIfc = (contingut) => {
         return out;
     };
 
+    const pareElement = (id) => {
+        const pare = agregatA.get(id);
+        const ent = pare != null ? entitats.get(pare) : null;
+        return ent && !CLASSES_ESPACIALS.has(ent.tipus) && ent.tipus !== 'IFCSPACE' ? pare : null;
+    };
+
     const elements = [];
     for (const id of [...candidats].sort((a, b) => a - b)) {
         const e = entitats.get(id);
@@ -216,7 +225,11 @@ export const llegeixIfc = (contingut) => {
             nom: text(e.args[2]),
             tipus: tipusDe.get(id) ?? null,
             planta: plantaDe(id),
+            // Pare, si l'element és una part d'un altre (les lloses d'una coberta): els Qto poden
+            // ser a les parts i no al conjunt, i no s'han de comptar dues vegades.
+            pare: pareElement(id),
             espai: e.tipus === 'IFCSPACE',
+            geometria: geometria ? geometriaElement(entitats, id, unitats.longitud) : null,
             quantitats: (quantitatsDe.get(id) || []).flatMap(llegeixQuantitats),
         });
     }
