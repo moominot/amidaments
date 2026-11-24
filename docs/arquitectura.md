@@ -61,8 +61,8 @@ Navegador
 | `src/utils/traduccio.js` | — | Traducció del projecte o d'una part: recollir i aplicar els textos. Veure [`docs/traduccio.md`](traduccio.md). |
 | `src/components/TraduccioModal.jsx` | — | Quadre de traducció. |
 | `src/components/AssistentPanel.jsx` | — | Xat de l'assistent (columna de l'esquerra o calaix). |
-| `src/utils/ifc/` | — | Importació d'IFC: lector STEP (`step.js`), quantitats per element (`lector.js`), geometria (`geometria.js`) i pressupost (`pressupost.js`). Veure [`docs/ifc.md`](ifc.md). |
-| `test/` | 349 tests | Vitest sobre els càlculs, el parser i l'escriptor. Veure [`docs/tests.md`](tests.md). |
+| `src/utils/ifc/` | — | Importació d'IFC: lector STEP (`step.js`), quantitats per element (`lector.js`), geometria (`geometria.js`) i pressupost (`pressupost.js`) i reimportació (`actualitza.js`). Veure [`docs/ifc.md`](ifc.md). |
+| `test/` | 360 tests | Vitest sobre els càlculs, el parser i l'escriptor. Veure [`docs/tests.md`](tests.md). |
 
 ## Estructura interna d'`App.jsx`
 

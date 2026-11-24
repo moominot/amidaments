@@ -135,6 +135,25 @@ const liniaDe = (valor, unitat, camps) => ({
 
 const arrodoneix = (n) => Math.round(n * 1e6) / 1e6;
 
+/**
+ * La línia d'amidament d'un element en una unitat. `q.valor` és null si no en té quantitat.
+ * La línia desa a `ifc` el `GlobalId`, d'on ha sortit la xifra (`origen`) i la xifra mateixa
+ * (`valor`): amb aquesta darrera, en reimportar es veu si algú l'ha tocat a mà.
+ */
+export const liniaPerElement = (model, e, unitat, descripcioPartida, forca) => {
+    const q = quantitatDeElement(e, unitat, forca);
+    if (q.valor == null) return { q, e, linia: null };
+    const planta = model.plantes.find(p => p.id === e.planta);
+    const valor = arrodoneix(q.valor);
+    return {
+        q, e,
+        linia: liniaDe(valor, unitat, {
+            description: [e.nom, planta?.nom].filter(Boolean).join(' · ') || descripcioPartida,
+            ifc: { guid: e.guid, classe: e.classe, quantitat: q.nom, origen: q.origen, valor },
+        }),
+    };
+};
+
 /** Entrada del banc per codi, sense distingir majúscules si no hi ha coincidència exacta. */
 const entradaDelBanc = (banc, codi) => {
     if (!codi || !banc || /##$/.test(codi.trim())) return null;   // «root##» és el concepte arrel, no un preu
@@ -206,16 +225,9 @@ export const muntaPressupost = (model, opcions = {}) => {
         const linies = [];
         const propis = [];
         for (const e of g.elements) {
-            const q = quantitatDeElement(e, unitat, usa[e.guid]);
-            if (q.valor == null) { propis.push({ guid: e.guid, nom: e.nom, classe: e.classe, motiu: q.avis }); continue; }
-            const planta = model.plantes.find(p => p.id === e.planta);
-            linies.push({
-                q, e,
-                linia: liniaDe(arrodoneix(q.valor), unitat, {
-                    description: [e.nom && e.nom !== g.descripcio ? e.nom : null, planta?.nom].filter(Boolean).join(' · ') || g.descripcio,
-                    ifc: { guid: e.guid, classe: e.classe, quantitat: q.nom, origen: q.origen },
-                }),
-            });
+            const r = liniaPerElement(model, e, unitat, g.descripcio, usa[e.guid]);
+            if (r.q.valor == null) propis.push({ guid: e.guid, nom: e.nom, classe: e.classe, motiu: r.q.avis });
+            else linies.push(r);
         }
         return { linies, propis };
     };

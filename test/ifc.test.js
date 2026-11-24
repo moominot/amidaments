@@ -469,3 +469,144 @@ describe('IFC: codi del banc triat a mà', () => {
         expect(x[0].measurements).toHaveLength(2);
     });
 });
+
+// ───────────────────────── Fase 4: reimportar per GlobalId ─────────────────────────
+import { liniesIfc, teLiniesIfc, planificaActualitzacio, aplicaActualitzacio, resumActualitzacio } from '../src/utils/ifc/actualitza.js';
+
+describe('IFC: reimportar sobre un projecte', () => {
+    const importa = () => muntaPressupost(model).chapters;
+    const clona = () => structuredClone(model);
+    const elem = (m, nom) => m.elements.find(e => e.nom === nom);
+    const setQ = (m, nom, qto, valor) => { elem(m, nom).quantitats.find(q => q.nom === qto).valor = valor; };
+    const liniaDe = (chapters, nom) => [...liniesIfc(chapters).values()].find(x => x.node.description === nom);
+
+    it('el projecte importat porta els GlobalId i s\'hi reconeix', () => {
+        const ch = importa();
+        expect(teLiniesIfc(ch)).toBe(true);
+        expect(liniesIfc(ch).size).toBe(15);
+        expect(teLiniesIfc([{ id: 'x', code: 'A', description: 'A', items: [] }])).toBe(false);
+    });
+
+    it('el mateix model: tot igual, res no canvia', () => {
+        const ch = importa();
+        const pla = planificaActualitzacio(ch, model);
+        expect(pla).toMatchObject({ iguals: 15, canvis: [], conflictes: [], afegides: [], eliminades: [], avisos: [] });
+        expect(pla.noves.chapters).toEqual([]);
+        expect(aplicaActualitzacio(ch, pla, { treu: true, sobreescriu: true })).toEqual(ch);
+    });
+
+    it('un Qto que canvia (mur de 5 a 6 m²) s\'actualitza i es conserven el preu i la descripció', () => {
+        const ch = importa();
+        liniaDe(ch, 'Mur').node.price = 77;          // el preu que l'usuari hi hagi posat
+        const m2 = clona(); setQ(m2, 'Mur', 'NetSideArea', 6);
+        const pla = planificaActualitzacio(ch, m2);
+        expect(pla.canvis).toHaveLength(1);
+        expect(pla.canvis[0]).toMatchObject({ partida: liniaDe(ch, 'Mur').node.code, abans: 5, despres: 6 });
+        const nou = aplicaActualitzacio(ch, pla);
+        const mur = liniaDe(nou, 'Mur');
+        expect(mur.linia.length).toBe(6);
+        expect(mur.linia.ifc.valor).toBe(6);
+        expect(mur.node.price).toBe(77);
+        expect(mur.linia.id).toBe(liniaDe(ch, 'Mur').linia.id);
+        expect(liniaDe(ch, 'Mur').linia.length).toBe(5);          // l'original, intacte
+        // I una segona reimportació del mateix ja no troba canvis.
+        expect(planificaActualitzacio(nou, m2).canvis).toEqual([]);
+    });
+
+    it('una línia editada a mà és un conflicte: no es toca si no es demana', () => {
+        const ch = importa();
+        liniaDe(ch, 'Llosa').linia.length = 3.5;      // l'usuari l'ha corregit
+        const m2 = clona(); setQ(m2, 'Llosa', 'NetArea', 4.4);
+        const pla = planificaActualitzacio(ch, m2);
+        expect(pla.canvis).toEqual([]);
+        expect(pla.conflictes).toHaveLength(1);
+        expect(pla.conflictes[0].motiu).toMatch(/editat/);
+        expect(liniaDe(aplicaActualitzacio(ch, pla), 'Llosa').linia.length).toBe(3.5);
+        expect(liniaDe(aplicaActualitzacio(ch, pla, { sobreescriu: true }), 'Llosa').linia.length).toBe(4.4);
+    });
+
+    it('una línia editada a mà que el model no ha tocat ni és conflicte', () => {
+        const ch = importa();
+        liniaDe(ch, 'Llosa').linia.length = 3.5;
+        const pla = planificaActualitzacio(ch, model);
+        expect(pla.conflictes).toEqual([]);
+        expect(pla.iguals).toBe(15);
+    });
+
+    it('una línia amb fórmula és un conflicte', () => {
+        const ch = importa();
+        liniaDe(ch, 'Biga').linia.formules = { length: 'L*2' };
+        const m2 = clona(); setQ(m2, 'Biga', 'Length', 2.5);
+        const pla = planificaActualitzacio(ch, m2);
+        expect(pla.conflictes[0].motiu).toMatch(/fórmula/);
+    });
+
+    it('un element que desapareix: s\'avisa, i només s\'esborra si es demana', () => {
+        const ch = importa();
+        const m2 = clona(); m2.elements = m2.elements.filter(e => e.nom !== 'Biga');
+        const pla = planificaActualitzacio(ch, m2);
+        expect(pla.eliminades.map(e => e.descripcio)).toEqual(['Biga · Storey']);
+        expect(liniesIfc(aplicaActualitzacio(ch, pla)).size).toBe(15);
+        const sense = aplicaActualitzacio(ch, pla, { treu: true });
+        expect(liniesIfc(sense).size).toBe(14);
+        expect(resumActualitzacio(pla, { treu: true }).eliminades).toBe(1);
+    });
+
+    it('un element nou d\'un tipus que ja hi és va a la mateixa partida; d\'un tipus nou, com a partida nova', () => {
+        const m2 = clona();
+        // Segon mur del mateix tipus (nom «Mur») i un pilar d'un tipus que no hi era.
+        const mur2 = structuredClone(elem(m2, 'Mur')); mur2.id = 9001; mur2.guid = 'GUID-MUR-2'; mur2.nom = 'Mur 2';
+        mur2.quantitats.find(q => q.nom === 'NetSideArea').valor = 3;
+        const pilar2 = structuredClone(elem(m2, 'Columna')); pilar2.id = 9002; pilar2.guid = 'GUID-PIL-2'; pilar2.nom = 'Pilar nou'; pilar2.tipus = 'Pilar rodó';
+        m2.elements.push(mur2, pilar2);
+        // El mur nou és del mateix tipus que «Mur»: com que no tenen tipus, es distingeixen pel nom; per això li donem el mateix tipus.
+        elem(m2, 'Mur').tipus = 'Mur A'; mur2.tipus = 'Mur A';
+        const ch2 = muntaPressupost((() => { const m = clona(); elem(m, 'Mur').tipus = 'Mur A'; return m; })()).chapters;
+
+        const pla = planificaActualitzacio(ch2, m2);
+        expect(pla.afegides).toHaveLength(1);
+        expect(pla.afegides[0]).toMatchObject({ guid: 'GUID-MUR-2', partida: liniaDe(ch2, 'Mur A').node.code });
+        expect(pla.afegides[0].linia.length).toBe(3);
+        expect(pla.noves.chapters.flatMap(c => c.items).map(p => p.description)).toEqual(['Pilar rodó']);
+        const nou = aplicaActualitzacio(ch2, pla);
+        expect(liniaDe(nou, 'Mur A').node.measurements).toHaveLength(2);
+    });
+
+    it('les partides noves no trepitgen els codis ni els capítols del projecte', () => {
+        const ch = importa();
+        const m2 = clona();
+        const pilar2 = structuredClone(elem(m2, 'Columna')); pilar2.id = 9002; pilar2.guid = 'GUID-PIL-2'; pilar2.nom = 'Pilar nou'; pilar2.tipus = 'Pilar rodó';
+        const biga2 = structuredClone(elem(m2, 'Biga')); biga2.id = 9003; biga2.guid = 'GUID-BIG-2'; biga2.nom = 'Biga nova'; biga2.tipus = 'Biga mixta';
+        m2.elements.push(pilar2, biga2);
+        const pla = planificaActualitzacio(ch, m2);
+        const codisProjecte = new Set([...liniesIfc(ch).values()].map(x => x.node.code));
+        const nous = pla.noves.chapters.flatMap(c => c.items);
+        expect(nous).toHaveLength(2);
+        nous.forEach(p => expect(codisProjecte.has(p.code)).toBe(false));
+        expect(nous.map(p => p.code)).toEqual(['IFC.BIG.02', 'IFC.PIL.02']);
+        expect(Object.keys(pla.noves.prices).sort()).toEqual(['IFC.BIG.02', 'IFC.PIL.02']);
+        // Els capítols «Bigues» i «Pilars» ja hi eren: se'n reaprofita el codi.
+        const capitolBigues = ch.find(c => c.description === 'Bigues');
+        expect(pla.noves.chapters.find(c => c.description === 'Bigues').code).toBe(capitolBigues.code);
+    });
+
+    it('s\'actualitza en la unitat de la partida del projecte (vinculada al banc en m³)', () => {
+        const banc = { MUR01: { code: 'MUR01', price: 50, summary: 'Paret', unit: 'm3' } };
+        const clau = muntaPressupost(model).detall.find(d => d.clau.includes('|Mur')).clau;
+        const ch = muntaPressupost(model, { banc, codis: { [clau]: 'MUR01' } }).chapters;
+        expect(liniaDe(ch, 'Paret').linia.length).toBeCloseTo(1.0, 6);
+        const m2 = clona(); setQ(m2, 'Mur', 'GrossVolume', 1.5);
+        const pla = planificaActualitzacio(ch, m2);
+        const canvi = pla.canvis.find(c => c.partida === 'MUR01');
+        expect(canvi).toMatchObject({ abans: 1, despres: 1.5, unitat: 'm3' });
+    });
+});
+
+describe('IFC: lectura del fitxer', () => {
+    it('UTF-8 i, si no hi cap, Windows-1252', async () => {
+        const { decodificaIfc, llegeixFitxerIfc, LIMIT_IFC_MB } = await import('../src/utils/ifc/fitxer.js');
+        expect(decodificaIfc(new TextEncoder().encode('Construcció'))).toBe('Construcció');
+        expect(decodificaIfc(Uint8Array.from([67, 111, 110, 115, 116, 114, 117, 99, 99, 105, 243]).buffer)).toBe('Construcció');
+        await expect(llegeixFitxerIfc({ name: 'gran.ifc', size: (LIMIT_IFC_MB + 1) * 1024 * 1024 })).rejects.toThrow(/límit/);
+    });
+});

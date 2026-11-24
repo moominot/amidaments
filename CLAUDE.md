@@ -11,7 +11,7 @@ npm install
 npm run dev
 npm run build     # ha de passar sempre abans de donar una feina per acabada
 npm run lint      # cobreix .js i .jsx; l'arbre ha de quedar amb 0 errors
-npm test          # Vitest; 349 tests sobre els càlculs, el parser i l'escriptor
+npm test          # Vitest; 360 tests sobre els càlculs, el parser i l'escriptor
 npm run test:watch
 ```
 
@@ -159,7 +159,7 @@ del sector: *amidament*, *partida*, *capítol*, *descomposat*, *rendiment*, *cer
 - **La importació d'IFC** (`utils/ifc/`, `components/IfcImportModal.jsx`) **no fia dels Qto**: els
   contrasta amb la geometria. L'`IfcCovering` d'IngeTrazo declara 8,4 m² per a una cara de 4 (és la
   superfície total de la caixa). Un conjunt amb parts (una coberta amb lloses) compta per les parts
-  si ell no porta quantitats, i cada línia desa el `GlobalId` a `linia.ifc`. Els tests van contra
+  si ell no porta quantitats, i cada línia desa el `GlobalId` a `linia.ifc` (amb la xifra importada a `ifc.valor`: és com es veu si algú l'ha editat a mà en reimportar). Els tests van contra
   `test/fixtures/ingetrazo-prova.ifc` i un IFC de buildingSMART. Veure `docs/ifc.md`.
 - Les funcions de `calculations.js` amb `priceDatabase` o `certifications` com a paràmetre
   **opcional** fallen en silenci si no els passes: cauen a `node.price` o tracten qualsevol

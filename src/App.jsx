@@ -96,8 +96,10 @@ import AssistentPanel from './components/AssistentPanel';
 import TraduccioModal from './components/TraduccioModal';
 import VistaPlantilla from './components/VistaPlantilla';
 import CadSistemaModal from './components/CadSistemaModal';
-import IfcImportModal from './components/IfcImportModal';
+import IfcImportacio from './components/IfcImportacio';
 import { llegeixIfc } from './utils/ifc/lector';
+import { llegeixFitxerIfc } from './utils/ifc/fitxer';
+import { aplicaActualitzacio } from './utils/ifc/actualitza';
 import { actualitzaDesDeCad } from './utils/cadSistemes';
 import { CAMPS_PLANTILLA, esPlantilla } from './utils/plantilles';
 import { processBC3Data } from './utils/bc3Parser';
@@ -2684,7 +2686,8 @@ export default function App() {
 
         // Un model IFC no substitueix el projecte: s'hi insereix (veure `utils/ifc/` i `docs/ifc.md`).
         if (esFitxerIFC(file.name)) {
-            const model = llegeixIfc(await file.text());
+            let model = null;
+            try { model = llegeixIfc(await llegeixFitxerIfc(file)); } catch (err) { notify(err.message, 'error'); return; }
             if (!model) { notify(`"${file.name}" no sembla un fitxer IFC`, 'error'); return; }
             setQuadreIfc({ nom: file.name, model });
             return;
@@ -3104,7 +3107,7 @@ export default function App() {
     // Dos camins, un per plataforma:
     //
     //   · Escriptori (Chromium): File Handling API. El manifest declara `file_handlers` amb
-    //     .amid i .bc3, i el fitxer arriba pel `launchQueue`.
+    //     .amid, .bc3 i .ifc, i el fitxer arriba pel `launchQueue`.
     //   · Android: Web Share Target. La File Handling API no hi existeix, així que la PWA es
     //     declara com a destinació del menú de compartir; el service worker rep el POST, desa
     //     el fitxer en un cache i ens redirigeix amb `?compartit=1`.
@@ -5211,13 +5214,27 @@ export default function App() {
             )}
 
             {quadreIfc && (
-                <IfcImportModal
+                <IfcImportacio
                     nom={quadreIfc.nom}
                     model={quadreIfc.model}
+                    chapters={budget.chapters}
                     priceDatabase={priceDatabase}
                     onInsereix={(r, missatge) => {
                         insereixNodes(r.chapters, r.prices, null, missatge);
                         setQuadreIfc(null);
+                    }}
+                    onActualitza={(pla, opcions, res) => {
+                        // Sobre l'estat del moment: el pla porta ids de línia, no l'arbre.
+                        setBudget(prev => ({ ...prev, chapters: aplicaActualitzacio(prev.chapters, pla, opcions) }));
+                        const part = [
+                            res.actualitzades && `${res.actualitzades} línies actualitzades`,
+                            res.afegides && `${res.afegides} d'afegides`,
+                            res.eliminades && `${res.eliminades} d'eliminades`,
+                        ].filter(Boolean).join(', ');
+                        setQuadreIfc(null);
+                        if (opcions.inserirNoves && pla.noves.chapters.length) {
+                            insereixNodes(pla.noves.chapters, pla.noves.prices, null, `IFC actualitzat: ${part ? `${part}, ` : ''}${res.noves} partides noves`);
+                        } else notify(`IFC actualitzat: ${part || 'res a canviar'}`);
                     }}
                     onTanca={() => setQuadreIfc(null)}
                 />

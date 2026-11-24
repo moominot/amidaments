@@ -38,6 +38,18 @@
                     ".bc3"
                 ]
             }
+        },
+        {
+            "action": "/amidaments/",
+            "name": "Model IFC (BIM)",
+            "accept": {
+                "application/x-step": [
+                    ".ifc"
+                ],
+                "model/ifc": [
+                    ".ifc"
+                ]
+            }
         }
     ],
     "share_target": {
@@ -56,7 +68,10 @@
                         "application/octet-stream",
                         ".amid",
                         ".json",
-                        ".bc3"
+                        ".bc3",
+                        ".ifc",
+                        "application/x-step",
+                        "model/ifc"
                     ]
                 }
             ]

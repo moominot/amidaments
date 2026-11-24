@@ -2,8 +2,8 @@
 
 Estat: **fases 1 i 2**. Un `.ifc` obert per qualsevol camí (selector, arrossegament) passa per
 `obreFitxer`, que obre `components/IfcImportModal.jsx`; el que s'hi accepta s'insereix pel flux
-d'`insereixNodes`, a l'arrel i a preu 0. **Fase 3** (vinculació al banc de preus) feta; falten la reimportació i el manifest/service
-worker (fases 4 i 5).
+d'`insereixNodes`, a l'arrel i a preu 0. **Fase 3** (vinculació al banc de preus), **fase 4** (reimportació per `GlobalId`) i
+**fase 5** (manifest, fitxers compartits i lectura del fitxer) fetes.
 
 ## Què hi ha
 
@@ -112,3 +112,42 @@ d'IngeTrazo: 15 capítols amb una partida cada un.
 
 Provat amb una classificació sintètica al tipus (els IFC de buildingSMART només classifiquen
 l'edifici) i amb el fixture d'IngeTrazo, que no en porta cap.
+
+## Fase 4: reimportar per GlobalId
+
+`utils/ifc/actualitza.js` + `components/IfcActualitzaModal.jsx` (triat per `IfcImportacio.jsx`).
+Si el projecte ja té línies amb `linia.ifc.guid`, un IFC nou obre «Actualitza des de l'IFC» en
+lloc de la importació; hi ha l'enllaç *Importa-ho com a nou* per saltar-s'ho.
+
+| Cas | Què passa |
+|---|---|
+| Canvia la quantitat | S'actualitzen `units` i `length` de la línia i el seu `ifc.valor`. |
+| Canvia, però la línia s'havia editat a mà o té fórmula | **Conflicte**: no es toca si no es marca *Sobreescriu*. |
+| El `GlobalId` ja no és al model | Es llista; **només s'esborra** si es marca *Treu*. |
+| Element nou d'un tipus que ja hi és | Línia nova a la partida on ja van els seus germans. |
+| Element nou d'un tipus que no hi era | Partida nova, per `insereixNodes`, amb codis i capítols que no trepitgen els del projecte. |
+
+- No es toca mai un preu, un descomposat, una descripció ni un vincle al banc.
+- **La quantitat es recalcula en la unitat de la partida del projecte**, no en la que
+  proposaria la importació: una partida vinculada al banc en m³ s'actualitza en m³. I es reutilitza
+  la xifra que es va triar en importar (`ifc.origen`: Qto o geometria).
+- «Editada a mà» vol dir que l'import actual de la línia ja no és `ifc.valor`, la xifra que
+  va escriure la importació. Per això cada línia la desa.
+- Si el model no ha canviat, una línia editada a mà **no** és cap conflicte.
+- La descripció d'una línia és ara `nom · planta` també quan el nom coincideix amb la de la
+  partida (abans en quedava només la planta).
+- Provat a 390 px: s'importa el fixture, es torna a obrir amb el mur de 5 a 6 m² (1 canvi, 14
+  iguals), s'actualitza i a la tercera obertura ja no hi ha res a fer.
+
+## Fase 5: obrir des del sistema
+
+- `public/manifest.json`: un `file_handlers` nou per a `.ifc` (`application/x-step`, `model/ifc`) i
+  els mateixos tipus al `share_target`. El service worker no calia tocar-lo: no mira l'extensió,
+  desa el fitxer amb el nom en una capçalera i `obreFitxer` decideix.
+- `utils/ifc/fitxer.js`: llegeix en UTF-8 estricte i, si no hi cap, en Windows-1252 (alguns
+  programes escriuen els accents en cru). **Límit de 150 MB**: el lector corre al fil principal.
+- **No hi ha Web Worker**: un model gran bloqueja la pàgina mentre es llegeix. Els 35 de
+  buildingSMART (fins a 140 kB) triguen menys de 70 ms; amb un model real de desenes de MB no ho
+  he mesurat. Si es nota, el lector (`llegeixIfc`) és pur i es pot moure a un worker sense canvis.
+- Com a la resta, una vegada instal·lada la PWA s'han de tornar a instal·lar perquè el sistema
+  reconegui l'associació nova: el manifest el llegeix l'instal·lador, no la pàgina.
