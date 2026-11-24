@@ -96,6 +96,8 @@ import AssistentPanel from './components/AssistentPanel';
 import TraduccioModal from './components/TraduccioModal';
 import VistaPlantilla from './components/VistaPlantilla';
 import CadSistemaModal from './components/CadSistemaModal';
+import IfcImportModal from './components/IfcImportModal';
+import { llegeixIfc } from './utils/ifc/lector';
 import { actualitzaDesDeCad } from './utils/cadSistemes';
 import { CAMPS_PLANTILLA, esPlantilla } from './utils/plantilles';
 import { processBC3Data } from './utils/bc3Parser';
@@ -116,7 +118,7 @@ import PriceBankPicker from './components/PriceBankPicker';
 import SistemesModal from './components/SistemesModal';
 import { filtraPerInstancia, extreuInstancia, treuInstancia, reanomenaInstancia } from './utils/sistemesDoc';
 import {
-    EXTENSIO_PROJECTE, MIME_PROJECTE, esFitxerProjecte, esFitxerBC3,
+    EXTENSIO_PROJECTE, MIME_PROJECTE, esFitxerProjecte, esFitxerBC3, esFitxerIFC,
     serialitzaProjecte, llegeixProjecte,
 } from './utils/projectFile';
 import { toWindows1252Bytes } from './utils/googleDrive';
@@ -1173,6 +1175,7 @@ export default function App() {
     const [quadreTraduccio, setQuadreTraduccio] = useState(null);
     // Entitats del CAD enganxades sense partida: es passen a zones d'un sistema.
     const [quadreCad, setQuadreCad] = useState(null);
+    const [quadreIfc, setQuadreIfc] = useState(null);
     // Instància de sistema per la qual es filtra l'editor (`budget.sistemes[].id`), o `null`.
     const [filtreSistema, setFiltreSistema] = useState(null);
     const [showPrintConfigModal, setShowPrintConfigModal] = useState(false);
@@ -2679,7 +2682,15 @@ export default function App() {
             return;
         }
 
-        notify(`Format no suportat. Fes servir ${EXTENSIO_PROJECTE} o .bc3`, 'error');
+        // Un model IFC no substitueix el projecte: s'hi insereix (veure `utils/ifc/` i `docs/ifc.md`).
+        if (esFitxerIFC(file.name)) {
+            const model = llegeixIfc(await file.text());
+            if (!model) { notify(`"${file.name}" no sembla un fitxer IFC`, 'error'); return; }
+            setQuadreIfc({ nom: file.name, model });
+            return;
+        }
+
+        notify(`Format no suportat. Fes servir ${EXTENSIO_PROJECTE}, .bc3 o .ifc`, 'error');
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     /**
@@ -5199,6 +5210,18 @@ export default function App() {
                 />
             )}
 
+            {quadreIfc && (
+                <IfcImportModal
+                    nom={quadreIfc.nom}
+                    model={quadreIfc.model}
+                    onInsereix={(r, missatge) => {
+                        insereixNodes(r.chapters, r.prices, null, missatge);
+                        setQuadreIfc(null);
+                    }}
+                    onTanca={() => setQuadreIfc(null)}
+                />
+            )}
+
             {quadreTraduccio && (
                 <TraduccioModal
                     abast={quadreTraduccio}
@@ -5694,7 +5717,7 @@ export default function App() {
             <input
                 ref={fileInputRef}
                 type="file"
-                accept=".amid,.json,.bc3"
+                accept=".amid,.json,.bc3,.ifc"
                 onChange={handleFileSelect}
                 style={{ display: 'none' }}
             />

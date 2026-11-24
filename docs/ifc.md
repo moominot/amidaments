@@ -1,7 +1,9 @@
 # Importació d'IFC
 
-Estat: **fase 1** (lectura de les quantitats declarades). Encara no hi ha UI ni inserció al
-pressupost.
+Estat: **fases 1 i 2**. Un `.ifc` obert per qualsevol camí (selector, arrossegament) passa per
+`obreFitxer`, que obre `components/IfcImportModal.jsx`; el que s'hi accepta s'insereix pel flux
+d'`insereixNodes`, a l'arrel i a preu 0. Falten la vinculació amb preus, la reimportació i el
+manifest/service worker (fases 3 a 5).
 
 ## Què hi ha
 
@@ -79,3 +81,13 @@ de buildingSMART, on la coberta és buida i les lloses porten els Qto.
 d'ells es manté a `test/fixtures/bsi-building-architecture.ifc` (CC BY 4.0, © buildingSMART
 International). Molts models d'infraestructura no porten cap Qto: caldria la geometria, que només
 es pot calcular per als casos de dalt.
+
+## El quadre d'importació
+
+`IfcImportModal` és només una vista sobre `muntaPressupost`: llista les classes (marcar-les o no,
+i la unitat de cada una), el mode de capítols, les quantitats sospitoses amb la tria *Geometria /
+Declarat al model* i les partides que entraran. Cada canvi recalcula el pressupost sencer. No
+desa res a `localStorage`: les tries es perden en tancar.
+
+Provat a 390 px amb emulació tàctil (sense desbordament horitzontal) i inserint el fixture
+d'IngeTrazo: 15 capítols amb una partida cada un.

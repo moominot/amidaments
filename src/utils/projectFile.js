@@ -29,6 +29,7 @@ const acaba = (nom, extensions) => {
 
 export const esFitxerProjecte = (nom) => acaba(nom, EXTENSIONS_PROJECTE);
 export const esFitxerBC3 = (nom) => acaba(nom, ['.bc3']);
+export const esFitxerIFC = (nom) => acaba(nom, ['.ifc']);
 
 /** Afegeix l'extensió si el nom no en porta ja una de vàlida. */
 export const ambExtensioProjecte = (nom) =>
